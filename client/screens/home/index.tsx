@@ -479,6 +479,52 @@ export default function HomeScreen() {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
+            {/* Content Tools */}
+            <View style={styles.toolsSection}>
+              <Text style={styles.toolsSectionTitle}>文案工具</Text>
+              <View style={styles.toolsGrid}>
+                <TouchableOpacity
+                  style={styles.toolCard}
+                  onPress={() => router.push("/polish")}
+                >
+                  <View style={[styles.toolIcon, { backgroundColor: "#EDE9FE" }]}>
+                    <Text style={styles.toolIconText}>润</Text>
+                  </View>
+                  <Text style={styles.toolTitle}>内容润色</Text>
+                  <Text style={styles.toolDesc}>一键优化文案</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.toolCard}
+                  onPress={() => router.push("/extract")}
+                >
+                  <View style={[styles.toolIcon, { backgroundColor: "#DBEAFE" }]}>
+                    <Text style={styles.toolIconText}>提</Text>
+                  </View>
+                  <Text style={styles.toolTitle}>链接提取</Text>
+                  <Text style={styles.toolDesc}>从链接获取文案</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Generate Button */}
+            <TouchableOpacity
+              style={[
+                styles.generateButton,
+                (!generateCheck.allowed || loading) && styles.generateButtonDisabled,
+              ]}
+              onPress={handleGenerate}
+              disabled={!generateCheck.allowed || loading}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text style={styles.loadingText}>生成中，请稍候...</Text>
+                </View>
+              ) : (
+                <Text style={styles.generateButtonText}>一键生成</Text>
+              )}
+            </TouchableOpacity>
+
             {/* Daily Quota Card */}
             <View style={styles.quotaCard}>
               <Text style={styles.quotaTitle}>今日剩余次数</Text>
@@ -521,25 +567,6 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
-
-            {/* Generate Button */}
-            <TouchableOpacity
-              style={[
-                styles.generateButton,
-                (!generateCheck.allowed || loading) && styles.generateButtonDisabled,
-              ]}
-              onPress={handleGenerate}
-              disabled={!generateCheck.allowed || loading}
-            >
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color="#FFFFFF" />
-                  <Text style={styles.loadingText}>生成中，请稍候...</Text>
-                </View>
-              ) : (
-                <Text style={styles.generateButtonText}>一键生成</Text>
-              )}
-            </TouchableOpacity>
 
             {/* Video Duration Selection */}
             <View style={styles.durationCard}>
@@ -596,33 +623,6 @@ export default function HomeScreen() {
                     <Text style={styles.quickIdeaText}>{item}</Text>
                   </TouchableOpacity>
                 ))}
-              </View>
-            </View>
-
-            {/* Content Tools */}
-            <View style={styles.toolsSection}>
-              <Text style={styles.toolsSectionTitle}>文案工具</Text>
-              <View style={styles.toolsGrid}>
-                <TouchableOpacity
-                  style={styles.toolCard}
-                  onPress={() => router.push("/polish")}
-                >
-                  <View style={[styles.toolIcon, { backgroundColor: "#EDE9FE" }]}>
-                    <Text style={styles.toolIconText}>润</Text>
-                  </View>
-                  <Text style={styles.toolTitle}>内容润色</Text>
-                  <Text style={styles.toolDesc}>一键优化文案</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.toolCard}
-                  onPress={() => router.push("/extract")}
-                >
-                  <View style={[styles.toolIcon, { backgroundColor: "#DBEAFE" }]}>
-                    <Text style={styles.toolIconText}>提</Text>
-                  </View>
-                  <Text style={styles.toolTitle}>链接提取</Text>
-                  <Text style={styles.toolDesc}>从链接获取文案</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </View>
