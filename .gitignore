@@ -1,12 +1,51 @@
+# Dependencies
 node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
 dist/
-build/
+android/
+ios/
+*.apk
+*.aab
+
+# Expo
 .expo/
-.expo-shared/
-.eslintcache
-expo/expo-env.d.ts
-expo-env.d.ts
+web-build/
+
+# Metro
+.metro-health-*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
 .DS_Store
+*.pem
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
 logs/
-*.tsbuildinfo
-node-compile-cache/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
