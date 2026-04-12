@@ -480,6 +480,9 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
   try {
     const { prompt, durationType = "free" } = req.body;
     const deviceId = (req.headers["x-device-id"] as string) || "default";
+    const userId = req.headers["x-user-id"] as string;
+    const isLoggedIn = !!userId;
+    const HALF_RATE = 0.5; // 未登录用户次数减半
     
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
@@ -490,35 +493,43 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
 
     // 检查视频编辑次数限制（只有5秒免费视频才限制）
     if (durationType === "free") {
-      const check = checkVideoEditAllowed(deviceId, durationType);
-      if (!check.allowed) {
+      const data = getOrCreateDailyData(deviceId);
+      const remainingVideo = VIDEO_DURATIONS.free.maxPerDay - data.videoEdits;
+      if (remainingVideo <= 0) {
         return res.status(403).json({
           error: "今日免费视频编辑次数已用完",
           remainingEdits: 0,
-          message: "5秒视频每日可编辑10次，请明天再来或选择更长时长"
+          isLoggedIn,
+          message: `未登录用户每日可编辑${Math.floor(VIDEO_DURATIONS.free.maxPerDay * HALF_RATE)}次，请登录获取更多次数或明天再来`
         });
       }
     }
 
     const data = getOrCreateDailyData(deviceId);
     
+    // 未登录用户次数减半
+    const imageMaxPerDay = isLoggedIn ? DAILY_LIMITS.images.maxPerDay : Math.floor(DAILY_LIMITS.images.maxPerDay * HALF_RATE);
+    const textMaxPerDay = isLoggedIn ? DAILY_LIMITS.texts.maxPerDay : Math.floor(DAILY_LIMITS.texts.maxPerDay * HALF_RATE);
+    
     // 检查图片生成限制
-    const imageRemaining = DAILY_LIMITS.images.maxPerDay - data.imageCount;
+    const imageRemaining = imageMaxPerDay - data.imageCount;
     if (imageRemaining < DAILY_LIMITS.images.perBatch) {
       return res.status(403).json({
         error: "今日图片生成次数不足",
-        remainingImages: imageRemaining,
-        message: `图片每日每批${DAILY_LIMITS.images.perBatch}张，今日剩余${imageRemaining}张，请明天再来`
+        remainingImages: Math.max(0, imageRemaining),
+        isLoggedIn,
+        message: `未登录用户每日可生成${Math.floor(DAILY_LIMITS.images.perBatch)}张/共${imageMaxPerDay}张，请登录获取更多次数或明天再来`
       });
     }
 
     // 检查文案生成限制
-    const textRemaining = DAILY_LIMITS.texts.maxPerDay - data.textCount;
+    const textRemaining = textMaxPerDay - data.textCount;
     if (textRemaining < DAILY_LIMITS.texts.perBatch) {
       return res.status(403).json({
         error: "今日文案生成次数已用完",
-        remainingTexts: textRemaining,
-        message: `文案每日最多${DAILY_LIMITS.texts.maxPerDay}条，今日剩余${textRemaining}条，请明天再来`
+        remainingTexts: Math.max(0, textRemaining),
+        isLoggedIn,
+        message: `未登录用户每日可生成${Math.floor(DAILY_LIMITS.texts.perBatch)}条/共${textMaxPerDay}条，请登录获取更多次数或明天再来`
       });
     }
 
@@ -606,9 +617,19 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       );
       videoUrl = videoResponse.videoUrl;
       lastFrameUrl = videoResponse.lastFrameUrl;
+      
+      // 5秒免费视频计数
+      if (durationType === "free") {
+        data.videoEdits += 1;
+      }
     }
 
     const remaining = getRemainingCounts(deviceId);
+    
+    // 未登录用户次数减半
+    const remainingFreeEdits = isLoggedIn ? remaining.remainingVideoEdits : Math.floor(remaining.remainingVideoEdits * HALF_RATE);
+    const remainingImages = isLoggedIn ? remaining.remainingImages : Math.floor(remaining.remainingImages * HALF_RATE);
+    const remainingTexts = isLoggedIn ? remaining.remainingTexts : Math.floor(remaining.remainingTexts * HALF_RATE);
 
     res.json({
       imageUrls,
@@ -618,17 +639,18 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       duration,
       durationType,
       isFree: durationType === "free",
-      remainingFreeEdits: remaining.remainingVideoEdits,
-      remainingImages: remaining.remainingImages,
-      remainingTexts: remaining.remainingTexts,
+      isLoggedIn,
+      remainingFreeEdits,
+      remainingImages,
+      remainingTexts,
       imageLimits: {
         perBatch: DAILY_LIMITS.images.perBatch,
-        maxPerDay: DAILY_LIMITS.images.maxPerDay,
+        maxPerDay: imageMaxPerDay,
         chargePerImage: DAILY_LIMITS.images.chargePerImage,
       },
       textLimits: {
         perBatch: DAILY_LIMITS.texts.perBatch,
-        maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+        maxPerDay: textMaxPerDay,
         chargePerText: DAILY_LIMITS.texts.chargePerText,
       },
     });
@@ -711,23 +733,41 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
 
 /**
  * 获取剩余编辑次数
+ * 未登录用户次数减半
  */
-app.get("/api/v1/user/remaining-edits", (req, res) => {
+app.get("/api/v1/user/remaining-edits", async (req, res) => {
   const deviceId = (req.headers["x-device-id"] as string) || "default";
+  const userId = req.headers["x-user-id"] as string;
+  const isLoggedIn = !!userId;
+  
+  // 获取基础剩余次数
   const remaining = getRemainingCounts(deviceId);
   
+  // 未登录用户次数减半
+  const HALF_RATE = 0.5;
+  const remainingFreeEdits = isLoggedIn ? remaining.remainingVideoEdits : Math.floor(remaining.remainingVideoEdits * HALF_RATE);
+  const remainingImages = isLoggedIn ? remaining.remainingImages : Math.floor(remaining.remainingImages * HALF_RATE);
+  const remainingTexts = isLoggedIn ? remaining.remainingTexts : Math.floor(remaining.remainingTexts * HALF_RATE);
+  
+  // 未登录用户的每日限额也减半
+  const imageMaxPerDay = isLoggedIn ? DAILY_LIMITS.images.maxPerDay : Math.floor(DAILY_LIMITS.images.maxPerDay * HALF_RATE);
+  const textMaxPerDay = isLoggedIn ? DAILY_LIMITS.texts.maxPerDay : Math.floor(DAILY_LIMITS.texts.maxPerDay * HALF_RATE);
+  const freeVideoMaxPerDay = isLoggedIn ? VIDEO_DURATIONS.free.maxPerDay : Math.floor(VIDEO_DURATIONS.free.maxPerDay * HALF_RATE);
+  
   res.json({
-    remainingFreeEdits: remaining.remainingVideoEdits,
-    remainingImages: remaining.remainingImages,
-    remainingTexts: remaining.remainingTexts,
+    remainingFreeEdits,
+    remainingImages,
+    remainingTexts,
+    isLoggedIn,
     imageLimits: {
       perBatch: DAILY_LIMITS.images.perBatch,
-      maxPerDay: DAILY_LIMITS.images.maxPerDay,
+      maxPerDay: imageMaxPerDay,
     },
     textLimits: {
       perBatch: DAILY_LIMITS.texts.perBatch,
-      maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+      maxPerDay: textMaxPerDay,
     },
+    freeVideoMaxPerDay,
     resetDate: getTodayKey(),
   });
 });
