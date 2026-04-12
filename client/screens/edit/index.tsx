@@ -31,8 +31,10 @@ const LIMITS = {
 
 // 视频时长选项
 const DURATION_OPTIONS = [
-  { type: "free", duration: 5, label: "5秒内", price: "免费", color: "#10B981" },
-  { type: "paid", duration: 10, label: "5秒以上", price: "收费", color: "#8B5CF6" },
+  { type: "free", duration: 5, label: "5秒", price: "免费", color: "#10B981" },
+  { type: "paid5", duration: 10, label: "10秒", price: "10积分", color: "#F59E0B" },
+  { type: "paid10", duration: 15, label: "15秒", price: "20积分", color: "#F59E0B" },
+  { type: "paid15", duration: 20, label: "20秒", price: "30积分", color: "#EF4444" },
 ];
 
 export default function EditScreen() {

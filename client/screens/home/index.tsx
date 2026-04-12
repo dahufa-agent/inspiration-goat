@@ -23,14 +23,16 @@ const GOAT_TEACHER_AVATAR = "https://images.unsplash.com/photo-1573865526739-106
 
 // 视频时长选项
 const DURATION_OPTIONS = [
-  { type: "free", duration: 5, label: "5秒内", price: "免费", description: "每日3次", color: "#10B981" },
-  { type: "paid", duration: 10, label: "5秒以上", price: "收费", description: "不限次数", color: "#8B5CF6" },
+  { type: "free", duration: 5, label: "5秒", price: "免费", description: "每日10次", color: "#10B981" },
+  { type: "paid5", duration: 10, label: "10秒", price: "10积分", description: "每增加5秒+10积分", color: "#F59E0B" },
+  { type: "paid10", duration: 15, label: "15秒", price: "20积分", description: "每增加10秒+20积分", color: "#F59E0B" },
+  { type: "paid15", duration: 20, label: "20秒", price: "30积分", description: "每增加15秒+30积分", color: "#EF4444" },
 ];
 
 // 每日限制配置
 const LIMITS = {
-  images: { perBatch: 2, maxPerDay: 20 },
-  texts: { perBatch: 1, maxPerDay: 10 },
+  images: { perBatch: 2, maxPerDay: 20, chargePerImage: 1 },
+  texts: { perBatch: 1, maxPerDay: 10, chargePerText: 2 },
 };
 
 export default function HomeScreen() {
@@ -219,9 +221,9 @@ export default function HomeScreen() {
                     <Text style={styles.quotaIconText}>VID</Text>
                   </View>
                   <View style={styles.quotaInfo}>
-                    <Text style={styles.quotaLabel}>视频（5秒内）</Text>
+                    <Text style={styles.quotaLabel}>视频（5秒）</Text>
                     <Text style={styles.quotaValue}>
-                      {remainingVideoEdits} / 3
+                      {remainingVideoEdits} / 10
                     </Text>
                   </View>
                   <Text style={styles.quotaBatch}>免费编辑</Text>
@@ -318,15 +320,15 @@ export default function HomeScreen() {
             <View style={styles.tipsList}>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#10B981" }]} />
-                <Text style={styles.tipText}>图片：每日最多{LIMITS.images.maxPerDay}张，每次生成{LIMITS.images.perBatch}张</Text>
+                <Text style={styles.tipText}>图片：每日免费{LIMITS.images.maxPerDay}张，每次{LIMITS.images.perBatch}张，超出每张{LIMITS.images.chargePerImage}积分</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#3B82F6" }]} />
-                <Text style={styles.tipText}>文案：每日最多{LIMITS.texts.maxPerDay}条，每次生成{LIMITS.texts.perBatch}条</Text>
+                <Text style={styles.tipText}>文案：每日免费{LIMITS.texts.maxPerDay}次，超出每次{LIMITS.texts.chargePerText}积分</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#F59E0B" }]} />
-                <Text style={styles.tipText}>视频：5秒内每日3次免费，5秒以上不限次数</Text>
+                <Text style={styles.tipText}>视频：5秒每日免费10次，加时长每5秒10积分</Text>
               </View>
             </View>
           </View>

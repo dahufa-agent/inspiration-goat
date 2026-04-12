@@ -20,19 +20,23 @@ app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // 视频时长配置
 const VIDEO_DURATIONS = {
-  free: { duration: 5, label: "5秒内", price: "免费", maxPerDay: 3 },
-  paid: { duration: 10, label: "5秒以上", price: "收费", maxPerDay: -1 },
+  free: { duration: 5, label: "5秒", price: "免费", maxPerDay: 10 },
+  paid5: { duration: 10, label: "10秒", price: "10积分", maxPerDay: -1 },
+  paid10: { duration: 15, label: "15秒", price: "20积分", maxPerDay: -1 },
+  paid15: { duration: 20, label: "20秒", price: "30积分", maxPerDay: -1 },
 } as const;
 
 // 每日生成限制配置
 const DAILY_LIMITS = {
   images: {
     perBatch: 2,      // 每次生成2张
-    maxPerDay: 20,    // 每天最多20张
+    maxPerDay: 20,    // 每天免费20张
+    chargePerImage: 1, // 超过后每张1积分
   },
   texts: {
     perBatch: 1,      // 每次生成1条
-    maxPerDay: 10,    // 每天最多10条
+    maxPerDay: 10,    // 每天免费10次
+    chargePerText: 2,  // 超过后每次2积分
   },
 };
 
@@ -152,11 +156,25 @@ app.get("/api/v1/video/durations", (req, res) => {
         remainingEdits: remaining.remainingVideoEdits,
       },
       {
-        type: "paid",
-        duration: VIDEO_DURATIONS.paid.duration,
-        label: VIDEO_DURATIONS.paid.label,
-        price: VIDEO_DURATIONS.paid.price,
-        description: "不限次数，随时可用",
+        type: "paid5",
+        duration: VIDEO_DURATIONS.paid5.duration,
+        label: VIDEO_DURATIONS.paid5.label,
+        price: VIDEO_DURATIONS.paid5.price,
+        description: "每增加5秒收取10积分",
+      },
+      {
+        type: "paid10",
+        duration: VIDEO_DURATIONS.paid10.duration,
+        label: VIDEO_DURATIONS.paid10.label,
+        price: VIDEO_DURATIONS.paid10.price,
+        description: "每增加10秒收取20积分",
+      },
+      {
+        type: "paid15",
+        duration: VIDEO_DURATIONS.paid15.duration,
+        label: VIDEO_DURATIONS.paid15.label,
+        price: VIDEO_DURATIONS.paid15.price,
+        description: "每增加15秒收取30积分",
       },
     ],
     remainingFreeEdits: remaining.remainingVideoEdits,
@@ -250,14 +268,14 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
-    // 检查视频编辑次数限制
-    if (duration <= 5) {
+    // 检查视频编辑次数限制（只有5秒免费视频才限制）
+    if (durationType === "free") {
       const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({
-          error: "今日免费编辑次数已用完",
+          error: "今日免费视频编辑次数已用完",
           remainingEdits: 0,
-          message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
+          message: "5秒视频每日可编辑10次，请明天再来或选择更长时长"
         });
       }
     }
@@ -300,7 +318,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
         lastFrameUrl: response.lastFrameUrl,
         duration,
         durationType,
-        isFree: duration <= 5,
+        isFree: durationType === "free",
         remainingFreeEdits: remaining.remainingVideoEdits,
       });
     } else {
@@ -470,14 +488,14 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
-    // 检查视频编辑次数限制
-    if (duration <= 5) {
+    // 检查视频编辑次数限制（只有5秒免费视频才限制）
+    if (durationType === "free") {
       const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({
-          error: "今日免费编辑次数已用完",
+          error: "今日免费视频编辑次数已用完",
           remainingEdits: 0,
-          message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
+          message: "5秒视频每日可编辑10次，请明天再来或选择更长时长"
         });
       }
     }
@@ -599,17 +617,19 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       lastFrameUrl,
       duration,
       durationType,
-      isFree: duration <= 5,
+      isFree: durationType === "free",
       remainingFreeEdits: remaining.remainingVideoEdits,
       remainingImages: remaining.remainingImages,
       remainingTexts: remaining.remainingTexts,
       imageLimits: {
         perBatch: DAILY_LIMITS.images.perBatch,
         maxPerDay: DAILY_LIMITS.images.maxPerDay,
+        chargePerImage: DAILY_LIMITS.images.chargePerImage,
       },
       textLimits: {
         perBatch: DAILY_LIMITS.texts.perBatch,
         maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+        chargePerText: DAILY_LIMITS.texts.chargePerText,
       },
     });
   } catch (error) {
@@ -633,13 +653,13 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
-    if (duration <= 5) {
+    if (durationType === "free") {
       const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({
-          error: "今日免费编辑次数已用完",
+          error: "今日免费视频编辑次数已用完",
           remainingEdits: 0,
-          message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
+          message: "5秒视频每日可编辑10次，请明天再来或选择更长时长"
         });
       }
     }
@@ -677,7 +697,7 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
         lastFrameUrl: response.lastFrameUrl,
         duration,
         durationType,
-        isFree: duration <= 5,
+        isFree: durationType === "free",
         remainingFreeEdits: remaining.remainingVideoEdits,
       });
     } else {
