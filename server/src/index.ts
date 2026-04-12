@@ -1297,3 +1297,243 @@ app.get("/api/v1/user/membership", async (req: Request, res: Response) => {
     res.status(500).json({ error: "获取会员状态失败" });
   }
 });
+
+/**
+ * 获取用户积分
+ * GET /api/v1/user/points
+ */
+app.get("/api/v1/user/points", async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "用户ID不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 查询用户积分
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, points')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    
+    // 查询积分记录
+    const { data: transactions, error: txError } = await client
+      .from('point_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (txError) throw txError;
+    
+    res.json({
+      points: user.points || 0,
+      transactions: transactions || [],
+    });
+  } catch (error: any) {
+    console.error("Get points error:", error);
+    res.status(500).json({ error: "获取积分失败" });
+  }
+});
+
+/**
+ * 购买免费码（积分兑换）
+ * POST /api/v1/free-codes/buy
+ */
+app.post("/api/v1/free-codes/buy", async (req: Request, res: Response) => {
+  try {
+    const { durationType, recipientPhone } = req.body;
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "请先登录" });
+    }
+    
+    if (!durationType) {
+      return res.status(400).json({ error: "请选择时长类型" });
+    }
+
+    // 免费码价格（积分）
+    const FREE_CODE_PRICES: Record<string, { points: number; days: number }> = {
+      '1_month': { points: 30, days: 30 },
+      '3_months': { points: 80, days: 90 },
+      '6_months': { points: 150, days: 180 },
+      '1_year': { points: 280, days: 365 },
+    };
+    
+    const price = FREE_CODE_PRICES[durationType];
+    if (!price) {
+      return res.status(400).json({ error: "无效的时长类型" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 查询用户
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, points')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    
+    // 检查积分是否足够
+    const currentPoints = user.points || 0;
+    if (currentPoints < price.points) {
+      return res.status(400).json({ 
+        error: "积分不足",
+        required: price.points,
+        current: currentPoints,
+      });
+    }
+    
+    // 验证接收人（如果有）
+    if (recipientPhone) {
+      if (!/^1\d{10}$/.test(recipientPhone)) {
+        return res.status(400).json({ error: "接收人手机号格式不正确" });
+      }
+      
+      const { data: recipient, error: recipientError } = await client
+        .from('users')
+        .select('id, phone, is_permanent_vip')
+        .eq('phone', recipientPhone)
+        .maybeSingle();
+      
+      if (recipientError) throw recipientError;
+      
+      if (!recipient) {
+        return res.status(400).json({ error: "接收人账号不存在，请提醒好友先注册" });
+      }
+      
+      if (recipient.is_permanent_vip) {
+        return res.status(400).json({ error: "接收人是永久会员，无需免费码" });
+      }
+    }
+    
+    // 扣除积分
+    const newPoints = currentPoints - price.points;
+    const { error: updateError } = await client
+      .from('users')
+      .update({ points: newPoints })
+      .eq('id', userId);
+    
+    if (updateError) throw updateError;
+    
+    // 记录积分消费
+    await client.from('point_transactions').insert({
+      id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      type: 'spend',
+      amount: price.points,
+      source: 'buy_free_code',
+      description: `购买${durationType === '1_month' ? '1个月' : durationType === '3_months' ? '一季度' : durationType === '6_months' ? '半年' : '一年'}免费码${recipientPhone ? `（赠送给${recipientPhone}）` : ''}`,
+    });
+    
+    // 生成免费码
+    const code = generateCode(8).toUpperCase();
+    
+    await client.from('free_codes').insert({
+      code,
+      duration_type: durationType,
+      duration_days: price.days,
+      recipient_phone: recipientPhone || null,
+      is_purchased: true, // 标记为购买的免费码
+    });
+    
+    res.json({
+      success: true,
+      message: recipientPhone ? "购买成功，好友可使用此码" : "购买成功",
+      freeCode: code,
+      durationType,
+      durationDays: price.days,
+      pointsSpent: price.points,
+      remainingPoints: newPoints,
+      recipientPhone: recipientPhone || null,
+    });
+  } catch (error: any) {
+    console.error("Buy free code error:", error);
+    res.status(500).json({ error: "购买免费码失败" });
+  }
+});
+
+/**
+ * 每日签到（送积分）
+ * POST /api/v1/user/daily-checkin
+ */
+app.post("/api/v1/user/daily-checkin", async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "请先登录" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 查询今日是否已签到
+    const today = new Date().toISOString().split('T')[0];
+    const { data: existingCheckin, error: checkinError } = await client
+      .from('point_transactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('source', 'daily_checkin')
+      .gte('created_at', `${today}T00:00:00`)
+      .maybeSingle();
+    
+    if (checkinError) throw checkinError;
+    
+    if (existingCheckin) {
+      return res.status(400).json({ error: "今日已签到，明天再来吧" });
+    }
+    
+    // 查询用户当前积分
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('points')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    const CHECKIN_POINTS = 10; // 每日签到送10积分
+    const newPoints = (user?.points || 0) + CHECKIN_POINTS;
+    
+    // 更新用户积分
+    await client.from('users')
+      .update({ points: newPoints })
+      .eq('id', userId);
+    
+    // 记录签到
+    await client.from('point_transactions').insert({
+      id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      type: 'earn',
+      amount: CHECKIN_POINTS,
+      source: 'daily_checkin',
+      description: '每日签到',
+    });
+    
+    res.json({
+      success: true,
+      message: `签到成功，获得${CHECKIN_POINTS}积分`,
+      pointsEarned: CHECKIN_POINTS,
+      totalPoints: newPoints,
+    });
+  } catch (error: any) {
+    console.error("Daily checkin error:", error);
+    res.status(500).json({ error: "签到失败" });
+  }
+});

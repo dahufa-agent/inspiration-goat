@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -73,6 +74,9 @@ export default function HomeScreen() {
   const [isGifting, setIsGifting] = useState(false); // 是否是赠送模式
   const [recipientPhone, setRecipientPhone] = useState(""); // 接收人手机号
   const [isGiftedCode, setIsGiftedCode] = useState(false); // 生成的码是否是赠送码
+  const [userPoints, setUserPoints] = useState(0); // 用户积分
+  const [showBuyModal, setShowBuyModal] = useState(false); // 显示购买弹窗
+  const [showCheckinSuccess, setShowCheckinSuccess] = useState(false); // 显示签到成功
 
   // 获取用户信息
   const loadUserInfo = useCallback(async () => {
@@ -91,6 +95,17 @@ export default function HomeScreen() {
           const data = await response.json();
           if (data.isVip || data.isPermanentVip) {
             setIsPermanentVip(true);
+          }
+        }
+        
+        // 获取积分
+        if (user.id) {
+          const pointsResponse = await fetch(`${BACKEND_BASE_URL}/api/v1/user/points`, {
+            headers: { "x-user-id": user.id },
+          });
+          const pointsData = await pointsResponse.json();
+          if (pointsData.points !== undefined) {
+            setUserPoints(pointsData.points);
           }
         }
       }
@@ -284,8 +299,76 @@ export default function HomeScreen() {
         await SecureStore.deleteItemAsync("userInfo");
         setUserInfo(null);
         setIsPermanentVip(false);
+        setUserPoints(0);
       }}
     ]);
+  };
+
+  // 每日签到
+  const handleDailyCheckin = async () => {
+    if (!userInfo?.id) {
+      Alert.alert("提示", "请先登录");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/user/daily-checkin`, {
+        method: "POST",
+        headers: { "x-user-id": userInfo.id },
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUserPoints(data.totalPoints);
+        setShowCheckinSuccess(true);
+        setTimeout(() => setShowCheckinSuccess(false), 2000);
+      } else {
+        Alert.alert("提示", data.error || "签到失败");
+      }
+    } catch (err) {
+      Alert.alert("提示", "网络错误");
+    }
+  };
+
+  // 购买免费码
+  const handleBuyFreeCode = async () => {
+    if (!userInfo?.id) {
+      Alert.alert("提示", "请先登录");
+      return;
+    }
+    
+    if (userPoints < 30) {
+      Alert.alert("提示", "积分不足，无法购买免费码");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/free-codes/buy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userInfo.id,
+        },
+        body: JSON.stringify({
+          durationType: selectedFreeCodeType,
+          recipientPhone: isGifting ? recipientPhone : undefined,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUserPoints(data.remainingPoints);
+        setFreeCode(data.freeCode);
+        setIsGiftedCode(!!data.recipientPhone);
+        setShowBuyModal(false);
+        setShowFreeCodeModal(true);
+      } else {
+        Alert.alert("提示", data.error || "购买失败");
+      }
+    } catch (err) {
+      Alert.alert("提示", "网络错误");
+    }
   };
 
   return (
@@ -337,6 +420,25 @@ export default function HomeScreen() {
             >
               <Text style={styles.permanentVipText}>永久会员 - 无限创作</Text>
             </TouchableOpacity>
+          )}
+
+          {/* Points & Checkin Banner (for logged in non-permanent VIP users) */}
+          {userInfo && !isPermanentVip && (
+            <View style={styles.pointsBanner}>
+              <TouchableOpacity 
+                style={styles.pointsDisplay}
+                onPress={() => setShowBuyModal(true)}
+              >
+                <Text style={styles.pointsText}>积分: {userPoints}</Text>
+                <Text style={styles.buyText}>购买免费码</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.checkinButton}
+                onPress={handleDailyCheckin}
+              >
+                <Text style={styles.checkinText}>每日签到+10积分</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Free Code Entry (only for logged in non-permanent VIP users) */}
@@ -671,6 +773,122 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Buy Free Code Modal */}
+      <Modal
+        visible={showBuyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBuyModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowBuyModal(false)}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              style={{ justifyContent: "flex-end" }}
+            >
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHandle} />
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>购买免费码</Text>
+                    <TouchableOpacity onPress={() => setShowBuyModal(false)}>
+                      <Text style={styles.closeButton}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <ScrollView style={styles.modalBody}>
+                    {/* Gift Toggle */}
+                    <View style={styles.giftToggle}>
+                      <TouchableOpacity 
+                        style={[styles.giftOption, !isGifting && styles.giftOptionActive]}
+                        onPress={() => setIsGifting(false)}
+                      >
+                        <Text style={[styles.giftOptionText, !isGifting && styles.giftOptionTextActive]}>
+                          自用
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.giftOption, isGifting && styles.giftOptionActive]}
+                        onPress={() => setIsGifting(true)}
+                      >
+                        <Text style={[styles.giftOptionText, isGifting && styles.giftOptionTextActive]}>
+                          赠送好友
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Recipient Phone (if gifting) */}
+                    {isGifting && (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>好友手机号</Text>
+                        <TextInput
+                          style={styles.modalInput}
+                          placeholder="输入好友手机号"
+                          placeholderTextColor="#9CA3AF"
+                          value={recipientPhone}
+                          onChangeText={setRecipientPhone}
+                          keyboardType="phone-pad"
+                        />
+                      </View>
+                    )}
+                    
+                    {/* Price List */}
+                    <View style={styles.priceList}>
+                      <TouchableOpacity 
+                        style={[styles.priceItem, selectedFreeCodeType === "1_month" && styles.priceItemActive]}
+                        onPress={() => setSelectedFreeCodeType("1_month")}
+                      >
+                        <Text style={styles.priceDuration}>1个月</Text>
+                        <Text style={styles.pricePoints}>30积分</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.priceItem, selectedFreeCodeType === "3_months" && styles.priceItemActive]}
+                        onPress={() => setSelectedFreeCodeType("3_months")}
+                      >
+                        <Text style={styles.priceDuration}>3个月</Text>
+                        <Text style={styles.pricePoints}>80积分</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.priceItem, selectedFreeCodeType === "6_months" && styles.priceItemActive]}
+                        onPress={() => setSelectedFreeCodeType("6_months")}
+                      >
+                        <Text style={styles.priceDuration}>6个月</Text>
+                        <Text style={styles.pricePoints}>150积分</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.priceItem, selectedFreeCodeType === "1_year" && styles.priceItemActive]}
+                        onPress={() => setSelectedFreeCodeType("1_year")}
+                      >
+                        <Text style={styles.priceDuration}>1年</Text>
+                        <Text style={styles.pricePoints}>280积分</Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <Text style={styles.currentPoints}>当前积分: {userPoints}</Text>
+                  </ScrollView>
+                  
+                  <TouchableOpacity 
+                    style={styles.buyButton}
+                    onPress={handleBuyFreeCode}
+                  >
+                    <Text style={styles.buyButtonText}>
+                      {isGifting ? "购买并赠送" : "立即购买"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Checkin Success Toast */}
+      {showCheckinSuccess && (
+        <View style={styles.checkinToast}>
+          <Text style={styles.checkinToastText}>签到成功！+10积分</Text>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -1077,11 +1295,179 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFFFFF",
   },
+  // Points Banner
+  pointsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  pointsDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  pointsText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#4F46E5",
+    marginRight: 12,
+  },
+  buyText: {
+    fontSize: 14,
+    color: "#6B7280",
+    textDecorationLine: "underline",
+  },
+  checkinButton: {
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  checkinText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  // Checkin Toast
+  checkinToast: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -75 }, { translateY: -20 }],
+    backgroundColor: "rgba(79, 70, 229, 0.95)",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  checkinToastText: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  // Buy Modal
+  giftToggle: {
+    flexDirection: "row",
+    marginBottom: 20,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 4,
+  },
+  giftOption: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  giftOptionActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  giftOptionText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  giftOptionTextActive: {
+    color: "#4F46E5",
+    fontWeight: "600",
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: "#374151",
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  modalInput: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    color: "#1F2937",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  priceList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  priceItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  priceItemActive: {
+    borderColor: "#4F46E5",
+    backgroundColor: "#EEF2FF",
+  },
+  priceDuration: {
+    fontSize: 16,
+    color: "#1F2937",
+    fontWeight: "500",
+  },
+  pricePoints: {
+    fontSize: 16,
+    color: "#4F46E5",
+    fontWeight: "bold",
+  },
+  currentPoints: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  buyButton: {
+    backgroundColor: "#4F46E5",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  buyButtonText: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
   // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#D1D5DB",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  closeButton: {
+    fontSize: 24,
+    color: "#9CA3AF",
   },
   modalContent: {
     backgroundColor: "#FFFFFF",
@@ -1113,17 +1499,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#374151",
     marginBottom: 8,
-  },
-  modalInput: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: "#1F2937",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginBottom: 20,
   },
   durationSelect: {
     flexDirection: "row",
@@ -1180,12 +1555,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   // 赠送样式
-  giftToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingVertical: 8,
-  },
   checkbox: {
     width: 22,
     height: 22,
