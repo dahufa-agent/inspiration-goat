@@ -475,8 +475,8 @@ export default function HomeScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header with Goat Teacher Avatar */}
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={styles.avatarContainer}>
+            <View style={styles.headerTop}>
+              <View style={styles.headerLeft}>
                 <Image
                   source={{ uri: GOAT_TEACHER_AVATAR }}
                   style={styles.avatar}
@@ -484,40 +484,39 @@ export default function HomeScreen() {
                   transition={300}
                   cachePolicy="memory-disk"
                 />
-                <View style={styles.avatarBadge}>
-                  <Text style={styles.badgeText}>AI</Text>
+                <View style={styles.headerText}>
+                  <Text style={styles.greeting}>灵感山羊</Text>
+                  <Text style={styles.subtitle}>一键生成创意内容</Text>
                 </View>
               </View>
-              <View style={styles.headerText}>
-                <Text style={styles.greeting}>灵感山羊</Text>
-                <Text style={styles.subtitle}>一键生成创意内容</Text>
+              <View style={styles.headerRight}>
+                {userInfo ? (
+                  <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
+                    {isPermanentVip ? (
+                      <View style={styles.vipBadge}>
+                        <Text style={styles.vipBadgeText}>永久</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.usernameText}>{userInfo.username}</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.registerButton}
+                      onPress={() => router.push("/auth")}
+                    >
+                      <Text style={styles.registerButtonText}>注册</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.loginButton}
+                      onPress={() => router.push("/auth")}
+                    >
+                      <Text style={styles.loginButtonText}>登录</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
-            </View>
-            <View style={styles.headerRight}>
-              <TouchableOpacity 
-                style={styles.historyButton}
-                onPress={() => router.push("/history")}
-              >
-                <FontAwesome6 name="clock-rotate-left" size={20} color="#4B5563" />
-              </TouchableOpacity>
-              {userInfo ? (
-                <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
-                  {isPermanentVip ? (
-                    <View style={styles.vipBadge}>
-                      <Text style={styles.vipBadgeText}>永久</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.usernameText}>{userInfo.username}</Text>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity 
-                  style={styles.loginButton}
-                  onPress={() => router.push("/auth")}
-                >
-                  <Text style={styles.loginButtonText}>登录</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
 
@@ -1075,12 +1074,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
-    backgroundColor: "#FFFFFF",
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: "#4F46E5",
@@ -1089,70 +1086,96 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  headerGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: "#4F46E5",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  avatarContainer: {
-    position: "relative",
-    marginRight: 14,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  avatarBadge: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    backgroundColor: "#4F46E5",
-    borderRadius: 8,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  badgeText: {
-    color: "#FFFFFF",
-    fontSize: 8,
-    fontWeight: "bold",
-  },
-  headerText: {
-    flexShrink: 1,
-  },
-  greeting: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1F2937",
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginTop: 2,
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 3,
+    borderColor: "#4F46E5",
+    marginRight: 14,
+  },
+  headerText: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1F2937",
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 4,
+  },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  registerButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  registerButtonText: {
+    color: "#4F46E5",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  loginButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#4F46E5",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  loginButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  userButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#EEF2FF",
+  },
+  usernameText: {
+    fontSize: 14,
+    color: "#4F46E5",
+    fontWeight: "600",
+  },
+  vipBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    shadowColor: "#F59E0B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  vipBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   historyButton: {
     width: 40,
@@ -1517,51 +1540,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
     flex: 1,
-  },
-  // User Area
-  userArea: {
-    marginLeft: "auto",
-  },
-  userButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#EEF2FF",
-  },
-  usernameText: {
-    fontSize: 14,
-    color: "#4F46E5",
-    fontWeight: "600",
-  },
-  loginButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: "#4F46E5",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  loginButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  vipBadge: {
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-    shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  vipBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "bold",
   },
   // Free Code Entry
   freeCodeEntry: {
