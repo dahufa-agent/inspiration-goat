@@ -420,6 +420,25 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            {/* Generate Button */}
+            <TouchableOpacity
+              style={[
+                styles.generateButton,
+                (!generateCheck.allowed || loading) && styles.generateButtonDisabled,
+              ]}
+              onPress={handleGenerate}
+              disabled={!generateCheck.allowed || loading}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text style={styles.loadingText}>生成中，请稍候...</Text>
+                </View>
+              ) : (
+                <Text style={styles.generateButtonText}>一键生成</Text>
+              )}
+            </TouchableOpacity>
+
             {/* Video Duration Selection */}
             <View style={styles.durationCard}>
               <View style={styles.durationHeader}>
@@ -461,30 +480,6 @@ export default function HomeScreen() {
                 ))}
               </View>
             </View>
-
-            {/* Generate Button */}
-            <TouchableOpacity
-              style={[
-                styles.generateButton,
-                (!generateCheck.allowed || loading) && styles.generateButtonDisabled,
-              ]}
-              onPress={handleGenerate}
-              disabled={!generateCheck.allowed || loading}
-            >
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color="#FFFFFF" />
-                  <Text style={styles.loadingText}>生成中，请稍候...</Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.generateButtonText}>一键生成</Text>
-                  <Text style={styles.generateButtonSubtext}>
-                    {LIMITS.images.perBatch}张图片 + {LIMITS.texts.perBatch}条文案 + 视频
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
 
             {/* Quick Ideas */}
             <View style={styles.quickIdeas}>
