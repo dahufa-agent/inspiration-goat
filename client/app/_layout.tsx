@@ -26,6 +26,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth" options={{ title: "" }} />
         <Stack.Screen name="polish" options={{ title: "" }} />
         <Stack.Screen name="extract" options={{ title: "" }} />
+        <Stack.Screen name="history" options={{ title: "" }} />
       </Stack>
       <Toast />
     </Provider>

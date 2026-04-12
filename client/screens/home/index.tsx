@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter } from "@/hooks/useSafeRouter";
+import { FontAwesome6 } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 
@@ -77,6 +78,73 @@ export default function HomeScreen() {
   const [userPoints, setUserPoints] = useState(0); // 用户积分
   const [showBuyModal, setShowBuyModal] = useState(false); // 显示购买弹窗
   const [showCheckinSuccess, setShowCheckinSuccess] = useState(false); // 显示签到成功
+  const [selectedCategory, setSelectedCategory] = useState("scenery"); // 选中的模板分类
+
+  // 模板数据
+  const TEMPLATES = {
+    scenery: [
+      "海边日落晚霞",
+      "森林迷雾小路",
+      "城市璀璨夜景",
+      "星空银河漫天",
+      "瀑布彩虹飞流",
+      "雪山日出金山",
+      "草原骏马奔腾",
+      "沙漠驼铃声声",
+    ],
+    portrait: [
+      "复古港风写真",
+      "清新森系少女",
+      "韩系氧气美女",
+      "欧美高级感",
+      "国风古韵美人",
+      "运动活力少年",
+      "文艺胶片风",
+      "时尚街拍大片",
+    ],
+    food: [
+      "精致法式甜点",
+      "日式刺身料理",
+      "意式披萨烤肠",
+      "中餐满汉全席",
+      "网红奶茶饮品",
+      "街头特色小吃",
+      "咖啡馆下午茶",
+      "烘焙面包香气",
+    ],
+    animal: [
+      "橘猫慵懒午后",
+      "柴犬微笑卖萌",
+      "布偶猫公主范",
+      "柯基蜜桃臀",
+      "兔子软萌可爱",
+      "仓鼠屯粮脸颊",
+      "金毛暖男微笑",
+      "哈士奇表情包",
+    ],
+    art: [
+      "梵高星空风格",
+      "莫奈印象派花园",
+      "浮世绘樱花",
+      "赛博朋克未来城",
+      "水墨山水意境",
+      "蒸汽朋克机械",
+      "梦幻水晶城堡",
+      "幻想精灵森林",
+    ],
+    lifestyle: [
+      "咖啡馆悠闲时光",
+      "书房的午后",
+      "阳台小花园",
+      "露营星空下",
+      "健身房动感",
+      "厨房烘焙时光",
+      "旅行路上风景",
+      "居家慵懒周末",
+    ],
+  };
+
+  const getCurrentTemplates = () => TEMPLATES[selectedCategory as keyof typeof TEMPLATES] || TEMPLATES.scenery;
 
   // 获取用户信息
   const loadUserInfo = useCallback(async () => {
@@ -183,6 +251,27 @@ export default function HomeScreen() {
       const data = await response.json();
 
       if (response.ok) {
+        // 保存到历史记录
+        try {
+          const historyItem = {
+            id: `h_${Date.now()}`,
+            prompt: idea.trim(),
+            imageUrls: data.imageUrls || [],
+            text: (data.texts || [])[0] || "",
+            videoUrl: data.videoUrl || "",
+            createdAt: new Date().toISOString(),
+            isFavorite: false,
+          };
+          const stored = await SecureStore.getItemAsync("generationHistory");
+          const history = stored ? JSON.parse(stored) : [];
+          history.unshift(historyItem);
+          // 只保留最近100条
+          if (history.length > 100) history.pop();
+          await SecureStore.setItemAsync("generationHistory", JSON.stringify(history));
+        } catch (e) {
+          console.error("Save history error:", e);
+        }
+
         // 更新剩余次数
         setRemainingVideoEdits(data.remainingFreeEdits ?? remainingVideoEdits);
         setRemainingImages(data.remainingImages ?? remainingImages);
@@ -380,22 +469,30 @@ export default function HomeScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header with Goat Teacher Avatar */}
           <View style={styles.header}>
-            <View style={styles.avatarContainer}>
-              <Image source={{ uri: GOAT_TEACHER_AVATAR }} style={styles.avatar} />
-              <View style={styles.avatarBadge}>
-                <Text style={styles.badgeText}>AI</Text>
+            <View style={styles.headerLeft}>
+              <View style={styles.avatarContainer}>
+                <Image source={{ uri: GOAT_TEACHER_AVATAR }} style={styles.avatar} />
+                <View style={styles.avatarBadge}>
+                  <Text style={styles.badgeText}>AI</Text>
+                </View>
+              </View>
+              <View style={styles.headerText}>
+                <Text style={styles.greeting}>灵感山羊</Text>
+                <Text style={styles.subtitle}>一键生成创意内容</Text>
               </View>
             </View>
-            <View style={styles.headerText}>
-              <Text style={styles.greeting}>灵感山羊</Text>
-              <Text style={styles.subtitle}>一键生成创意内容</Text>
-            </View>
-            <View style={styles.userArea}>
+            <View style={styles.headerRight}>
+              <TouchableOpacity 
+                style={styles.historyButton}
+                onPress={() => router.push("/history")}
+              >
+                <Text style={styles.historyIcon}>[H]</Text>
+              </TouchableOpacity>
               {userInfo ? (
                 <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
                   {isPermanentVip ? (
                     <View style={styles.vipBadge}>
-                      <Text style={styles.vipBadgeText}>永久会员</Text>
+                      <Text style={styles.vipBadgeText}>永久</Text>
                     </View>
                   ) : (
                     <Text style={styles.usernameText}>{userInfo.username}</Text>
@@ -610,13 +707,56 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Quick Ideas */}
+            {/* Quick Ideas / Templates */}
             <View style={styles.quickIdeas}>
-              <Text style={styles.quickIdeasTitle}>试试这些灵感</Text>
-              <View style={styles.quickIdeasList}>
-                {["海边日落", "森林小路", "城市夜景", "星空银河", "美食探店", "旅行风光", "人物写真", "文艺少女"].map((item) => (
+              <View style={styles.templatesHeader}>
+                <Text style={styles.quickIdeasTitle}>灵感模板</Text>
+              </View>
+              
+              {/* Template Categories */}
+              <View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.templateCategories}
+              >
+                {[
+                  { key: "scenery", label: "风景", icon: "image" },
+                  { key: "portrait", label: "人物", icon: "user" },
+                  { key: "food", label: "美食", icon: "cutlery" },
+                  { key: "animal", label: "萌宠", icon: "paw" },
+                  { key: "art", label: "艺术", icon: "paint-brush" },
+                  { key: "lifestyle", label: "生活", icon: "coffee" },
+                ].map((cat) => (
                   <TouchableOpacity
-                    key={item}
+                    key={cat.key}
+                    style={[
+                      styles.categoryChip,
+                      selectedCategory === cat.key && styles.categoryChipActive,
+                    ]}
+                    onPress={() => setSelectedCategory(cat.key)}
+                  >
+                    <FontAwesome6 
+                      name={cat.icon as any} 
+                      size={16} 
+                      color={selectedCategory === cat.key ? "#FFFFFF" : "#6B7280"} 
+                    />
+                    <Text style={[
+                      styles.categoryText,
+                      selectedCategory === cat.key && styles.categoryTextActive,
+                    ]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              </View>
+              
+              {/* Template List */}
+              <View style={styles.quickIdeasList}>
+                {getCurrentTemplates().map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item}-${index}`}
                     style={styles.quickIdeaChip}
                     onPress={() => setIdea(item)}
                   >
@@ -972,6 +1112,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  historyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyIcon: {
+    fontSize: 20,
+    color: "#4B5563",
+  },
   mainContent: {
     paddingHorizontal: 20,
   },
@@ -1177,10 +1339,47 @@ const styles = StyleSheet.create({
   quickIdeas: {
     marginBottom: 20,
   },
-  quickIdeasTitle: {
-    fontSize: 14,
-    color: "#6B7280",
+  templatesHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
+  },
+  quickIdeasTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  moreLink: {
+    fontSize: 13,
+    color: "#4F46E5",
+  },
+  templateCategories: {
+    marginBottom: 12,
+  },
+  categoryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 6,
+  },
+  categoryChipActive: {
+    backgroundColor: "#4F46E5",
+    borderColor: "#4F46E5",
+  },
+  categoryText: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  categoryTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   quickIdeasList: {
     flexDirection: "row",
