@@ -304,7 +304,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.greeting}>你好，我是山羊老师</Text>
+              <Text style={styles.greeting}>灵感山羊</Text>
               <Text style={styles.subtitle}>一键生成创意内容</Text>
             </View>
             <View style={styles.userArea}>
