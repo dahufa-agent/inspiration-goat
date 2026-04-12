@@ -11,6 +11,10 @@ import {
 } from "coze-coding-dev-sdk";
 import type { Message } from "coze-coding-dev-sdk";
 
+// AI 模型配置
+// 图片生成使用豆包模型 doubao-seedream-4-5-251128（默认，无需显式指定）
+const VIDEO_MODEL = "doubao-seedance-1-5-pro-251215"; // 即梦视频生成模型
+
 const app = express();
 const port = process.env.PORT || 9091;
 
@@ -196,6 +200,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
       req.headers as Record<string, string>
     );
     const config = new Config();
+    // 图片生成使用豆包模型（SDK默认配置）
     const imageClient = new ImageGenerationClient(config, customHeaders);
 
     let currentPrompt = prompt;
@@ -204,7 +209,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     let errorMessages: string[] = [];
     let optimizationNote: string | undefined;
 
-    // 首次尝试
+    // 首次尝试（使用豆包图片模型）
     try {
       const response = await imageClient.generate({
         prompt: currentPrompt,
@@ -381,7 +386,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     });
 
     const response = await videoClient.videoGeneration(contentItems, {
-      model: "doubao-seedance-1-5-pro-251215",
+      model: VIDEO_MODEL, // 即梦视频生成模型
       duration,
       ratio: "9:16",
       resolution: "720p",
@@ -674,6 +679,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     );
     const config = new Config();
 
+    // 图片生成使用豆包模型（SDK默认配置）
     const imageClient = new ImageGenerationClient(config, customHeaders);
     const llmClient = new LLMClient(config, customHeaders);
     const videoClient = new VideoGenerationClient(config, customHeaders);
@@ -862,7 +868,7 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
         { type: "text", text: finalPrompt },
       ],
       {
-        model: "doubao-seedance-1-5-pro-251215",
+        model: VIDEO_MODEL, // 即梦视频生成模型
         duration,
         ratio: "9:16",
         resolution: "720p",
