@@ -24,8 +24,7 @@ const GOAT_TEACHER_AVATAR = "https://images.unsplash.com/photo-1573865526739-106
 // 视频时长选项
 const DURATION_OPTIONS = [
   { type: "free", duration: 5, label: "5秒内", price: "免费", description: "每日3次", color: "#10B981" },
-  { type: "standard", duration: 8, label: "6-8秒", price: "标准收费", description: "不限次数", color: "#F59E0B" },
-  { type: "premium", duration: 12, label: "9-12秒", price: "高级收费", description: "不限次数", color: "#8B5CF6" },
+  { type: "paid", duration: 10, label: "5秒以上", price: "收费", description: "不限次数", color: "#8B5CF6" },
 ];
 
 // 每日限制配置
@@ -220,12 +219,12 @@ export default function HomeScreen() {
                     <Text style={styles.quotaIconText}>VID</Text>
                   </View>
                   <View style={styles.quotaInfo}>
-                    <Text style={styles.quotaLabel}>视频编辑</Text>
+                    <Text style={styles.quotaLabel}>视频（5秒内）</Text>
                     <Text style={styles.quotaValue}>
                       {remainingVideoEdits} / 3
                     </Text>
                   </View>
-                  <Text style={styles.quotaBatch}>仅5秒内免费</Text>
+                  <Text style={styles.quotaBatch}>免费编辑</Text>
                 </View>
               </View>
             </View>
@@ -319,15 +318,15 @@ export default function HomeScreen() {
             <View style={styles.tipsList}>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#10B981" }]} />
-                <Text style={styles.tipText}>图片：每次{LIMITS.images.perBatch}张，每日最多{LIMITS.images.maxPerDay}张</Text>
+                <Text style={styles.tipText}>图片：每日最多{LIMITS.images.maxPerDay}张，每次生成{LIMITS.images.perBatch}张</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#3B82F6" }]} />
-                <Text style={styles.tipText}>文案：每次{LIMITS.texts.perBatch}条，每日最多{LIMITS.texts.maxPerDay}条</Text>
+                <Text style={styles.tipText}>文案：每日最多{LIMITS.texts.maxPerDay}条，每次生成{LIMITS.texts.perBatch}条</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#F59E0B" }]} />
-                <Text style={styles.tipText}>5秒内视频免费编辑每日3次</Text>
+                <Text style={styles.tipText}>视频：5秒内每日3次免费，5秒以上不限次数</Text>
               </View>
             </View>
           </View>

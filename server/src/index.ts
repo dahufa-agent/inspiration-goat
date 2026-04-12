@@ -21,8 +21,7 @@ app.use(express.urlencoded({ limit: "100mb", extended: true }));
 // 视频时长配置
 const VIDEO_DURATIONS = {
   free: { duration: 5, label: "5秒内", price: "免费", maxPerDay: 3 },
-  standard: { duration: 8, label: "6-8秒", price: "标准收费", maxPerDay: -1 },
-  premium: { duration: 12, label: "9-12秒", price: "高级收费", maxPerDay: -1 },
+  paid: { duration: 10, label: "5秒以上", price: "收费", maxPerDay: -1 },
 } as const;
 
 // 每日生成限制配置
@@ -153,18 +152,11 @@ app.get("/api/v1/video/durations", (req, res) => {
         remainingEdits: remaining.remainingVideoEdits,
       },
       {
-        type: "standard",
-        duration: VIDEO_DURATIONS.standard.duration,
-        label: VIDEO_DURATIONS.standard.label,
-        price: VIDEO_DURATIONS.standard.price,
-        description: "标准时长，适合大多数场景",
-      },
-      {
-        type: "premium",
-        duration: VIDEO_DURATIONS.premium.duration,
-        label: VIDEO_DURATIONS.premium.label,
-        price: VIDEO_DURATIONS.premium.price,
-        description: "超长时长，电影级效果",
+        type: "paid",
+        duration: VIDEO_DURATIONS.paid.duration,
+        label: VIDEO_DURATIONS.paid.label,
+        price: VIDEO_DURATIONS.paid.price,
+        description: "不限次数，随时可用",
       },
     ],
     remainingFreeEdits: remaining.remainingVideoEdits,
