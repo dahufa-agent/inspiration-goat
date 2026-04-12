@@ -999,7 +999,7 @@ app.get("/api/v1/free-codes/options", (req, res) => {
  */
 app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
   try {
-    const { phone, durationType } = req.body;
+    const { phone, durationType, recipientPhone } = req.body;
     
     if (!phone || !durationType) {
       return res.status(400).json({ error: "手机号和时长类型不能为空" });
@@ -1010,7 +1010,7 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
     // 查询用户
     const { data: user, error: userError } = await client
       .from('users')
-      .select('id, phone, is_permanent_vip')
+      .select('id, phone, username, is_permanent_vip')
       .eq('phone', phone)
       .maybeSingle();
     
@@ -1025,17 +1025,53 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "您是永久会员，无需申请免费码" });
     }
     
-    // 检查用户是否已有有效会员
-    const now = new Date().toISOString();
-    const { data: activeMembership } = await client
-      .from('user_memberships')
-      .select('*')
-      .eq('user_id', user.id)
-      .gt('end_date', now)
-      .maybeSingle();
-    
-    if (activeMembership) {
-      return res.status(400).json({ error: "您已有有效的会员期限" });
+    // 如果是赠送模式，验证接收人
+    if (recipientPhone) {
+      if (!/^1\d{10}$/.test(recipientPhone)) {
+        return res.status(400).json({ error: "接收人手机号格式不正确" });
+      }
+      
+      const { data: recipient, error: recipientError } = await client
+        .from('users')
+        .select('id, phone, username, is_permanent_vip')
+        .eq('phone', recipientPhone)
+        .maybeSingle();
+      
+      if (recipientError) throw recipientError;
+      
+      if (!recipient) {
+        return res.status(400).json({ error: "接收人账号不存在，请提醒好友先注册" });
+      }
+      
+      if (recipient.is_permanent_vip) {
+        return res.status(400).json({ error: "接收人是永久会员，无需免费码" });
+      }
+      
+      // 检查接收人是否已有有效会员
+      const now = new Date().toISOString();
+      const { data: recipientMembership } = await client
+        .from('user_memberships')
+        .select('*')
+        .eq('user_id', recipient.id)
+        .gt('end_date', now)
+        .maybeSingle();
+      
+      if (recipientMembership) {
+        return res.status(400).json({ error: "接收人已有有效的会员期限" });
+      }
+    } else {
+      // 非赠送模式：检查用户自己是否已有有效会员
+      const now = new Date().toISOString();
+      const { data: activeMembership } = await client
+        .from('user_memberships')
+        .select('*')
+        .eq('user_id', user.id)
+        .gt('end_date', now)
+        .maybeSingle();
+      
+      if (activeMembership) {
+        return res.status(400).json({ error: "您已有有效的会员期限" });
+      }
     }
     
     // 生成免费码
@@ -1062,10 +1098,12 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
     
     res.json({
       success: true,
-      message: "免费码生成成功",
+      message: recipientPhone ? "赠送码生成成功，可直接发给好友使用" : "免费码生成成功",
       freeCode: code,
       durationType,
       durationDays,
+      isGifted: !!recipientPhone,
+      recipientPhone: recipientPhone || null,
     });
   } catch (error: any) {
     console.error("Apply free code error:", error);

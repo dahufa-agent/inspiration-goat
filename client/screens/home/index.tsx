@@ -20,8 +20,8 @@ import * as SecureStore from "expo-secure-store";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 
-// 山羊老师头像
-const GOAT_TEACHER_AVATAR = "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200&h=200&fit=crop";
+// 山羊老师头像 - 长胡子戴眼镜的学问山羊
+const GOAT_TEACHER_AVATAR = "https://coze-coding-project.tos.coze.site/coze_storage_7627778343278215204/image/generate_image_b6078ad5-ea30-4a35-b64f-be3d8e2a6ce0.jpeg?sign=1807522848-177fac84ec-0-e563565f1f5d6087dc714c42d6cfa0a9202ff2202029a59ecee87677f22dd55c";
 
 // 视频时长选项
 const DURATION_OPTIONS = [
@@ -70,6 +70,9 @@ export default function HomeScreen() {
   const [selectedFreeCodeType, setSelectedFreeCodeType] = useState("1_month");
   const [freeCode, setFreeCode] = useState("");
   const [isPermanentVip, setIsPermanentVip] = useState(false);
+  const [isGifting, setIsGifting] = useState(false); // 是否是赠送模式
+  const [recipientPhone, setRecipientPhone] = useState(""); // 接收人手机号
+  const [isGiftedCode, setIsGiftedCode] = useState(false); // 生成的码是否是赠送码
 
   // 获取用户信息
   const loadUserInfo = useCallback(async () => {
@@ -204,6 +207,16 @@ export default function HomeScreen() {
       return;
     }
     
+    if (isGifting && !recipientPhone) {
+      Alert.alert("提示", "请输入接收人手机号");
+      return;
+    }
+    
+    if (isGifting && !/^1\d{10}$/.test(recipientPhone)) {
+      Alert.alert("提示", "接收人手机号格式不正确");
+      return;
+    }
+    
     try {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/free-codes/apply`, {
         method: "POST",
@@ -211,6 +224,7 @@ export default function HomeScreen() {
         body: JSON.stringify({
           phone: freeCodePhone,
           durationType: selectedFreeCodeType,
+          recipientPhone: isGifting ? recipientPhone : undefined,
         }),
       });
       
@@ -218,6 +232,7 @@ export default function HomeScreen() {
       
       if (response.ok) {
         setFreeCode(data.freeCode);
+        setIsGiftedCode(data.isGifted || false);
       } else {
         Alert.alert("提示", data.error || "申请失败");
       }
@@ -565,6 +580,31 @@ export default function HomeScreen() {
                     keyboardType="phone-pad"
                   />
                   
+                  {/* 赠送切换 */}
+                  <TouchableOpacity 
+                    style={styles.giftToggle}
+                    onPress={() => setIsGifting(!isGifting)}
+                  >
+                    <View style={[styles.checkbox, isGifting && styles.checkboxChecked]}>
+                      {isGifting && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                    <Text style={styles.giftToggleText}>赠送给好友</Text>
+                  </TouchableOpacity>
+                  
+                  {/* 接收人手机号 */}
+                  {isGifting && (
+                    <>
+                      <Text style={styles.modalLabel}>接收人手机号</Text>
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="请输入好友手机号"
+                        value={recipientPhone}
+                        onChangeText={setRecipientPhone}
+                        keyboardType="phone-pad"
+                      />
+                    </>
+                  )}
+                  
                   <Text style={styles.modalLabel}>选择时长</Text>
                   <View style={styles.durationSelect}>
                     {FREE_CODE_OPTIONS.map((option) => (
@@ -591,18 +631,25 @@ export default function HomeScreen() {
                   style={styles.modalButton}
                   onPress={handleApplyFreeCode}
                 >
-                  <Text style={styles.modalButtonText}>获取免费码</Text>
+                  <Text style={styles.modalButtonText}>
+                    {isGifting ? "生成赠送码" : "获取免费码"}
+                  </Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
                 <View style={styles.modalBody}>
-                  <Text style={styles.modalLabel}>您的免费码</Text>
+                  <Text style={styles.modalLabel}>
+                    {isGiftedCode ? "您的赠送码" : "您的免费码"}
+                  </Text>
                   <View style={styles.freeCodeDisplay}>
                     <Text style={styles.freeCodeValue}>{freeCode}</Text>
                   </View>
                   <Text style={styles.freeCodeHint}>
-                    请复制免费码并登录后点击&quot;激活&quot;使用
+                    {isGiftedCode
+                      ? "此码已绑定好友手机，好友登录后可直接激活"
+                      : "请复制免费码并登录后点击&quot;激活&quot;使用"
+                    }
                   </Text>
                 </View>
                 
@@ -1136,5 +1183,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     textAlign: "center",
+  },
+  // 赠送样式
+  giftToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#4F46E5",
+    borderColor: "#4F46E5",
+  },
+  giftToggleText: {
+    fontSize: 14,
+    color: "#374151",
   },
 });
