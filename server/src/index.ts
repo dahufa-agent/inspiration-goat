@@ -25,48 +25,78 @@ const VIDEO_DURATIONS = {
   premium: { duration: 12, label: "9-12秒", price: "高级收费", maxPerDay: -1 },
 } as const;
 
-// 配置常量
-const MAX_IMAGES = 20;
-const MAX_TEXTS = 10;
+// 每日生成限制配置
+const DAILY_LIMITS = {
+  images: {
+    perBatch: 2,      // 每次生成2张
+    maxPerDay: 20,    // 每天最多20张
+  },
+  texts: {
+    perBatch: 1,      // 每次生成1条
+    maxPerDay: 10,    // 每天最多10条
+  },
+};
 
-// 内存中的每日编辑计数
-const dailyEditCounts: Record<string, { date: string; count: number }> = {};
+// 内存中的每日数据（生产环境应使用数据库）
+interface DailyData {
+  date: string;
+  imageCount: number;
+  textCount: number;
+  videoEdits: number;
+}
+
+const dailyData: Record<string, DailyData> = {};
 
 function getTodayKey(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-function checkAndIncrementEditCount(deviceId: string, duration: number): { allowed: boolean; remaining: number; isFree: boolean } {
+function getOrCreateDailyData(deviceId: string): DailyData {
   const today = getTodayKey();
-  const record = dailyEditCounts[deviceId] || { date: today, count: 0 };
+  const record = dailyData[deviceId];
   
-  if (record.date !== today) {
-    dailyEditCounts[deviceId] = { date: today, count: 0 };
+  // 新的一天，重置计数
+  if (!record || record.date !== today) {
+    dailyData[deviceId] = {
+      date: today,
+      imageCount: 0,
+      textCount: 0,
+      videoEdits: 0,
+    };
   }
   
-  const isFree = duration <= 5;
-  
-  if (isFree) {
-    const remaining = 3 - record.count;
-    if (remaining > 0) {
-      dailyEditCounts[deviceId].count += 1;
-      return { allowed: true, remaining: remaining - 1, isFree: true };
-    }
-    return { allowed: false, remaining: 0, isFree: true };
-  }
-  
-  return { allowed: true, remaining: -1, isFree: false };
+  return dailyData[deviceId];
 }
 
-function getRemainingEdits(deviceId: string): { remaining: number; isFree: boolean; resetDate: string } {
-  const today = getTodayKey();
-  const record = dailyEditCounts[deviceId] || { date: today, count: 0 };
+function getRemainingCounts(deviceId: string): {
+  remainingImages: number;
+  remainingTexts: number;
+  remainingVideoEdits: number;
+} {
+  const data = getOrCreateDailyData(deviceId);
+  return {
+    remainingImages: Math.max(0, DAILY_LIMITS.images.maxPerDay - data.imageCount),
+    remainingTexts: Math.max(0, DAILY_LIMITS.texts.maxPerDay - data.textCount),
+    remainingVideoEdits: VIDEO_DURATIONS.free.maxPerDay - data.videoEdits,
+  };
+}
+
+function checkVideoEditAllowed(deviceId: string, durationType: string): { 
+  allowed: boolean; 
+  remaining: number;
+} {
+  const data = getOrCreateDailyData(deviceId);
   
-  if (record.date !== today) {
-    return { remaining: 3, isFree: true, resetDate: today };
+  if (durationType === "free") {
+    const remaining = VIDEO_DURATIONS.free.maxPerDay - data.videoEdits;
+    if (remaining > 0) {
+      data.videoEdits += 1;
+      return { allowed: true, remaining: remaining - 1 };
+    }
+    return { allowed: false, remaining: 0 };
   }
   
-  return { remaining: Math.max(0, 3 - record.count), isFree: true, resetDate: today };
+  return { allowed: true, remaining: -1 };
 }
 
 // Health check
@@ -76,11 +106,41 @@ app.get("/api/v1/health", (req, res) => {
 });
 
 /**
+ * 获取每日限制信息
+ */
+app.get("/api/v1/limits", (req, res) => {
+  const deviceId = (req.headers["x-device-id"] as string) || "default";
+  const remaining = getRemainingCounts(deviceId);
+  
+  res.json({
+    images: {
+      perBatch: DAILY_LIMITS.images.perBatch,
+      maxPerDay: DAILY_LIMITS.images.maxPerDay,
+      remaining: remaining.remainingImages,
+      canGenerate: remaining.remainingImages >= DAILY_LIMITS.images.perBatch,
+    },
+    texts: {
+      perBatch: DAILY_LIMITS.texts.perBatch,
+      maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+      remaining: remaining.remainingTexts,
+      canGenerate: remaining.remainingTexts >= DAILY_LIMITS.texts.perBatch,
+    },
+    videoEdits: {
+      free: {
+        maxPerDay: VIDEO_DURATIONS.free.maxPerDay,
+        remaining: remaining.remainingVideoEdits,
+        canGenerate: remaining.remainingVideoEdits > 0,
+      },
+    },
+  });
+});
+
+/**
  * 获取视频时长选项
  */
 app.get("/api/v1/video/durations", (req, res) => {
   const deviceId = (req.headers["x-device-id"] as string) || "default";
-  const remaining = getRemainingEdits(deviceId);
+  const remaining = getRemainingCounts(deviceId);
   
   res.json({
     durations: [
@@ -90,7 +150,7 @@ app.get("/api/v1/video/durations", (req, res) => {
         label: VIDEO_DURATIONS.free.label,
         price: VIDEO_DURATIONS.free.price,
         description: `每日可编辑${VIDEO_DURATIONS.free.maxPerDay}次`,
-        remainingEdits: remaining.remaining,
+        remainingEdits: remaining.remainingVideoEdits,
       },
       {
         type: "standard",
@@ -107,133 +167,12 @@ app.get("/api/v1/video/durations", (req, res) => {
         description: "超长时长，电影级效果",
       },
     ],
-    remainingFreeEdits: remaining.remaining,
+    remainingFreeEdits: remaining.remainingVideoEdits,
   });
 });
 
 /**
- * 批量生成图片
- * POST /api/v1/generate/images
- * Body: { prompt: string, count?: number (default 20, max 20) }
- */
-app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
-  try {
-    const { prompt, count = MAX_IMAGES } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ error: "prompt is required" });
-    }
-
-    const imageCount = Math.min(count, MAX_IMAGES);
-    const customHeaders = HeaderUtils.extractForwardHeaders(
-      req.headers as Record<string, string>
-    );
-    const config = new Config();
-    const client = new ImageGenerationClient(config, customHeaders);
-
-    // 批量生成图片
-    const requests = Array(imageCount).fill(null).map(() => ({
-      prompt,
-      size: "2K",
-      watermark: false,
-    }));
-
-    const responses = await client.batchGenerate(requests);
-    
-    const imageUrls: string[] = [];
-    const errors: string[] = [];
-
-    responses.forEach((response, index) => {
-      const helper = client.getResponseHelper(response);
-      if (helper.success && helper.imageUrls.length > 0) {
-        imageUrls.push(helper.imageUrls[0]);
-      } else {
-        errors.push(`Image ${index + 1}: ${helper.errorMessages.join(", ")}`);
-      }
-    });
-
-    res.json({
-      imageUrls,
-      total: imageUrls.length,
-      requested: imageCount,
-      errors: errors.length > 0 ? errors : undefined,
-    });
-  } catch (error) {
-    console.error("Image batch generation error:", error);
-    res.status(500).json({ error: "Image generation failed" });
-  }
-});
-
-/**
- * 批量生成文案
- * POST /api/v1/generate/texts
- * Body: { prompt: string, count?: number (default 10, max 10) }
- */
-app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
-  try {
-    const { prompt, count = MAX_TEXTS } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ error: "prompt is required" });
-    }
-
-    const textCount = Math.min(count, MAX_TEXTS);
-    const customHeaders = HeaderUtils.extractForwardHeaders(
-      req.headers as Record<string, string>
-    );
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
-
-    const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。
-根据用户提供的想法，生成适合配图的文案内容。
-请直接输出文案内容，不要加任何编号或前缀，不要解释。`;
-
-    const texts: string[] = [];
-
-    // 串行生成文案以确保多样性
-    for (let i = 0; i < textCount; i++) {
-      const variation = [
-        "换一种风格，重写这段文案",
-        "用更煽情的表达方式",
-        "用更简洁有力的表达",
-        "增加一些悬念感",
-        "用更文艺的方式表达",
-        "增加一些幽默元素",
-        "突出情感共鸣",
-        "强调画面感",
-        "增加故事性",
-        "用对比手法",
-      ];
-
-      const messages: Message[] = [
-        { role: "system" as const, content: systemPrompt },
-        { 
-          role: "user" as const, 
-          content: `想法主题：${prompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。${i > 0 ? variation[i % variation.length] : ""}` 
-        },
-      ];
-
-      const response = await client.invoke(messages, {
-        model: "doubao-seed-2-0-lite-260215",
-        temperature: 0.8,
-      });
-
-      if (response.content) {
-        texts.push(response.content.trim());
-      }
-    }
-
-    res.json({
-      texts,
-      total: texts.length,
-      requested: textCount,
-    });
-  } catch (error) {
-    console.error("Text batch generation error:", error);
-    res.status(500).json({ error: "Text generation failed" });
-  }
-});
-
-/**
- * 生成单张图片
+ * 生成图片（单张，不计入每日限制）
  */
 app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
   try {
@@ -268,7 +207,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
 });
 
 /**
- * 生成单条文案
+ * 生成文案（单条，不计入每日限制）
  */
 app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
   try {
@@ -319,8 +258,9 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
+    // 检查视频编辑次数限制
     if (duration <= 5) {
-      const check = checkAndIncrementEditCount(deviceId, duration);
+      const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({
           error: "今日免费编辑次数已用完",
@@ -361,7 +301,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     });
 
     if (response.videoUrl) {
-      const remaining = getRemainingEdits(deviceId);
+      const remaining = getRemainingCounts(deviceId);
       
       res.json({
         videoUrl: response.videoUrl,
@@ -369,7 +309,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
         duration,
         durationType,
         isFree: duration <= 5,
-        remainingFreeEdits: remaining.remaining,
+        remainingFreeEdits: remaining.remainingVideoEdits,
       });
     } else {
       res.status(500).json({ error: "Video generation failed" });
@@ -381,7 +321,149 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
 });
 
 /**
- * 一键生成全部内容（20张图片 + 10条文案 + 视频）
+ * 批量生成图片（计入每日限制）
+ */
+app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body;
+    const deviceId = (req.headers["x-device-id"] as string) || "default";
+    
+    if (!prompt) {
+      return res.status(400).json({ error: "prompt is required" });
+    }
+
+    const data = getOrCreateDailyData(deviceId);
+    const remaining = DAILY_LIMITS.images.maxPerDay - data.imageCount;
+    
+    // 检查剩余次数
+    if (remaining <= 0) {
+      return res.status(403).json({
+        error: "今日图片生成次数已用完",
+        remaining: 0,
+        maxPerDay: DAILY_LIMITS.images.maxPerDay,
+        message: `每日最多生成${DAILY_LIMITS.images.maxPerDay}张图片，请明天再来`
+      });
+    }
+
+    // 每次生成2张
+    const count = Math.min(DAILY_LIMITS.images.perBatch, remaining);
+
+    const customHeaders = HeaderUtils.extractForwardHeaders(
+      req.headers as Record<string, string>
+    );
+    const config = new Config();
+    const client = new ImageGenerationClient(config, customHeaders);
+
+    const requests = Array(count).fill(null).map(() => ({
+      prompt,
+      size: "2K",
+      watermark: false,
+    }));
+
+    const responses = await client.batchGenerate(requests);
+    
+    const imageUrls: string[] = [];
+
+    responses.forEach((response) => {
+      const helper = client.getResponseHelper(response);
+      if (helper.success && helper.imageUrls.length > 0) {
+        imageUrls.push(helper.imageUrls[0]);
+        data.imageCount += 1;
+      }
+    });
+
+    const newRemaining = DAILY_LIMITS.images.maxPerDay - data.imageCount;
+
+    res.json({
+      imageUrls,
+      totalGenerated: imageUrls.length,
+      perBatch: DAILY_LIMITS.images.perBatch,
+      remaining: newRemaining,
+      maxPerDay: DAILY_LIMITS.images.maxPerDay,
+    });
+  } catch (error) {
+    console.error("Image batch generation error:", error);
+    res.status(500).json({ error: "Image generation failed" });
+  }
+});
+
+/**
+ * 批量生成文案（计入每日限制）
+ */
+app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body;
+    const deviceId = (req.headers["x-device-id"] as string) || "default";
+    
+    if (!prompt) {
+      return res.status(400).json({ error: "prompt is required" });
+    }
+
+    const data = getOrCreateDailyData(deviceId);
+    const remaining = DAILY_LIMITS.texts.maxPerDay - data.textCount;
+    
+    // 检查剩余次数
+    if (remaining <= 0) {
+      return res.status(403).json({
+        error: "今日文案生成次数已用完",
+        remaining: 0,
+        maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+        message: `每日最多生成${DAILY_LIMITS.texts.maxPerDay}条文案，请明天再来`
+      });
+    }
+
+    // 每次生成1条
+    const count = Math.min(DAILY_LIMITS.texts.perBatch, remaining);
+
+    const customHeaders = HeaderUtils.extractForwardHeaders(
+      req.headers as Record<string, string>
+    );
+    const config = new Config();
+    const client = new LLMClient(config, customHeaders);
+
+    const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。
+根据用户提供的想法，生成适合配图的文案内容。
+请直接输出文案内容，不要加任何编号或前缀，不要解释。`;
+
+    const texts: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const messages: Message[] = [
+        { role: "system" as const, content: systemPrompt },
+        { 
+          role: "user" as const, 
+          content: `想法主题：${prompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。` 
+        },
+      ];
+
+      const response = await client.invoke(messages, {
+        model: "doubao-seed-2-0-lite-260215",
+        temperature: 0.8,
+      });
+
+      if (response.content) {
+        texts.push(response.content.trim());
+        data.textCount += 1;
+      }
+    }
+
+    const newRemaining = DAILY_LIMITS.texts.maxPerDay - data.textCount;
+
+    res.json({
+      texts,
+      totalGenerated: texts.length,
+      perBatch: DAILY_LIMITS.texts.perBatch,
+      remaining: newRemaining,
+      maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+    });
+  } catch (error) {
+    console.error("Text batch generation error:", error);
+    res.status(500).json({ error: "Text generation failed" });
+  }
+});
+
+/**
+ * 一键生成全部内容
  * POST /api/v1/generate/all
  */
 app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
@@ -396,8 +478,9 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
+    // 检查视频编辑次数限制
     if (duration <= 5) {
-      const check = checkAndIncrementEditCount(deviceId, duration);
+      const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({
           error: "今日免费编辑次数已用完",
@@ -405,6 +488,28 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
           message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
         });
       }
+    }
+
+    const data = getOrCreateDailyData(deviceId);
+    
+    // 检查图片生成限制
+    const imageRemaining = DAILY_LIMITS.images.maxPerDay - data.imageCount;
+    if (imageRemaining < DAILY_LIMITS.images.perBatch) {
+      return res.status(403).json({
+        error: "今日图片生成次数不足",
+        remainingImages: imageRemaining,
+        message: `图片每日每批${DAILY_LIMITS.images.perBatch}张，今日剩余${imageRemaining}张，请明天再来`
+      });
+    }
+
+    // 检查文案生成限制
+    const textRemaining = DAILY_LIMITS.texts.maxPerDay - data.textCount;
+    if (textRemaining < DAILY_LIMITS.texts.perBatch) {
+      return res.status(403).json({
+        error: "今日文案生成次数已用完",
+        remainingTexts: textRemaining,
+        message: `文案每日最多${DAILY_LIMITS.texts.maxPerDay}条，今日剩余${textRemaining}条，请明天再来`
+      });
     }
 
     const customHeaders = HeaderUtils.extractForwardHeaders(
@@ -416,8 +521,8 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     const llmClient = new LLMClient(config, customHeaders);
     const videoClient = new VideoGenerationClient(config, customHeaders);
 
-    // 1. 批量生成图片
-    const imageRequests = Array(MAX_IMAGES).fill(null).map(() => ({
+    // 1. 批量生成图片（2张）
+    const imageRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({
       prompt,
       size: "2K",
       watermark: false,
@@ -429,82 +534,78 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       const helper = imageClient.getResponseHelper(response);
       if (helper.success && helper.imageUrls.length > 0) {
         imageUrls.push(helper.imageUrls[0]);
+        data.imageCount += 1;
       }
     });
 
-    if (imageUrls.length === 0) {
-      return res.status(500).json({ error: "Image generation failed" });
-    }
-
-    // 2. 批量生成文案
+    // 2. 生成文案（1条）
     const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。
 根据用户提供的想法，生成适合配图的文案内容。
 请直接输出文案内容，不要加任何编号或前缀，不要解释。`;
 
-    const texts: string[] = [];
-    const textVariations = [
-      "换一种风格，重写这段文案",
-      "用更煽情的表达方式",
-      "用更简洁有力的表达",
-      "增加一些悬念感",
-      "用更文艺的方式表达",
-      "增加一些幽默元素",
-      "突出情感共鸣",
-      "强调画面感",
-      "增加故事性",
-      "用对比手法",
+    const textMessages: Message[] = [
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: `想法主题：${prompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。` },
     ];
 
-    for (let i = 0; i < MAX_TEXTS; i++) {
-      const messages: Message[] = [
-        { role: "system" as const, content: systemPrompt },
-        { 
-          role: "user" as const, 
-          content: `想法主题：${prompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。${i > 0 ? textVariations[i % textVariations.length] : ""}` 
-        },
-      ];
+    const textResponse = await llmClient.invoke(textMessages, {
+      model: "doubao-seed-2-0-lite-260215",
+      temperature: 0.8,
+    });
 
-      const textResponse = await llmClient.invoke(messages, {
-        model: "doubao-seed-2-0-lite-260215",
-        temperature: 0.8,
-      });
-
-      if (textResponse.content) {
-        texts.push(textResponse.content.trim());
-      }
+    const texts = textResponse.content ? [textResponse.content.trim()] : [];
+    if (texts.length > 0) {
+      data.textCount += 1;
     }
 
     // 3. 生成视频（使用第一张图片作为首帧）
-    const videoResponse = await videoClient.videoGeneration(
-      [
-        {
-          type: "image_url",
-          image_url: { url: imageUrls[0] },
-          role: "first_frame",
-        },
-        { type: "text", text: prompt },
-      ],
-      {
-        model: "doubao-seedance-1-5-pro-251215",
-        duration,
-        ratio: "9:16",
-        resolution: "720p",
-        watermark: false,
-        generateAudio: true,
-      }
-    );
+    let videoUrl = null;
+    let lastFrameUrl = null;
 
-    const remaining = getRemainingEdits(deviceId);
+    if (imageUrls.length > 0) {
+      const videoResponse = await videoClient.videoGeneration(
+        [
+          {
+            type: "image_url",
+            image_url: { url: imageUrls[0] },
+            role: "first_frame",
+          },
+          { type: "text", text: prompt },
+        ],
+        {
+          model: "doubao-seedance-1-5-pro-251215",
+          duration,
+          ratio: "9:16",
+          resolution: "720p",
+          watermark: false,
+          generateAudio: true,
+        }
+      );
+      videoUrl = videoResponse.videoUrl;
+      lastFrameUrl = videoResponse.lastFrameUrl;
+    }
+
+    const remaining = getRemainingCounts(deviceId);
 
     res.json({
       imageUrls,
       texts,
-      videoUrl: videoResponse.videoUrl || null,
-      lastFrameUrl: videoResponse.lastFrameUrl || null,
+      videoUrl,
+      lastFrameUrl,
       duration,
       durationType,
       isFree: duration <= 5,
-      remainingFreeEdits: remaining.remaining,
+      remainingFreeEdits: remaining.remainingVideoEdits,
+      remainingImages: remaining.remainingImages,
+      remainingTexts: remaining.remainingTexts,
+      imageLimits: {
+        perBatch: DAILY_LIMITS.images.perBatch,
+        maxPerDay: DAILY_LIMITS.images.maxPerDay,
+      },
+      textLimits: {
+        perBatch: DAILY_LIMITS.texts.perBatch,
+        maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+      },
     });
   } catch (error) {
     console.error("Generate all error:", error);
@@ -528,7 +629,7 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
     const duration = durationConfig.duration;
 
     if (duration <= 5) {
-      const check = checkAndIncrementEditCount(deviceId, duration);
+      const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({
           error: "今日免费编辑次数已用完",
@@ -564,7 +665,7 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
     );
 
     if (response.videoUrl) {
-      const remaining = getRemainingEdits(deviceId);
+      const remaining = getRemainingCounts(deviceId);
       
       res.json({
         videoUrl: response.videoUrl,
@@ -572,7 +673,7 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
         duration,
         durationType,
         isFree: duration <= 5,
-        remainingFreeEdits: remaining.remaining,
+        remainingFreeEdits: remaining.remainingVideoEdits,
       });
     } else {
       res.status(500).json({ error: "Video generation failed" });
@@ -588,15 +689,21 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
  */
 app.get("/api/v1/user/remaining-edits", (req, res) => {
   const deviceId = (req.headers["x-device-id"] as string) || "default";
-  const remaining = getRemainingEdits(deviceId);
+  const remaining = getRemainingCounts(deviceId);
   
   res.json({
-    remainingFreeEdits: remaining.remaining,
-    isFree: true,
-    resetDate: remaining.resetDate,
-    message: remaining.remaining > 0
-      ? `今日还可编辑${remaining.remaining}次`
-      : "今日免费编辑次数已用完，明天恢复",
+    remainingFreeEdits: remaining.remainingVideoEdits,
+    remainingImages: remaining.remainingImages,
+    remainingTexts: remaining.remainingTexts,
+    imageLimits: {
+      perBatch: DAILY_LIMITS.images.perBatch,
+      maxPerDay: DAILY_LIMITS.images.maxPerDay,
+    },
+    textLimits: {
+      perBatch: DAILY_LIMITS.texts.perBatch,
+      maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+    },
+    resetDate: getTodayKey(),
   });
 });
 

@@ -28,13 +28,21 @@ const DURATION_OPTIONS = [
   { type: "premium", duration: 12, label: "9-12秒", price: "高级收费", description: "不限次数", color: "#8B5CF6" },
 ];
 
+// 每日限制配置
+const LIMITS = {
+  images: { perBatch: 2, maxPerDay: 20 },
+  texts: { perBatch: 1, maxPerDay: 10 },
+};
+
 export default function HomeScreen() {
   const router = useSafeRouter();
   const [idea, setIdea] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("free");
-  const [remainingEdits, setRemainingEdits] = useState(3);
+  const [remainingVideoEdits, setRemainingVideoEdits] = useState(3);
+  const [remainingImages, setRemainingImages] = useState(20);
+  const [remainingTexts, setRemainingTexts] = useState(10);
   const [deviceId, setDeviceId] = useState("");
 
   // 获取或生成设备ID
@@ -48,13 +56,15 @@ export default function HomeScreen() {
         }
         setDeviceId(id);
         
-        // 获取剩余编辑次数
+        // 获取剩余次数
         const response = await fetch(`${BACKEND_BASE_URL}/api/v1/user/remaining-edits`, {
           headers: { "x-device-id": id },
         });
         const data = await response.json();
         if (data.remainingFreeEdits !== undefined) {
-          setRemainingEdits(data.remainingFreeEdits);
+          setRemainingVideoEdits(data.remainingFreeEdits);
+          setRemainingImages(data.remainingImages);
+          setRemainingTexts(data.remainingTexts);
         }
       } catch (err) {
         console.error("Device ID error:", err);
@@ -63,15 +73,24 @@ export default function HomeScreen() {
     getDeviceId();
   }, []);
 
-  const handleGenerate = async () => {
-    if (!idea.trim()) {
-      setError("请输入你的创意想法");
-      return;
+  const canGenerate = () => {
+    if (!idea.trim()) return { allowed: false, reason: "请输入你的创意想法" };
+    if (selectedDuration === "free" && remainingVideoEdits <= 0) {
+      return { allowed: false, reason: "今日视频编辑次数已用完" };
     }
+    if (remainingImages < LIMITS.images.perBatch) {
+      return { allowed: false, reason: `今日图片生成次数已用完（每次${LIMITS.images.perBatch}张）` };
+    }
+    if (remainingTexts < LIMITS.texts.perBatch) {
+      return { allowed: false, reason: "今日文案生成次数已用完" };
+    }
+    return { allowed: true, reason: "" };
+  };
 
-    // 检查免费视频编辑次数
-    if (selectedDuration === "free" && remainingEdits <= 0) {
-      setError("今日免费编辑次数已用完，请选择更长时长或明天再来");
+  const handleGenerate = async () => {
+    const check = canGenerate();
+    if (!check.allowed) {
+      setError(check.reason);
       return;
     }
 
@@ -94,12 +113,12 @@ export default function HomeScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        // 更新剩余编辑次数
-        if (data.remainingFreeEdits !== undefined) {
-          setRemainingEdits(data.remainingFreeEdits);
-        }
+        // 更新剩余次数
+        setRemainingVideoEdits(data.remainingFreeEdits ?? remainingVideoEdits);
+        setRemainingImages(data.remainingImages ?? remainingImages);
+        setRemainingTexts(data.remainingTexts ?? remainingTexts);
 
-        // 跳转到编辑页面，传递生成的数组
+        // 跳转到编辑页面
         router.push("/edit", {
           idea: idea.trim(),
           imageUrls: JSON.stringify(data.imageUrls || []),
@@ -107,13 +126,15 @@ export default function HomeScreen() {
           videoUrl: data.videoUrl || "",
           lastFrameUrl: data.lastFrameUrl || "",
           durationType: data.durationType || "free",
-          remainingFreeEdits: data.remainingFreeEdits ?? remainingEdits,
+          remainingFreeEdits: data.remainingFreeEdits ?? remainingVideoEdits,
+          remainingImages: data.remainingImages ?? remainingImages,
+          remainingTexts: data.remainingTexts ?? remainingTexts,
         });
       } else {
         setError(data.message || data.error || "生成失败，请重试");
-        if (data.remainingEdits !== undefined) {
-          setRemainingEdits(data.remainingEdits);
-        }
+        if (data.remainingImages !== undefined) setRemainingImages(data.remainingImages);
+        if (data.remainingTexts !== undefined) setRemainingTexts(data.remainingTexts);
+        if (data.remainingFreeEdits !== undefined) setRemainingVideoEdits(data.remainingFreeEdits);
       }
     } catch (err) {
       setError("网络错误，请检查网络连接");
@@ -121,6 +142,8 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
+
+  const generateCheck = canGenerate();
 
   return (
     <Screen>
@@ -139,7 +162,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.greeting}>你好，我是山羊老师</Text>
-              <Text style={styles.subtitle}>一键生成20张图片+10条文案</Text>
+              <Text style={styles.subtitle}>一键生成创意内容</Text>
             </View>
           </View>
 
@@ -164,13 +187,56 @@ export default function HomeScreen() {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
+            {/* Daily Quota Card */}
+            <View style={styles.quotaCard}>
+              <Text style={styles.quotaTitle}>今日剩余次数</Text>
+              <View style={styles.quotaList}>
+                <View style={styles.quotaItem}>
+                  <View style={[styles.quotaIcon, { backgroundColor: "#FEF3C7" }]}>
+                    <Text style={styles.quotaIconText}>IMG</Text>
+                  </View>
+                  <View style={styles.quotaInfo}>
+                    <Text style={styles.quotaLabel}>图片</Text>
+                    <Text style={styles.quotaValue}>
+                      {remainingImages} / {LIMITS.images.maxPerDay}
+                    </Text>
+                  </View>
+                  <Text style={styles.quotaBatch}>每次{LIMITS.images.perBatch}张</Text>
+                </View>
+                <View style={styles.quotaItem}>
+                  <View style={[styles.quotaIcon, { backgroundColor: "#DBEAFE" }]}>
+                    <Text style={styles.quotaIconText}>TXT</Text>
+                  </View>
+                  <View style={styles.quotaInfo}>
+                    <Text style={styles.quotaLabel}>文案</Text>
+                    <Text style={styles.quotaValue}>
+                      {remainingTexts} / {LIMITS.texts.maxPerDay}
+                    </Text>
+                  </View>
+                  <Text style={styles.quotaBatch}>每次{LIMITS.texts.perBatch}条</Text>
+                </View>
+                <View style={styles.quotaItem}>
+                  <View style={[styles.quotaIcon, { backgroundColor: "#DCFCE7" }]}>
+                    <Text style={styles.quotaIconText}>VID</Text>
+                  </View>
+                  <View style={styles.quotaInfo}>
+                    <Text style={styles.quotaLabel}>视频编辑</Text>
+                    <Text style={styles.quotaValue}>
+                      {remainingVideoEdits} / 3
+                    </Text>
+                  </View>
+                  <Text style={styles.quotaBatch}>仅5秒内免费</Text>
+                </View>
+              </View>
+            </View>
+
             {/* Video Duration Selection */}
             <View style={styles.durationCard}>
               <View style={styles.durationHeader}>
                 <Text style={styles.cardTitle}>选择视频时长</Text>
                 {selectedDuration === "free" && (
                   <View style={styles.quotaBadge}>
-                    <Text style={styles.quotaText}>今日剩余 {remainingEdits} 次</Text>
+                    <Text style={styles.quotaBadgeText}>今日剩余 {remainingVideoEdits} 次</Text>
                   </View>
                 )}
               </View>
@@ -198,50 +264,11 @@ export default function HomeScreen() {
                     </Text>
                     {selectedDuration === option.type && (
                       <View style={[styles.checkmark, { backgroundColor: option.color }]}>
-                        <Text style={styles.checkmarkText}>✓</Text>
+                        <Text style={styles.checkmarkText}>OK</Text>
                       </View>
                     )}
                   </TouchableOpacity>
                 ))}
-              </View>
-              {selectedDuration === "free" && remainingEdits <= 0 && (
-                <Text style={styles.quotaWarning}>
-                  今日免费次数已用完，请明天再来或选择付费时长
-                </Text>
-              )}
-            </View>
-
-            {/* Content Preview Card */}
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>一键生成内容</Text>
-              <View style={styles.previewItems}>
-                <View style={styles.previewItem}>
-                  <View style={[styles.previewIcon, { backgroundColor: "#FEF3C7" }]}>
-                    <Text style={styles.previewIconText}>IMG</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.previewItemTitle}>20张图片</Text>
-                    <Text style={styles.previewItemDesc}>多种风格可选</Text>
-                  </View>
-                </View>
-                <View style={styles.previewItem}>
-                  <View style={[styles.previewIcon, { backgroundColor: "#DBEAFE" }]}>
-                    <Text style={styles.previewIconText}>TXT</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.previewItemTitle}>10条文案</Text>
-                    <Text style={styles.previewItemDesc}>多种表达方式</Text>
-                  </View>
-                </View>
-                <View style={styles.previewItem}>
-                  <View style={[styles.previewIcon, { backgroundColor: "#FCE7F3" }]}>
-                    <Text style={styles.previewIconText}>VID</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.previewItemTitle}>视频</Text>
-                    <Text style={styles.previewItemDesc}>配套生成</Text>
-                  </View>
-                </View>
               </View>
             </View>
 
@@ -249,11 +276,10 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[
                 styles.generateButton,
-                (!idea.trim() || loading || (selectedDuration === "free" && remainingEdits <= 0)) &&
-                  styles.generateButtonDisabled,
+                (!generateCheck.allowed || loading) && styles.generateButtonDisabled,
               ]}
               onPress={handleGenerate}
-              disabled={loading || (selectedDuration === "free" && remainingEdits <= 0)}
+              disabled={!generateCheck.allowed || loading}
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
@@ -262,11 +288,9 @@ export default function HomeScreen() {
                 </View>
               ) : (
                 <>
-                  <Text style={styles.generateButtonText}>一键生成全部</Text>
+                  <Text style={styles.generateButtonText}>一键生成</Text>
                   <Text style={styles.generateButtonSubtext}>
-                    {selectedDuration === "free"
-                      ? `20张图片 + 10条文案 + ${DURATION_OPTIONS[0].duration}秒视频`
-                      : `20张图片 + 10条文案 + ${DURATION_OPTIONS.find((o) => o.type === selectedDuration)?.duration}秒视频`}
+                    {LIMITS.images.perBatch}张图片 + {LIMITS.texts.perBatch}条文案 + 视频
                   </Text>
                 </>
               )}
@@ -291,19 +315,19 @@ export default function HomeScreen() {
 
           {/* Bottom Tips */}
           <View style={styles.tips}>
-            <Text style={styles.tipsTitle}>功能说明</Text>
+            <Text style={styles.tipsTitle}>生成规则</Text>
             <View style={styles.tipsList}>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#10B981" }]} />
-                <Text style={styles.tipText}>5秒内：每日免费编辑3次</Text>
+                <Text style={styles.tipText}>图片：每次{LIMITS.images.perBatch}张，每日最多{LIMITS.images.maxPerDay}张</Text>
+              </View>
+              <View style={styles.tipItem}>
+                <View style={[styles.tipDot, { backgroundColor: "#3B82F6" }]} />
+                <Text style={styles.tipText}>文案：每次{LIMITS.texts.perBatch}条，每日最多{LIMITS.texts.maxPerDay}条</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#F59E0B" }]} />
-                <Text style={styles.tipText}>6-8秒：标准时长，不限次数</Text>
-              </View>
-              <View style={styles.tipItem}>
-                <View style={[styles.tipDot, { backgroundColor: "#8B5CF6" }]} />
-                <Text style={styles.tipText}>9-12秒：超长时长，不限次数</Text>
+                <Text style={styles.tipText}>5秒内视频免费编辑每日3次</Text>
               </View>
             </View>
           </View>
@@ -400,6 +424,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
   },
+  quotaCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  quotaTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 16,
+  },
+  quotaList: {
+    gap: 12,
+  },
+  quotaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  quotaIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  quotaIconText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#374151",
+  },
+  quotaInfo: {
+    flex: 1,
+  },
+  quotaLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#1F2937",
+  },
+  quotaValue: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  quotaBatch: {
+    fontSize: 11,
+    color: "#9CA3AF",
+  },
   durationCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -423,7 +501,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  quotaText: {
+  quotaBadgeText: {
     color: "#10B981",
     fontSize: 12,
     fontWeight: "600",
@@ -468,71 +546,15 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     marginLeft: 8,
   },
   checkmarkText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  quotaWarning: {
-    color: "#EF4444",
-    fontSize: 13,
-    marginTop: 12,
-    textAlign: "center",
-    backgroundColor: "#FEF2F2",
-    padding: 10,
-    borderRadius: 8,
-  },
-  previewCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 16,
-  },
-  previewItems: {
-    gap: 12,
-  },
-  previewItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  previewIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  previewIconText: {
-    fontSize: 20,
-  },
-  previewItemTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  previewItemDesc: {
     fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
+    fontWeight: "bold",
   },
   generateButton: {
     backgroundColor: "#4F46E5",

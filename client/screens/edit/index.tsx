@@ -23,6 +23,12 @@ const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://loc
 const { width } = Dimensions.get("window");
 const IMAGE_ITEM_WIDTH = (width - 48) / 3;
 
+// 每日限制配置
+const LIMITS = {
+  images: { perBatch: 2, maxPerDay: 20 },
+  texts: { perBatch: 1, maxPerDay: 10 },
+};
+
 // 视频时长选项
 const DURATION_OPTIONS = [
   { type: "free", duration: 5, label: "5秒内", price: "免费", color: "#10B981" },
@@ -40,6 +46,8 @@ export default function EditScreen() {
     lastFrameUrl: string;
     durationType: string;
     remainingFreeEdits: number;
+    remainingImages: number;
+    remainingTexts: number;
   }>();
 
   // 解析传递的数组
@@ -55,7 +63,9 @@ export default function EditScreen() {
   const [videoUrl, setVideoUrl] = useState(params.videoUrl || "");
   const [lastFrameUrl, setLastFrameUrl] = useState(params.lastFrameUrl || "");
   const [selectedDuration, setSelectedDuration] = useState(params.durationType || "free");
-  const [remainingEdits, setRemainingEdits] = useState(params.remainingFreeEdits ?? 3);
+  const [remainingVideoEdits, setRemainingVideoEdits] = useState(params.remainingFreeEdits ?? 3);
+  const [remainingImages, setRemainingImages] = useState(params.remainingImages ?? 20);
+  const [remainingTexts, setRemainingTexts] = useState(params.remainingTexts ?? 10);
   const [loadingImage, setLoadingImage] = useState(false);
   const [loadingText, setLoadingText] = useState(false);
   const [loadingVideo, setLoadingVideo] = useState(false);
@@ -96,7 +106,7 @@ export default function EditScreen() {
     setTexts(newTexts);
   };
 
-  // 重新生成单张图片
+  // 重新生成单张图片（不计入限制）
   const regenerateSingleImage = async (index: number) => {
     setLoadingImage(true);
     try {
@@ -118,19 +128,34 @@ export default function EditScreen() {
     }
   };
 
-  // 重新生成全部图片
+  // 重新生成全部图片（2张，计入限制）
   const regenerateAllImages = async () => {
+    if (remainingImages < LIMITS.images.perBatch) {
+      Alert.alert("提示", `今日图片生成次数已用完，每次生成${LIMITS.images.perBatch}张`);
+      return;
+    }
+
     setLoadingImage(true);
     try {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/images`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: params.idea, count: 20 }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-device-id": deviceId,
+        },
+        body: JSON.stringify({ prompt: params.idea }),
       });
       const data = await response.json();
-      if (data.imageUrls && data.imageUrls.length > 0) {
+      
+      if (response.ok && data.imageUrls && data.imageUrls.length > 0) {
         setImageUrls(data.imageUrls);
         setSelectedImageIndex(0);
+        setRemainingImages(data.remaining);
+      } else {
+        Alert.alert("错误", data.message || "图片生成失败");
+        if (data.remaining !== undefined) {
+          setRemainingImages(data.remaining);
+        }
       }
     } catch (err) {
       Alert.alert("错误", "图片生成失败");
@@ -139,7 +164,7 @@ export default function EditScreen() {
     }
   };
 
-  // 重新生成单条文案
+  // 重新生成单条文案（不计入限制）
   const regenerateSingleText = async (index: number) => {
     setLoadingText(true);
     try {
@@ -164,20 +189,35 @@ export default function EditScreen() {
     }
   };
 
-  // 重新生成全部文案
+  // 重新生成全部文案（1条，计入限制）
   const regenerateAllTexts = async () => {
+    if (remainingTexts < LIMITS.texts.perBatch) {
+      Alert.alert("提示", `今日文案生成次数已用完`);
+      return;
+    }
+
     setLoadingText(true);
     try {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/texts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: params.idea, count: 10 }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-device-id": deviceId,
+        },
+        body: JSON.stringify({ prompt: params.idea }),
       });
       const data = await response.json();
-      if (data.texts && data.texts.length > 0) {
+      
+      if (response.ok && data.texts && data.texts.length > 0) {
         setTexts(data.texts);
         setSelectedTextIndex(0);
         setText(data.texts[0]);
+        setRemainingTexts(data.remaining);
+      } else {
+        Alert.alert("错误", data.message || "文案生成失败");
+        if (data.remaining !== undefined) {
+          setRemainingTexts(data.remaining);
+        }
       }
     } catch (err) {
       Alert.alert("错误", "文案生成失败");
@@ -194,7 +234,7 @@ export default function EditScreen() {
       return;
     }
 
-    if (selectedDuration === "free" && remainingEdits <= 0) {
+    if (selectedDuration === "free" && remainingVideoEdits <= 0) {
       Alert.alert(
         "免费次数已用完",
         "今日5秒内视频免费编辑次数已用完，请明天再来或选择更长时长",
@@ -230,12 +270,12 @@ export default function EditScreen() {
         setVideoUrl(data.videoUrl);
         setLastFrameUrl(data.lastFrameUrl || "");
         if (data.remainingFreeEdits !== undefined) {
-          setRemainingEdits(data.remainingFreeEdits);
+          setRemainingVideoEdits(data.remainingFreeEdits);
         }
       } else {
         Alert.alert("错误", data.message || data.error || "视频生成失败");
         if (data.remainingEdits !== undefined) {
-          setRemainingEdits(data.remainingEdits);
+          setRemainingVideoEdits(data.remainingEdits);
         }
       }
     } catch (err) {
@@ -258,7 +298,7 @@ export default function EditScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>← 返回</Text>
+            <Text style={styles.backText}>返回</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>选择素材</Text>
           <TouchableOpacity onPress={() => router.replace("/")} style={styles.newButton}>
@@ -267,19 +307,36 @@ export default function EditScreen() {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Daily Quota Info */}
+          <View style={styles.quotaInfo}>
+            <Text style={styles.quotaText}>
+              图片剩余: {remainingImages}/{LIMITS.images.maxPerDay} | 
+              文案剩余: {remainingTexts}/{LIMITS.texts.maxPerDay} | 
+              视频剩余: {remainingVideoEdits}/3
+            </Text>
+          </View>
+
           {/* Images Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>图片库 ({imageUrls.length}张)</Text>
               <TouchableOpacity
-                style={styles.regenerateAllButton}
+                style={[
+                  styles.regenerateAllButton,
+                  remainingImages < LIMITS.images.perBatch && styles.regenerateAllButtonDisabled,
+                ]}
                 onPress={regenerateAllImages}
-                disabled={loadingImage}
+                disabled={loadingImage || remainingImages < LIMITS.images.perBatch}
               >
                 {loadingImage ? (
                   <ActivityIndicator size="small" color="#4F46E5" />
                 ) : (
-                  <Text style={styles.regenerateAllText}>重新生成全部</Text>
+                  <Text style={[
+                    styles.regenerateAllText,
+                    remainingImages < LIMITS.images.perBatch && styles.regenerateAllTextDisabled,
+                  ]}>
+                    重新生成({remainingImages})
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -324,7 +381,7 @@ export default function EditScreen() {
                     onPress={() => regenerateSingleImage(index)}
                     disabled={loadingImage}
                   >
-                    <Text style={styles.imageRefreshText}>↻</Text>
+                    <Text style={styles.imageRefreshText}>R</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
@@ -336,14 +393,22 @@ export default function EditScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>文案库 ({texts.length}条)</Text>
               <TouchableOpacity
-                style={styles.regenerateAllButton}
+                style={[
+                  styles.regenerateAllButton,
+                  remainingTexts < LIMITS.texts.perBatch && styles.regenerateAllButtonDisabled,
+                ]}
                 onPress={regenerateAllTexts}
-                disabled={loadingText}
+                disabled={loadingText || remainingTexts < LIMITS.texts.perBatch}
               >
                 {loadingText ? (
                   <ActivityIndicator size="small" color="#4F46E5" />
                 ) : (
-                  <Text style={styles.regenerateAllText}>重新生成全部</Text>
+                  <Text style={[
+                    styles.regenerateAllText,
+                    remainingTexts < LIMITS.texts.perBatch && styles.regenerateAllTextDisabled,
+                  ]}>
+                    重新生成({remainingTexts})
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -365,7 +430,7 @@ export default function EditScreen() {
                       onPress={() => regenerateSingleText(index)}
                       disabled={loadingText}
                     >
-                      <Text style={styles.textRefreshText}>↻</Text>
+                      <Text style={styles.textRefreshText}>R</Text>
                     </TouchableOpacity>
                   </View>
                   <Text
@@ -402,7 +467,7 @@ export default function EditScreen() {
               <Text style={styles.sectionTitle}>视频</Text>
               {selectedDuration === "free" && (
                 <View style={styles.quotaBadge}>
-                  <Text style={styles.quotaText}>今日剩余 {remainingEdits} 次</Text>
+                  <Text style={styles.quotaBadgeText}>今日剩余 {remainingVideoEdits} 次</Text>
                 </View>
               )}
             </View>
@@ -434,7 +499,7 @@ export default function EditScreen() {
               ))}
             </View>
 
-            {selectedDuration === "free" && remainingEdits <= 0 && (
+            {selectedDuration === "free" && remainingVideoEdits <= 0 && (
               <Text style={styles.quotaWarning}>
                 今日免费编辑次数已用完，请明天再来或选择付费时长
               </Text>
@@ -443,11 +508,11 @@ export default function EditScreen() {
             <TouchableOpacity
               style={[
                 styles.regenerateVideoButton,
-                (loadingVideo || (selectedDuration === "free" && remainingEdits <= 0)) &&
+                (loadingVideo || (selectedDuration === "free" && remainingVideoEdits <= 0)) &&
                   styles.regenerateVideoButtonDisabled,
               ]}
               onPress={regenerateVideo}
-              disabled={loadingVideo || (selectedDuration === "free" && remainingEdits <= 0)}
+              disabled={loadingVideo || (selectedDuration === "free" && remainingVideoEdits <= 0)}
             >
               {loadingVideo ? (
                 <ActivityIndicator color="#4F46E5" />
@@ -517,7 +582,7 @@ export default function EditScreen() {
               style={styles.modalClose}
               onPress={() => setImagePreviewVisible(false)}
             >
-              <Text style={styles.modalCloseText}>✕</Text>
+              <Text style={styles.modalCloseText}>X</Text>
             </TouchableOpacity>
             <Image
               source={{ uri: imageUrls[selectedImageIndex] }}
@@ -592,6 +657,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  quotaInfo: {
+    backgroundColor: "#EEF2FF",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 12,
+    borderRadius: 8,
+  },
+  quotaText: {
+    fontSize: 12,
+    color: "#4F46E5",
+    textAlign: "center",
+  },
   section: {
     marginTop: 20,
   },
@@ -612,10 +689,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF2FF",
     borderRadius: 12,
   },
+  regenerateAllButtonDisabled: {
+    backgroundColor: "#F3F4F6",
+  },
   regenerateAllText: {
     fontSize: 13,
     color: "#4F46E5",
     fontWeight: "500",
+  },
+  regenerateAllTextDisabled: {
+    color: "#9CA3AF",
   },
   mainImageContainer: {
     backgroundColor: "#1F2937",
@@ -691,7 +774,8 @@ const styles = StyleSheet.create({
   },
   imageRefreshText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: "bold",
   },
   textList: {
     gap: 8,
@@ -720,8 +804,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   textRefreshText: {
-    fontSize: 18,
+    fontSize: 14,
     color: "#4F46E5",
+    fontWeight: "bold",
   },
   textItemContent: {
     fontSize: 14,
@@ -753,7 +838,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  quotaText: {
+  quotaBadgeText: {
     color: "#10B981",
     fontSize: 12,
     fontWeight: "600",
@@ -898,6 +983,7 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: "#FFFFFF",
     fontSize: 24,
+    fontWeight: "bold",
   },
   previewImage: {
     width: "100%",
@@ -921,6 +1007,7 @@ const styles = StyleSheet.create({
   previewNavText: {
     color: "#FFFFFF",
     fontSize: 20,
+    fontWeight: "bold",
   },
   previewIndex: {
     color: "#FFFFFF",
