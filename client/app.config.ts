@@ -67,6 +67,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "microphonePermission": `灵感创作App需要访问麦克风以录制视频声音。`,
           "recordAudioAndroid": true
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": `允许灵感山羊App保存图片和视频到您的相册。`,
+          "savePhotosPermission": `允许灵感山羊App保存图片和视频到您的相册。`,
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

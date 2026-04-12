@@ -13,11 +13,14 @@ import {
   Platform,
   Dimensions,
   Modal,
+  Pressable,
 } from "react-native";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter, useSafeSearchParams } from "@/hooks/useSafeRouter";
 import { Video, ResizeMode } from "expo-av";
 import * as SecureStore from "expo-secure-store";
+import * as MediaLibrary from "expo-media-library";
+import * as FileSystem from "expo-file-system/legacy";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 const { width } = Dimensions.get("window");
@@ -72,6 +75,8 @@ export default function EditScreen() {
   const [loadingVideo, setLoadingVideo] = useState(false);
   const [deviceId, setDeviceId] = useState("");
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
+  const [savingVideo, setSavingVideo] = useState(false);
   
   const videoRef = useRef<Video>(null);
 
@@ -88,6 +93,136 @@ export default function EditScreen() {
     getDeviceId();
   }, []);
 
+  // 保存图片到相册
+  const saveImageToGallery = async (imageUrl: string, filename?: string) => {
+    if (savingImage) return;
+    setSavingImage(true);
+    
+    try {
+      if (Platform.OS === "web") {
+        const link = document.createElement("a");
+        link.href = imageUrl;
+        link.download = filename || `灵感山羊_${Date.now()}.png`;
+        link.target = "_blank";
+        link.click();
+        Alert.alert("成功", "图片已开始下载");
+        return;
+      }
+      
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== "granted") {
+        Alert.alert("提示", "需要相册权限才能保存图片");
+        return;
+      }
+      
+      // 下载图片到临时目录
+      const fileUri = `${(FileSystem as any).cacheDirectory}${filename || `image_${Date.now()}.png`}`;
+      // @ts-ignore
+      const { uri } = await (FileSystem as any).downloadAsync(imageUrl, fileUri);
+      
+      // 保存到相册
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      
+      // 尝试添加到"灵感山羊"相册
+      const albums = await MediaLibrary.getAlbumsAsync();
+      const album = albums.find((a: any) => a.title === "灵感山羊");
+      if (album) {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      } else {
+        await MediaLibrary.createAlbumAsync("灵感山羊", asset, false);
+      }
+      
+      Alert.alert("成功", "图片已保存到相册");
+    } catch (error) {
+      console.error("Save image error:", error);
+      Alert.alert("错误", "保存图片失败");
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
+  // 保存视频到相册
+  const saveVideoToGallery = async (videoUrl: string, filename?: string) => {
+    if (savingVideo) return;
+    setSavingVideo(true);
+    
+    try {
+      if (Platform.OS === "web") {
+        const link = document.createElement("a");
+        link.href = videoUrl;
+        link.download = filename || `灵感山羊_${Date.now()}.mp4`;
+        link.target = "_blank";
+        link.click();
+        Alert.alert("成功", "视频已开始下载");
+        return;
+      }
+      
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== "granted") {
+        Alert.alert("提示", "需要相册权限才能保存视频");
+        return;
+      }
+      
+      // 下载视频到临时目录
+      const fileUri = `${(FileSystem as any).cacheDirectory}${filename || `video_${Date.now()}.mp4`}`;
+      // @ts-ignore
+      const { uri } = await (FileSystem as any).downloadAsync(videoUrl, fileUri);
+      
+      // 保存到相册
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      
+      // 尝试添加到"灵感山羊"相册
+      const albums = await MediaLibrary.getAlbumsAsync();
+      const album = albums.find((a: any) => a.title === "灵感山羊");
+      if (album) {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      } else {
+        await MediaLibrary.createAlbumAsync("灵感山羊", asset, false);
+      }
+      
+      Alert.alert("成功", "视频已保存到相册");
+    } catch (error) {
+      console.error("Save video error:", error);
+      Alert.alert("错误", "保存视频失败");
+    } finally {
+      setSavingVideo(false);
+    }
+  };
+
+  // 长按保存图片
+  const handleLongPressImage = (imageUrl: string, index: number) => {
+    Alert.alert(
+      "保存图片",
+      "选择保存方式",
+      [
+        {
+          text: "保存到相册",
+          onPress: () => saveImageToGallery(imageUrl, `灵感山羊_图片${index + 1}_${Date.now()}.png`),
+        },
+        {
+          text: "保存视频封面",
+          onPress: () => saveImageToGallery(imageUrl, `灵感山羊_封面_${Date.now()}.png`),
+        },
+        { text: "取消", style: "cancel" },
+      ]
+    );
+  };
+
+  // 长按保存视频
+  const handleLongPressVideo = (videoUrl: string) => {
+    Alert.alert(
+      "保存视频",
+      "选择保存方式",
+      [
+        {
+          text: "保存到相册",
+          onPress: () => saveVideoToGallery(videoUrl, `灵感山羊_视频_${Date.now()}.mp4`),
+        },
+        { text: "取消", style: "cancel" },
+      ]
+    );
+  };
+	
   // 选择图片
   const handleSelectImage = (index: number) => {
     setSelectedImageIndex(index);
@@ -370,6 +505,8 @@ export default function EditScreen() {
                     selectedImageIndex === index && styles.imageItemSelected,
                   ]}
                   onPress={() => handleSelectImage(index)}
+                  onLongPress={() => handleLongPressImage(url, index)}
+                  delayLongPress={500}
                 >
                   <Image source={{ uri: url }} style={styles.imageThumb} />
                   {selectedImageIndex === index && (
@@ -383,6 +520,13 @@ export default function EditScreen() {
                     disabled={loadingImage}
                   >
                     <Text style={styles.imageRefreshText}>R</Text>
+                  </TouchableOpacity>
+                  {/* 保存图标 */}
+                  <TouchableOpacity
+                    style={styles.imageSaveBtn}
+                    onPress={() => saveImageToGallery(url, `灵感山羊_图片${index + 1}_${Date.now()}.png`)}
+                  >
+                    <Text style={styles.imageSaveText}>↓</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
@@ -525,7 +669,11 @@ export default function EditScreen() {
             </TouchableOpacity>
 
             {videoUrl ? (
-              <View style={styles.videoContainer}>
+              <TouchableOpacity 
+                style={styles.videoContainer}
+                onLongPress={() => handleLongPressVideo(videoUrl)}
+                delayLongPress={500}
+              >
                 <Video
                   ref={videoRef}
                   source={{ uri: videoUrl }}
@@ -534,15 +682,32 @@ export default function EditScreen() {
                   resizeMode={ResizeMode.CONTAIN}
                   isLooping
                 />
-              </View>
+                <View style={styles.videoSaveOverlay}>
+                  <TouchableOpacity 
+                    style={styles.videoSaveBtn}
+                    onPress={() => saveVideoToGallery(videoUrl, `灵感山羊_视频_${Date.now()}.mp4`)}
+                    disabled={savingVideo}
+                  >
+                    {savingVideo ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.videoSaveText}>保存视频</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
             ) : lastFrameUrl ? (
-              <View style={styles.mainImageContainer}>
+              <TouchableOpacity 
+                style={styles.mainImageContainer}
+                onLongPress={() => handleLongPressImage(lastFrameUrl, 0)}
+                delayLongPress={500}
+              >
                 <Image source={{ uri: lastFrameUrl }} style={styles.mainImage} />
                 <View style={styles.videoProcessing}>
                   <ActivityIndicator color="#FFFFFF" />
                   <Text style={styles.videoProcessingText}>视频生成中...</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ) : (
               <View style={styles.videoPlaceholder}>
                 <Text style={styles.videoPlaceholderText}>
@@ -778,6 +943,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
+  imageSaveBtn: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    backgroundColor: "rgba(79,70,229,0.8)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageSaveText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  videoContainer: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+    marginTop: 12,
+  },
+  video: {
+    width: "100%",
+    height: 200,
+    backgroundColor: "#000",
+  },
+  videoSaveOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 12,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  videoSaveBtn: {
+    backgroundColor: "#4F46E5",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignSelf: "center",
+  },
+  videoSaveText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   textList: {
     gap: 8,
     marginBottom: 16,
@@ -893,15 +1105,6 @@ const styles = StyleSheet.create({
     color: "#4F46E5",
     fontSize: 15,
     fontWeight: "600",
-  },
-  videoContainer: {
-    backgroundColor: "#000",
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  video: {
-    width: "100%",
-    aspectRatio: 9 / 16,
   },
   videoPlaceholder: {
     backgroundColor: "#E5E7EB",
