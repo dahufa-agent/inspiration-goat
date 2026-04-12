@@ -80,7 +80,8 @@ export default function AuthScreen() {
       
       if (response.ok) {
         setCountdown(60);
-        Alert.alert("提示", `验证码已发送${process.env.NODE_ENV === 'development' ? `，开发模式验证码：${data.code}` : ''}`);
+        // 始终显示验证码，方便调试
+        Alert.alert("提示", data.code ? `验证码：${data.code}` : "验证码已发送");
       } else {
         setError(data.error || "发送验证码失败");
       }

@@ -1234,8 +1234,8 @@ app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
     res.json({ 
       success: true, 
       message: "验证码已发送",
-      // 开发环境直接返回验证码方便测试
-      ...(process.env.NODE_ENV === 'development' && { code })
+      // 始终返回验证码，方便前端调试
+      code
     });
   } catch (error: any) {
     console.error("Send code error:", error);
