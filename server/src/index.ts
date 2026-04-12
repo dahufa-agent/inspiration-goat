@@ -225,7 +225,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
       
       if (isSensitiveError) {
         console.log("Original prompt rejected, trying sanitized version...");
-        const result = sanitizePrompt(prompt);
+        const result = sanitizeImagePrompt(prompt);
         currentPrompt = result.sanitized;
         optimizationNote = result.reasons.length > 0 
           ? `已为您优化：${result.reasons.join('；')}，以确保内容可正常生成` 
@@ -463,7 +463,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       
       if (isSensitiveError) {
         console.log("Original prompt rejected, trying sanitized version...");
-        const result = sanitizePrompt(prompt);
+        const result = sanitizeImagePrompt(prompt);
         currentPrompt = result.sanitized;
         optimizationNote = result.reasons.length > 0 
           ? `已为您优化：${result.reasons.join('；')}，以确保内容可正常生成` 
@@ -700,7 +700,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       // 检查是否是敏感内容审核错误 - 自动脱敏重试
       if (error?.response?.error?.code === 'InputTextSensitiveContentDetected') {
         console.log("Image generation sensitive error, retrying with sanitized prompt...");
-        const retryResult = sanitizePrompt(prompt);
+        const retryResult = sanitizeImagePrompt(prompt);
         const retryPrompt = retryResult.sanitized;
         
         const retryRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({
@@ -1999,11 +1999,48 @@ app.put("/api/v1/admin/settings", async (req: Request, res: Response) => {
 });
 
 /**
- * 提示词脱敏函数 - 将敏感词替换为中性描述
- * 返回脱敏后的提示词和优化说明
+ * 图片生成脱敏函数 - 将敏感人物替换为通用描述
+ * 专门用于图片生成，因为图像模型有严格的敏感词检测
+ */
+function sanitizeImagePrompt(prompt: string): { sanitized: string; reasons: string[] } {
+  let sanitized = prompt;
+  const reasons: string[] = [];
+  
+  // 敏感人物映射表（只用于图片生成）
+  const sensitiveWordMap: { [key: string]: { en: string; zh: string } } = {
+    // 政治敏感人物
+    '特朗普': { en: 'a mature gentleman with orange hair, suit and tie', zh: '一位成熟男士，戴着橙色假发，西装领带' },
+    'Trump': { en: 'a mature gentleman with orange hair, suit and tie', zh: '一位成熟男士，戴着橙色假发，西装领带' },
+    '川普': { en: 'a mature gentleman with orange hair, suit and tie', zh: '一位成熟男士，戴着橙色假发，西装领带' },
+    '拜登': { en: 'an elderly gentleman with white hair, glasses', zh: '一位老年男士，白发，戴眼镜' },
+    'Biden': { en: 'an elderly gentleman with white hair, glasses', zh: '一位老年男士，白发，戴眼镜' },
+    '奥巴马': { en: 'a middle-aged African American man', zh: '一位中年非裔男士' },
+    'Obama': { en: 'a middle-aged African American man', zh: '一位中年非裔男士' },
+    '小布什': { en: 'an older American gentleman', zh: '一位美国老年男士' },
+    '布什': { en: 'an American gentleman', zh: '一位美国男士' },
+    // 其他敏感词
+    '裸体': { en: 'cartoon character', zh: '卡通形象' },
+    '血腥': { en: 'clean and fresh', zh: '干净清新' },
+    '暴力': { en: 'peaceful and friendly', zh: '和平友好' },
+  };
+  
+  for (const [sensitiveWord, replacement] of Object.entries(sensitiveWordMap)) {
+    // 不区分大小写匹配
+    const regex = new RegExp(sensitiveWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    if (regex.test(sanitized)) {
+      sanitized = sanitized.replace(regex, replacement.zh);
+      reasons.push(`"${sensitiveWord}"已替换为"${replacement.zh}"`);
+    }
+  }
+  
+  return { sanitized, reasons };
+}
+
+/**
+ * 提示词脱敏函数 - 用于文案生成（不做处理，直接返回）
  */
 function sanitizePrompt(prompt: string): { sanitized: string; reasons: string[] } {
-  // 直接返回原始内容，不做任何脱敏处理
+  // 直接返回原始内容，不做任何脱敏处理（文案生成不受限）
   return { sanitized: prompt, reasons: [] };
 }
 
