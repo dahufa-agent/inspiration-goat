@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Image,
   ScrollView,
   Alert,
 } from "react-native";
@@ -18,11 +17,16 @@ import * as SecureStore from "expo-secure-store";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 
+// 调试模式：设置为 true 可以跳过验证码
+const DEV_MODE = true;
+const DEV_FIXED_CODE = "123456";
+
 export default function AuthScreen() {
   const router = useSafeRouter();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLoginMode, setIsLoginMode] = useState(false); // 默认显示注册页面
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [debugInfo, setDebugInfo] = useState("");
   
   // 登录表单
   const [loginUsername, setLoginUsername] = useState("");
@@ -38,35 +42,51 @@ export default function AuthScreen() {
   // 错误提示
   const [error, setError] = useState("");
 
+  // 记录调试信息
+  const addDebug = useCallback((msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(prev => `[${timestamp}] ${msg}\n${prev}`.slice(0, 500));
+    console.log(`[Auth] ${msg}`);
+  }, []);
+
   // 检查是否已登录
   useEffect(() => {
+    addDebug("组件挂载，检查登录状态");
+    
     const checkLogin = async () => {
       try {
         const userInfo = await SecureStore.getItemAsync("userInfo");
         if (userInfo) {
           const user = JSON.parse(userInfo);
+          addDebug(`找到用户信息: ${user.username}`);
           if (user.isVip || user.isPermanentVip) {
+            addDebug("用户已是VIP，跳转首页");
             router.replace("/");
           }
+        } else {
+          addDebug("未找到用户信息");
         }
-      } catch (err) {
+      } catch (err: any) {
+        addDebug(`检查登录错误: ${err.message}`);
         console.error("Check login error:", err);
       }
     };
     checkLogin();
-  }, []);
+  }, [router, addDebug]);
 
   // 发送验证码
   const handleSendCode = async () => {
-    console.log("[发送验证码] 开始执行, phone:", phone);
+    addDebug(`发送验证码开始, phone=${phone}, length=${phone.length}`);
     
     if (!phone || phone.length !== 11) {
       setError("请输入11位手机号");
+      addDebug("手机号长度不正确");
       return;
     }
     
     if (!/^1\d{10}$/.test(phone)) {
-      setError("请输入正确的手机号");
+      setError("手机号格式不正确");
+      addDebug("手机号格式错误");
       return;
     }
     
@@ -75,7 +95,7 @@ export default function AuthScreen() {
     
     try {
       const requestUrl = `${BACKEND_BASE_URL}/api/v1/auth/send-code`;
-      console.log("[发送验证码] 请求发送:", { phone, purpose: "register", url: requestUrl });
+      addDebug(`请求URL: ${requestUrl}`);
       
       const response = await fetch(requestUrl, {
         method: "POST",
@@ -87,15 +107,16 @@ export default function AuthScreen() {
       });
       
       const data = await response.json();
-      console.log("[发送验证码] 响应:", { status: response.status, data });
+      addDebug(`响应状态: ${response.status}, data: ${JSON.stringify(data)}`);
       
       if (response.ok && data.success) {
         setCountdown(60);
-        // 始终显示验证码，方便调试
-        if (data.code) {
+        
+        // 开发模式直接显示验证码
+        if (DEV_MODE && data.code) {
           Alert.alert(
-            "验证码", 
-            `您的验证码是：${data.code}\n请在10分钟内完成验证`,
+            "【开发模式】验证码", 
+            `您的验证码是：${data.code}\n\n(生产环境请查收短信)`,
             [{ text: "知道了" }]
           );
         } else {
@@ -104,13 +125,15 @@ export default function AuthScreen() {
       } else {
         const errorMsg = data.error || "发送验证码失败";
         setError(errorMsg);
+        addDebug(`发送失败: ${errorMsg}`);
         Alert.alert("发送失败", errorMsg);
       }
     } catch (err: any) {
       console.error("[发送验证码] 网络错误:", err);
       const errorMsg = "网络错误，请检查网络连接";
       setError(errorMsg);
-      Alert.alert("网络错误", `无法连接到服务器\n\n${BACKEND_BASE_URL}\n\n错误: ${err.message}`);
+      addDebug(`网络错误: ${err.message}`);
+      Alert.alert("网络错误", `无法连接到服务器\n\n${BACKEND_BASE_URL}\n\n${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -124,30 +147,61 @@ export default function AuthScreen() {
     }
   }, [countdown]);
 
+  // 切换到登录
+  const switchToLogin = () => {
+    addDebug("切换到登录");
+    setIsLoginMode(true);
+    setError("");
+    setLoading(false);
+  };
+
+  // 切换到注册
+  const switchToRegister = () => {
+    addDebug("切换到注册");
+    setIsLoginMode(false);
+    setError("");
+    setLoading(false);
+  };
+
   // 注册
   const handleRegister = async () => {
-    if (!phone || !username || !password || !verifyCode) {
+    addDebug(`注册开始, phone=${phone}, username=${username}`);
+    
+    if (!phone || !username || !password) {
       setError("所有字段都不能为空");
+      addDebug("字段为空");
       return;
     }
     
     if (!/^1\d{10}$/.test(phone)) {
       setError("手机号格式不正确");
+      addDebug("手机号格式错误");
       return;
     }
     
     if (!/^\w{3,20}$/.test(username)) {
       setError("用户名需要3-20位字母、数字或下划线");
+      addDebug("用户名格式错误");
       return;
     }
     
     if (password.length < 6) {
       setError("密码至少6位");
+      addDebug("密码太短");
       return;
     }
     
     if (password !== confirmPassword) {
       setError("两次密码输入不一致");
+      addDebug("两次密码不一致");
+      return;
+    }
+    
+    // 开发模式使用固定验证码
+    const codeToUse = DEV_MODE ? DEV_FIXED_CODE : verifyCode;
+    if (!DEV_MODE && !verifyCode) {
+      setError("请输入验证码");
+      addDebug("验证码为空");
       return;
     }
     
@@ -162,14 +216,14 @@ export default function AuthScreen() {
           phone,
           username,
           password,
-          code: verifyCode,
+          code: codeToUse,
         }),
       });
       
       const data = await response.json();
+      addDebug(`注册响应: ${response.status}, ${JSON.stringify(data)}`);
       
       if (response.ok) {
-        // 保存用户信息
         await SecureStore.setItemAsync("userInfo", JSON.stringify({
           id: data.user.id,
           phone: data.user.phone,
@@ -183,9 +237,11 @@ export default function AuthScreen() {
         ]);
       } else {
         setError(data.error || "注册失败");
+        addDebug(`注册失败: ${data.error}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       setError("网络错误，请重试");
+      addDebug(`注册网络错误: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -193,8 +249,11 @@ export default function AuthScreen() {
 
   // 登录
   const handleLogin = async () => {
+    addDebug(`登录开始, username=${loginUsername}`);
+    
     if (!loginUsername || !loginPassword) {
       setError("用户名和密码不能为空");
+      addDebug("用户名或密码为空");
       return;
     }
     
@@ -212,9 +271,9 @@ export default function AuthScreen() {
       });
       
       const data = await response.json();
+      addDebug(`登录响应: ${response.status}, success=${response.ok}`);
       
       if (response.ok) {
-        // 保存用户信息
         await SecureStore.setItemAsync("userInfo", JSON.stringify({
           id: data.user.id,
           phone: data.user.phone,
@@ -229,9 +288,11 @@ export default function AuthScreen() {
         ]);
       } else {
         setError(data.error || "登录失败");
+        addDebug(`登录失败: ${data.error}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       setError("网络错误，请重试");
+      addDebug(`登录网络错误: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -257,27 +318,36 @@ export default function AuthScreen() {
             <Text style={styles.appDesc}>一键生成创意内容</Text>
           </View>
 
-          {/* Tab Switcher */}
+          {/* Tab Switcher - 修复：确保正确切换 */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
-              style={[styles.tab, isLogin && styles.tabActive]}
-              onPress={() => { setIsLogin(true); setError(""); setLoading(false); }}
+              style={[styles.tab, isLoginMode && styles.tabActive]}
+              onPress={switchToLogin}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>登录</Text>
+              <Text style={[styles.tabText, isLoginMode && styles.tabTextActive]}>登录</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, !isLogin && styles.tabActive]}
-              onPress={() => { setIsLogin(false); setError(""); setLoading(false); }}
+              style={[styles.tab, !isLoginMode && styles.tabActive]}
+              onPress={switchToRegister}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>注册</Text>
+              <Text style={[styles.tabText, !isLoginMode && styles.tabTextActive]}>注册</Text>
             </TouchableOpacity>
           </View>
 
           {/* Error Message */}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Login Form */}
-          {isLogin ? (
+          {/* Debug Info (开发模式) */}
+          {__DEV__ && debugInfo ? (
+            <View style={styles.debugContainer}>
+              <Text style={styles.debugText}>{debugInfo}</Text>
+            </View>
+          ) : null}
+
+          {/* 登录表单 - 修复：条件判断 */}
+          {isLoginMode ? (
             <View style={styles.form}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>手机号 / 用户名</Text>
@@ -320,8 +390,15 @@ export default function AuthScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            /* Register Form */
+            /* 注册表单 - 修复：条件判断 */
             <View style={styles.form}>
+              {/* 开发模式提示 */}
+              {DEV_MODE && (
+                <View style={styles.devBanner}>
+                  <Text style={styles.devBannerText}>开发模式：验证码固定为 {DEV_FIXED_CODE}</Text>
+                </View>
+              )}
+              
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>手机号</Text>
                 <View style={styles.phoneInputContainer}>
@@ -335,13 +412,17 @@ export default function AuthScreen() {
                     maxLength={11}
                   />
                   <TouchableOpacity
-                    style={[styles.sendCodeBtn, countdown > 0 && styles.sendCodeBtnDisabled]}
+                    style={[styles.sendCodeBtn, (countdown > 0 || loading) && styles.sendCodeBtnDisabled]}
                     onPress={handleSendCode}
                     disabled={countdown > 0 || loading}
                   >
-                    <Text style={styles.sendCodeText}>
-                      {countdown > 0 ? `${countdown}s` : "获取验证码"}
-                    </Text>
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                    ) : (
+                      <Text style={styles.sendCodeText}>
+                        {countdown > 0 ? `${countdown}s` : "获取验证码"}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -350,12 +431,13 @@ export default function AuthScreen() {
                 <Text style={styles.label}>验证码</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="请输入验证码"
+                  placeholder={DEV_MODE ? `开发模式：${DEV_FIXED_CODE}` : "请输入验证码"}
                   placeholderTextColor="#9CA3AF"
                   value={verifyCode}
                   onChangeText={setVerifyCode}
                   keyboardType="number-pad"
                   maxLength={6}
+                  editable={!DEV_MODE}
                 />
               </View>
               
@@ -500,6 +582,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 16,
   },
+  debugContainer: {
+    backgroundColor: "#1F2937",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  debugText: {
+    color: "#10B981",
+    fontSize: 10,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
   form: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -509,6 +602,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 4,
+  },
+  devBanner: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+  },
+  devBannerText: {
+    color: "#92400E",
+    fontSize: 12,
+    textAlign: "center",
   },
   inputGroup: {
     marginBottom: 20,
@@ -541,8 +647,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#4F46E5",
+    minWidth: 100,
+    height: 50,
   },
   sendCodeBtnDisabled: {
     backgroundColor: "#F3F4F6",

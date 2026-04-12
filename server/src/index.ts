@@ -1425,6 +1425,37 @@ app.post("/api/v1/auth/login", async (req: Request, res: Response) => {
 });
 
 /**
+ * 接收客户端日志
+ * POST /api/v1/logs/client
+ */
+app.post("/api/v1/logs/client", async (req: Request, res: Response) => {
+  try {
+    const { logs } = req.body;
+    
+    if (!logs || !Array.isArray(logs)) {
+      return res.status(400).json({ error: "无效的日志数据" });
+    }
+    
+    // 记录日志到服务器
+    logs.forEach((log: any) => {
+      const logMessage = `[客户端日志] [${log.type}] [${log.source}] ${log.message}`;
+      if (log.type === "error") {
+        console.error(logMessage, log.details);
+      } else if (log.type === "warning") {
+        console.warn(logMessage, log.details);
+      } else {
+        console.log(logMessage, log.details);
+      }
+    });
+    
+    res.json({ success: true, count: logs.length });
+  } catch (error: any) {
+    console.error("Client logs error:", error);
+    res.status(500).json({ error: "接收日志失败" });
+  }
+});
+
+/**
  * 获取免费码选项
  * GET /api/v1/free-codes/options
  */
