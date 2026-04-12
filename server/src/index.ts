@@ -292,7 +292,7 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
     ];
 
     let response = await llmClient.invoke(messages, {
-      model: "doubao-seed-2-0-lite-260215",
+      model: "deepseek-v3-2-251201",
       temperature: 0.8,
     });
 
@@ -311,7 +311,7 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
         { role: "user" as const, content: `想法主题：${currentPrompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。` },
       ];
       response = await llmClient.invoke(messages, {
-        model: "doubao-seed-2-0-lite-260215",
+        model: "deepseek-v3-2-251201",
         temperature: 0.8,
       });
     }
@@ -575,7 +575,7 @@ app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
       ];
 
       const response = await llmClient.invoke(messages, {
-        model: "doubao-seed-2-0-lite-260215",
+        model: "deepseek-v3-2-251201",
         temperature: 0.8,
       });
 
@@ -733,7 +733,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     ];
 
     const textResponse = await llmClient.invoke(textMessages, {
-      model: "doubao-seed-2-0-lite-260215",
+      model: "deepseek-v3-2-251201",
       temperature: 0.8,
     });
 
@@ -940,7 +940,7 @@ app.post("/api/v1/content/polish", async (req: Request, res: Response) => {
     ];
 
     const response = await llmClient.invoke(messages, {
-      model: "doubao-seed-2-0-lite-260215",
+      model: "deepseek-v3-2-251201",
       temperature: 0.7,
     });
 
@@ -1092,7 +1092,7 @@ app.post("/api/v1/content/extract-and-polish", async (req: Request, res: Respons
     ];
 
     const llmResponse = await llmClient.invoke(messages, {
-      model: "doubao-seed-2-0-lite-260215",
+      model: "deepseek-v3-2-251201",
       temperature: 0.7,
     });
 
