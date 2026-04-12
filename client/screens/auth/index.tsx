@@ -153,7 +153,7 @@ export default function AuthScreen() {
           isVip: data.user.isPermanentVip,
         }));
         
-        Alert.alert("注册成功", "欢迎加入灵感创作！", [
+        Alert.alert("注册成功", "欢迎加入灵感山羊！", [
           { text: "开始创作", onPress: () => router.replace("/") }
         ]);
       } else {
@@ -228,7 +228,7 @@ export default function AuthScreen() {
             <View style={styles.logoPlaceholder}>
               <Text style={styles.logoText}>灵感</Text>
             </View>
-            <Text style={styles.appName}>灵感创作</Text>
+            <Text style={styles.appName}>灵感山羊</Text>
             <Text style={styles.appDesc}>一键生成创意内容</Text>
           </View>
 
