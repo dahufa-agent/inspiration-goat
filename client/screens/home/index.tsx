@@ -498,7 +498,7 @@ export default function HomeScreen() {
                 style={styles.historyButton}
                 onPress={() => router.push("/history")}
               >
-                <Text style={styles.historyIcon}>[H]</Text>
+                <FontAwesome6 name="clock-rotate-left" size={20} color="#4B5563" />
               </TouchableOpacity>
               {userInfo ? (
                 <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
@@ -557,13 +557,13 @@ export default function HomeScreen() {
               onPress={() => setShowFreeCodeModal(true)}
             >
               <View style={styles.freeCodeIcon}>
-                <Text style={styles.freeCodeIconText}>兑换</Text>
+                <FontAwesome6 name="ticket" size={22} color="#F59E0B" />
               </View>
               <View style={styles.freeCodeContent}>
                 <Text style={styles.freeCodeTitle}>免费码兑换</Text>
                 <Text style={styles.freeCodeDesc}>输入免费码获得会员时长</Text>
               </View>
-              <Text style={styles.freeCodeArrow}>{">"}</Text>
+              <FontAwesome6 name="chevron-right" size={18} color="#CBD5E1" />
             </TouchableOpacity>
           )}
 
@@ -597,7 +597,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/polish")}
                 >
                   <View style={[styles.toolIcon, { backgroundColor: "#EDE9FE" }]}>
-                    <Text style={styles.toolIconText}>润</Text>
+                    <FontAwesome6 name="wand-magic-sparkles" size={24} color="#4F46E5" />
                   </View>
                   <Text style={styles.toolTitle}>内容润色</Text>
                   <Text style={styles.toolDesc}>一键优化文案</Text>
@@ -607,7 +607,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/extract")}
                 >
                   <View style={[styles.toolIcon, { backgroundColor: "#DBEAFE" }]}>
-                    <Text style={styles.toolIconText}>提</Text>
+                    <FontAwesome6 name="link" size={24} color="#3B82F6" />
                   </View>
                   <Text style={styles.toolTitle}>链接提取</Text>
                   <Text style={styles.toolDesc}>从链接获取文案</Text>
@@ -640,39 +640,36 @@ export default function HomeScreen() {
               <View style={styles.quotaList}>
                 <View style={styles.quotaItem}>
                   <View style={[styles.quotaIcon, { backgroundColor: "#FEF3C7" }]}>
-                    <Text style={styles.quotaIconText}>IMG</Text>
+                    <FontAwesome6 name="image" size={18} color="#D97706" />
                   </View>
                   <View style={styles.quotaInfo}>
                     <Text style={styles.quotaLabel}>图片</Text>
                     <Text style={styles.quotaValue}>
-                      {remainingImages} / {LIMITS.images.maxPerDay}
+                      {remainingImages}/{LIMITS.images.maxPerDay}
                     </Text>
                   </View>
-                  <Text style={styles.quotaBatch}>每次{LIMITS.images.perBatch}张</Text>
                 </View>
                 <View style={styles.quotaItem}>
                   <View style={[styles.quotaIcon, { backgroundColor: "#DBEAFE" }]}>
-                    <Text style={styles.quotaIconText}>TXT</Text>
+                    <FontAwesome6 name="file-lines" size={18} color="#3B82F6" />
                   </View>
                   <View style={styles.quotaInfo}>
                     <Text style={styles.quotaLabel}>文案</Text>
                     <Text style={styles.quotaValue}>
-                      {remainingTexts} / {LIMITS.texts.maxPerDay}
+                      {remainingTexts}/{LIMITS.texts.maxPerDay}
                     </Text>
                   </View>
-                  <Text style={styles.quotaBatch}>每次{LIMITS.texts.perBatch}条</Text>
                 </View>
                 <View style={styles.quotaItem}>
                   <View style={[styles.quotaIcon, { backgroundColor: "#DCFCE7" }]}>
-                    <Text style={styles.quotaIconText}>VID</Text>
+                    <FontAwesome6 name="video" size={18} color="#10B981" />
                   </View>
                   <View style={styles.quotaInfo}>
-                    <Text style={styles.quotaLabel}>视频（5秒）</Text>
+                    <Text style={styles.quotaLabel}>视频</Text>
                     <Text style={styles.quotaValue}>
-                      {remainingVideoEdits} / 10
+                      {remainingVideoEdits}/10
                     </Text>
                   </View>
-                  <Text style={styles.quotaBatch}>免费编辑</Text>
                 </View>
               </View>
             </View>
@@ -810,13 +807,13 @@ export default function HomeScreen() {
               }}
             >
               <View style={styles.freeCodeIcon}>
-                <Text style={styles.freeCodeIconText}>VIP</Text>
+                <FontAwesome6 name="crown" size={22} color="#F59E0B" />
               </View>
               <View style={styles.freeCodeContent}>
                 <Text style={styles.freeCodeTitle}>领取免费会员</Text>
                 <Text style={styles.freeCodeDesc}>获取1个月/季度/半年/年度会员</Text>
               </View>
-              <Text style={styles.freeCodeArrow}>{">"}</Text>
+              <FontAwesome6 name="chevron-right" size={18} color="#CBD5E1" />
             </TouchableOpacity>
           )}
 
@@ -1075,54 +1072,77 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F8FAFC",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  headerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    backgroundColor: "#4F46E5",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   avatarContainer: {
     position: "relative",
-    marginRight: 16,
+    marginRight: 14,
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 3,
-    borderColor: "#4F46E5",
+    borderColor: "#FFFFFF",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   avatarBadge: {
     position: "absolute",
-    bottom: -4,
-    right: -4,
+    bottom: -2,
+    right: -2,
     backgroundColor: "#4F46E5",
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
     borderWidth: 2,
     borderColor: "#FFFFFF",
   },
   badgeText: {
     color: "#FFFFFF",
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "bold",
   },
   headerText: {
-    flex: 1,
+    flexShrink: 1,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "700",
     color: "#1F2937",
-    marginBottom: 4,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6B7280",
+    marginTop: 2,
   },
   headerLeft: {
     flexDirection: "row",
@@ -1132,119 +1152,197 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   historyButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#F3F4F6",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
-  },
-  historyIcon: {
-    fontSize: 20,
-    color: "#4B5563",
   },
   mainContent: {
     paddingHorizontal: 20,
+    paddingTop: 20,
   },
   inputCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 20,
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
-    color: "#374151",
-    marginBottom: 12,
+    color: "#1F2937",
+    marginBottom: 14,
   },
   input: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
     padding: 16,
-    fontSize: 16,
+    fontSize: 15,
     color: "#1F2937",
     minHeight: 100,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#F1F5F9",
   },
   errorText: {
     color: "#EF4444",
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 8,
+  },
+  toolsSection: {
+    marginBottom: 20,
+  },
+  toolsSectionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 14,
+  },
+  toolsGrid: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  toolCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    padding: 18,
+    borderRadius: 20,
+    alignItems: "center",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  toolIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  toolTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  toolDesc: {
+    fontSize: 12,
+    color: "#9CA3AF",
+  },
+  generateButton: {
+    backgroundColor: "#4F46E5",
+    borderRadius: 20,
+    paddingVertical: 18,
+    alignItems: "center",
+    marginBottom: 24,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  generateButtonDisabled: {
+    backgroundColor: "#CBD5E1",
+    shadowOpacity: 0.1,
+  },
+  generateButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  generateButtonSubtext: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  loadingText: {
+    color: "#FFFFFF",
+    fontSize: 15,
   },
   quotaCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 20,
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
   },
   quotaTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
-    color: "#374151",
+    color: "#1F2937",
     marginBottom: 16,
   },
   quotaList: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 12,
   },
   quotaItem: {
-    flexDirection: "row",
+    flex: 1,
     alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderRadius: 16,
   },
   quotaIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
-  },
-  quotaIconText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#374151",
+    marginBottom: 8,
   },
   quotaInfo: {
-    flex: 1,
+    alignItems: "center",
   },
   quotaLabel: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#1F2937",
   },
   quotaValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#6B7280",
     marginTop: 2,
   },
   quotaBatch: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#9CA3AF",
+    marginTop: 4,
   },
   durationCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 20,
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
   },
   durationHeader: {
     flexDirection: "row",
@@ -1254,9 +1352,9 @@ const styles = StyleSheet.create({
   },
   quotaBadge: {
     backgroundColor: "#DCFCE7",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   quotaBadgeText: {
     color: "#10B981",
@@ -1270,25 +1368,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
+    borderColor: "#F1F5F9",
     backgroundColor: "#FAFAFA",
   },
   durationOptionSelected: {
     backgroundColor: "#FFFFFF",
+    borderColor: "#E0E7FF",
   },
   durationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: 12,
   },
   durationInfo: {
     flex: 1,
   },
   durationLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#1F2937",
   },
@@ -1298,7 +1397,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   durationDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#9CA3AF",
     marginLeft: 8,
   },
@@ -1310,80 +1409,52 @@ const styles = StyleSheet.create({
   },
   checkmarkText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
-  },
-  generateButton: {
-    backgroundColor: "#4F46E5",
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: "center",
-    marginBottom: 24,
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  generateButtonDisabled: {
-    backgroundColor: "#9CA3AF",
-    shadowOpacity: 0.1,
-  },
-  generateButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  generateButtonSubtext: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  loadingText: {
-    color: "#FFFFFF",
-    fontSize: 14,
   },
   quickIdeas: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   templatesHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   quickIdeasTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     color: "#374151",
   },
   moreLink: {
     fontSize: 13,
     color: "#4F46E5",
+    fontWeight: "500",
   },
   templateCategories: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   categoryChip: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
     marginRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    gap: 6,
+    borderColor: "#F1F5F9",
   },
   categoryChipActive: {
     backgroundColor: "#4F46E5",
     borderColor: "#4F46E5",
+    shadowColor: "#4F46E5",
+    shadowOpacity: 0.2,
   },
   categoryText: {
     fontSize: 13,
@@ -1400,63 +1471,20 @@ const styles = StyleSheet.create({
   },
   quickIdeaChip: {
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#F1F5F9",
   },
   quickIdeaText: {
     color: "#4B5563",
     fontSize: 14,
-  },
-  toolsSection: {
-    marginBottom: 20,
-  },
-  toolsSectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 12,
-  },
-  toolsGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  toolCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  toolIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  toolIconText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#4F46E5",
-  },
-  toolTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 4,
-  },
-  toolDesc: {
-    fontSize: 12,
-    color: "#9CA3AF",
   },
   tips: {
     paddingHorizontal: 20,
@@ -1469,42 +1497,51 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tipsList: {
-    gap: 8,
+    gap: 10,
   },
   tipItem: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
   },
   tipDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 8,
+    marginRight: 10,
   },
   tipText: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: "#6B7280",
+    flex: 1,
   },
   // User Area
   userArea: {
     marginLeft: "auto",
   },
   userButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "#EEF2FF",
   },
   usernameText: {
     fontSize: 14,
     color: "#4F46E5",
-    fontWeight: "500",
+    fontWeight: "600",
   },
   loginButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: "#4F46E5",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   loginButtonText: {
     color: "#FFFFFF",
@@ -1513,9 +1550,13 @@ const styles = StyleSheet.create({
   },
   vipBadge: {
     backgroundColor: "#F59E0B",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    shadowColor: "#F59E0B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   vipBadgeText: {
     color: "#FFFFFF",
@@ -1529,27 +1570,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     marginHorizontal: 20,
     marginBottom: 20,
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 20,
     shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 3,
   },
   freeCodeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: "#FEF3C7",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
-  },
-  freeCodeIconText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#F59E0B",
+    marginRight: 14,
   },
   freeCodeContent: {
     flex: 1,
@@ -1561,20 +1597,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   freeCodeDesc: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#6B7280",
   },
-  freeCodeArrow: {
-    fontSize: 18,
-    color: "#9CA3AF",
-  },
   permanentVipBanner: {
-    backgroundColor: "#F59E0B",
+    experimental_backgroundImage: "linear-gradient(135deg, #F59E0B, #FBBF24)",
     marginHorizontal: 20,
     marginBottom: 20,
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 20,
     alignItems: "center",
+    shadowColor: "#F59E0B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5,
   },
   permanentVipText: {
     fontSize: 16,
@@ -1588,13 +1625,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginHorizontal: 20,
     marginBottom: 20,
-    padding: 16,
+    padding: 18,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 3,
   },
   pointsDisplay: {
@@ -1602,21 +1639,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   pointsText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#4F46E5",
     marginRight: 12,
   },
   buyText: {
-    fontSize: 14,
-    color: "#6B7280",
-    textDecorationLine: "underline",
+    fontSize: 13,
+    color: "#9CA3AF",
   },
   checkinButton: {
     backgroundColor: "#4F46E5",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 24,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   checkinText: {
     fontSize: 14,
@@ -1630,14 +1670,14 @@ const styles = StyleSheet.create({
     left: "50%",
     transform: [{ translateX: -75 }, { translateY: -20 }],
     backgroundColor: "rgba(79, 70, 229, 0.95)",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 16,
     borderRadius: 24,
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
   checkinToastText: {
     fontSize: 16,
@@ -1648,21 +1688,21 @@ const styles = StyleSheet.create({
   giftToggle: {
     flexDirection: "row",
     marginBottom: 20,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 16,
     padding: 4,
   },
   giftOption: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: 12,
   },
   giftOptionActive: {
     backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
   },

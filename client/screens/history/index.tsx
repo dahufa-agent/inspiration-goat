@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Image } from "expo-image"; // 高性能图片组件
+import { FontAwesome6 } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter } from "@/hooks/useSafeRouter";
 import * as SecureStore from "expo-secure-store";
@@ -69,11 +70,11 @@ const HistoryCard = memo(({
           />
         ) : item.videoUrl ? (
           <View style={styles.videoPlaceholder}>
-            <Text style={styles.playIcon}>{">"}</Text>
+            <FontAwesome6 name="play" size={28} color="#FFFFFF" />
           </View>
         ) : (
           <View style={styles.textPlaceholder}>
-            <Text style={styles.textIcon}>Aa</Text>
+            <FontAwesome6 name="font" size={24} color="#9CA3AF" />
           </View>
         )}
         
@@ -86,7 +87,7 @@ const HistoryCard = memo(({
           )}
           {item.videoUrl && (
             <View style={[styles.badge, { backgroundColor: "#EF4444" }]}>
-              <Text style={styles.badgeText}>视频</Text>
+              <FontAwesome6 name="video" size={10} color="#FFFFFF" />
             </View>
           )}
         </View>
@@ -108,15 +109,17 @@ const HistoryCard = memo(({
           style={styles.actionButton} 
           onPress={onToggleFavorite}
         >
-          <Text style={styles.actionIcon}>
-            {item.isFavorite ? "[*]" : "[ ]"}
-          </Text>
+          <FontAwesome6 
+            name={item.isFavorite ? "heart" : "heart"} 
+            size={16} 
+            color={item.isFavorite ? "#EF4444" : "#9CA3AF"} 
+          />
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.actionButton} 
           onPress={onDelete}
         >
-          <Text style={styles.actionIcon}>[x]</Text>
+          <FontAwesome6 name="trash" size={16} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -290,7 +293,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F8FAFC",
   },
   header: {
     flexDirection: "row",
@@ -299,17 +302,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   backButton: {
     width: 60,
+    flexDirection: "row",
+    alignItems: "center",
   },
   backText: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#4F46E5",
+    fontWeight: "500",
   },
   title: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: "#1F2937",
   },
   placeholder: {
@@ -317,30 +331,34 @@ const styles = StyleSheet.create({
   },
   filterTabs: {
     flexDirection: "row",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    marginTop: 16,
     marginBottom: 16,
-    gap: 8,
+    gap: 10,
   },
   filterTab: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    gap: 4,
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+    gap: 6,
   },
   filterTabActive: {
     backgroundColor: "#4F46E5",
-    borderColor: "#4F46E5",
   },
   filterText: {
     fontSize: 13,
     color: "#6B7280",
+    fontWeight: "500",
   },
   filterTextActive: {
     color: "#FFFFFF",
@@ -349,14 +367,14 @@ const styles = StyleSheet.create({
   filterCount: {
     fontSize: 11,
     color: "#9CA3AF",
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   filterCountActive: {
     color: "#FFFFFF",
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.25)",
   },
   listContainer: {
     flex: 1,
@@ -376,8 +394,8 @@ const styles = StyleSheet.create({
   },
   emptyIcon: {
     fontSize: 64,
-    marginBottom: 16,
-    color: "#D1D5DB",
+    marginBottom: 20,
+    color: "#E2E8F0",
   },
   emptyTitle: {
     fontSize: 18,
@@ -389,13 +407,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#9CA3AF",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 28,
   },
   emptyButton: {
     backgroundColor: "#4F46E5",
     paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 20,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emptyButtonText: {
     color: "#FFFFFF",
@@ -406,18 +429,18 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   cardMedia: {
     width: "100%",
     height: CARD_WIDTH * 0.75,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F1F5F9",
     position: "relative",
   },
   thumbnail: {
@@ -430,44 +453,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#1F2937",
   },
-  playIcon: {
-    fontSize: 32,
-    color: "#FFFFFF",
-  },
   textPlaceholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  textIcon: {
-    fontSize: 32,
-    color: "#9CA3AF",
   },
   badges: {
     position: "absolute",
     top: 8,
     left: 8,
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
   },
   badge: {
-    backgroundColor: "#4F46E5",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: "rgba(79, 70, 229, 0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   badgeText: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   cardInfo: {
-    padding: 12,
+    padding: 14,
   },
   cardPrompt: {
     fontSize: 13,
     color: "#1F2937",
-    lineHeight: 18,
+    lineHeight: 19,
     marginBottom: 8,
   },
   cardMeta: {
@@ -475,21 +493,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardDate: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#9CA3AF",
   },
   cardActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     paddingHorizontal: 12,
-    paddingBottom: 8,
-    gap: 12,
+    paddingBottom: 12,
+    gap: 14,
   },
   actionButton: {
-    padding: 4,
-  },
-  actionIcon: {
-    fontSize: 16,
-    color: "#6B7280",
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
