@@ -2037,11 +2037,44 @@ function sanitizeImagePrompt(prompt: string): { sanitized: string; reasons: stri
 }
 
 /**
- * 提示词脱敏函数 - 用于文案生成（不做处理，直接返回）
+ * 提示词脱敏函数 - 用于文案生成（自动替换敏感词）
  */
 function sanitizePrompt(prompt: string): { sanitized: string; reasons: string[] } {
-  // 直接返回原始内容，不做任何脱敏处理（文案生成不受限）
-  return { sanitized: prompt, reasons: [] };
+  let sanitized = prompt;
+  const reasons: string[] = [];
+  
+  // 敏感词映射表（用于文案生成）
+  const sensitiveWordMap: { [key: string]: string } = {
+    // 政治敏感人物
+    '特朗普': '创意人物',
+    'Trump': '创意人物',
+    '川普': '创意人物',
+    '拜登': '长者',
+    'Biden': '长者',
+    '奥巴马': '绅士',
+    'Obama': '绅士',
+    '小布什': '男士',
+    '布什': '男士',
+    // 敏感内容
+    '裸体': '优雅',
+    '色情': '美好',
+    '赌博': '娱乐',
+    '暴力': '和平',
+    '血腥': '清新',
+    '毒品': '健康',
+    '自杀': '积极',
+    '政治': '创意',
+  };
+  
+  for (const [sensitiveWord, replacement] of Object.entries(sensitiveWordMap)) {
+    const regex = new RegExp(sensitiveWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    if (regex.test(sanitized)) {
+      sanitized = sanitized.replace(regex, replacement);
+      reasons.push(`"${sensitiveWord}"已替换为"${replacement}"`);
+    }
+  }
+  
+  return { sanitized, reasons };
 }
 
 /**
