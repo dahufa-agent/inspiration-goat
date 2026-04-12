@@ -514,23 +514,10 @@ export default function EditScreen() {
                       <Text style={styles.selectedBadgeText}>{selectedImageIndex + 1}</Text>
                     </View>
                   )}
-                  <TouchableOpacity
-                    style={styles.imageRefreshBtn}
-                    onPress={() => regenerateSingleImage(index)}
-                    disabled={loadingImage}
-                  >
-                    <Text style={styles.imageRefreshText}>R</Text>
-                  </TouchableOpacity>
-                  {/* 保存图标 */}
-                  <TouchableOpacity
-                    style={styles.imageSaveBtn}
-                    onPress={() => saveImageToGallery(url, `灵感山羊_图片${index + 1}_${Date.now()}.png`)}
-                  >
-                    <Text style={styles.imageSaveText}>↓</Text>
-                  </TouchableOpacity>
                 </TouchableOpacity>
               ))}
             </View>
+            <Text style={styles.imageHint}>长按图片可保存到相册</Text>
           </View>
 
           {/* Texts Section */}
@@ -669,33 +656,33 @@ export default function EditScreen() {
             </TouchableOpacity>
 
             {videoUrl ? (
-              <TouchableOpacity 
-                style={styles.videoContainer}
-                onLongPress={() => handleLongPressVideo(videoUrl)}
-                delayLongPress={500}
-              >
-                <Video
-                  ref={videoRef}
-                  source={{ uri: videoUrl }}
-                  style={styles.video}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                  isLooping
-                />
-                <View style={styles.videoSaveOverlay}>
-                  <TouchableOpacity 
-                    style={styles.videoSaveBtn}
-                    onPress={() => saveVideoToGallery(videoUrl, `灵感山羊_视频_${Date.now()}.mp4`)}
-                    disabled={savingVideo}
-                  >
-                    {savingVideo ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={styles.videoSaveText}>保存视频</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity 
+                  style={styles.videoContainer}
+                  onLongPress={() => handleLongPressVideo(videoUrl)}
+                  delayLongPress={500}
+                >
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: videoUrl }}
+                    style={styles.video}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                    isLooping
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.videoSaveButtonBelow}
+                  onPress={() => saveVideoToGallery(videoUrl, `灵感山羊_视频_${Date.now()}.mp4`)}
+                  disabled={savingVideo}
+                >
+                  {savingVideo ? (
+                    <ActivityIndicator color="#4F46E5" size="small" />
+                  ) : (
+                    <Text style={styles.videoSaveTextBelow}>保存视频</Text>
+                  )}
+                </TouchableOpacity>
+              </>
             ) : lastFrameUrl ? (
               <TouchableOpacity 
                 style={styles.mainImageContainer}
@@ -890,6 +877,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
   },
+  imageHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
+  },
   imageGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -969,6 +962,20 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 200,
     backgroundColor: "#000",
+  },
+  videoSaveButtonBelow: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
+  },
+  videoSaveTextBelow: {
+    color: "#4F46E5",
+    fontSize: 14,
+    fontWeight: "600",
   },
   videoSaveOverlay: {
     position: "absolute",
