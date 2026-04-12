@@ -299,7 +299,7 @@ export default function HomeScreen() {
             <View style={styles.quickIdeas}>
               <Text style={styles.quickIdeasTitle}>试试这些灵感</Text>
               <View style={styles.quickIdeasList}>
-                {["海边日落", "森林小路", "城市夜景", "星空银河"].map((item) => (
+                {["海边日落", "森林小路", "城市夜景", "星空银河", "美食探店", "旅行风光"].map((item) => (
                   <TouchableOpacity
                     key={item}
                     style={styles.quickIdeaChip}
