@@ -5,6 +5,7 @@ import {
   ImageGenerationClient,
   VideoGenerationClient,
   LLMClient,
+  FetchClient,
   Config,
   HeaderUtils,
 } from "coze-coding-dev-sdk";
@@ -887,6 +888,235 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
   } catch (error) {
     console.error("Video regenerate error:", error);
     res.status(500).json({ error: "Video generation failed" });
+  }
+});
+
+/**
+ * 内容润色
+ * POST /api/v1/content/polish
+ */
+app.post("/api/v1/content/polish", async (req: Request, res: Response) => {
+  try {
+    const { content, polishStyle } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({ error: "内容不能为空" });
+    }
+
+    const customHeaders = HeaderUtils.extractForwardHeaders(
+      req.headers as Record<string, string>
+    );
+    const config = new Config();
+    const llmClient = new LLMClient(config, customHeaders);
+
+    // 根据润色风格选择不同的提示词
+    let stylePrompt = '';
+    switch (polishStyle) {
+      case 'formal':
+        stylePrompt = '请将以下文案改写成正式、专业的风格，适合商务场景使用。保持原意，但用词更加规范、正式。';
+        break;
+      case 'casual':
+        stylePrompt = '请将以下文案改写成轻松、活泼的风格，适合社交媒体和日常分享。保持原意，但语气更加亲切自然。';
+        break;
+      case 'creative':
+        stylePrompt = '请将以下文案进行创意润色，增加文案的艺术感和吸引力，让语言更加生动有感染力。';
+        break;
+      case 'short':
+        stylePrompt = '请将以下文案精简压缩，保留核心信息，去除冗余表达，使文案更加简洁有力。';
+        break;
+      default:
+        stylePrompt = '请对以下文案进行润色优化，提升文案质量和可读性，保持原意但表达更加流畅优美。';
+    }
+
+    const messages: Message[] = [
+      { 
+        role: "system" as const, 
+        content: `你是一位资深文案编辑，擅长各种文风的文案润色和优化。\n请直接输出润色后的文案内容，不要添加任何说明或注释。` 
+      },
+      { 
+        role: "user" as const, 
+        content: `${stylePrompt}\n\n原始文案：\n${content}` 
+      },
+    ];
+
+    const response = await llmClient.invoke(messages, {
+      model: "doubao-seed-2-0-lite-260215",
+      temperature: 0.7,
+    });
+
+    if (response.content) {
+      res.json({ 
+        polished: response.content.trim(),
+        original: content,
+        style: polishStyle || 'default',
+      });
+    } else {
+      res.status(500).json({ error: "润色失败" });
+    }
+  } catch (error) {
+    console.error("Content polish error:", error);
+    res.status(500).json({ error: "润色失败" });
+  }
+});
+
+/**
+ * 从链接提取文案
+ * POST /api/v1/content/extract-from-url
+ */
+app.post("/api/v1/content/extract-from-url", async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ error: "链接不能为空" });
+    }
+
+    // 验证 URL 格式
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({ error: "链接格式不正确" });
+    }
+
+    const customHeaders = HeaderUtils.extractForwardHeaders(
+      req.headers as Record<string, string>
+    );
+    const config = new Config();
+    const fetchClient = new FetchClient(config, customHeaders);
+
+    const response = await fetchClient.fetch(url);
+
+    if (response.status_code !== 0) {
+      return res.status(500).json({ 
+        error: "获取链接内容失败", 
+        statusMessage: response.status_message 
+      });
+    }
+
+    // 提取文本内容
+    const textContent = response.content
+      .filter(item => item.type === 'text')
+      .map(item => item.text)
+      .join('\n');
+
+    // 提取图片链接
+    const images = response.content
+      .filter(item => item.type === 'image')
+      .map(item => ({
+        url: item.image?.display_url || item.image?.image_url,
+        width: item.image?.width,
+        height: item.image?.height,
+      }));
+
+    res.json({
+      title: response.title || '',
+      content: textContent,
+      images,
+      sourceUrl: response.url || url,
+      publishTime: response.publish_time,
+    });
+  } catch (error) {
+    console.error("URL extract error:", error);
+    res.status(500).json({ error: "获取链接内容失败" });
+  }
+});
+
+/**
+ * 从链接提取文案并润色
+ * POST /api/v1/content/extract-and-polish
+ */
+app.post("/api/v1/content/extract-and-polish", async (req: Request, res: Response) => {
+  try {
+    const { url, polishStyle } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ error: "链接不能为空" });
+    }
+
+    // 先提取内容
+    const customHeaders = HeaderUtils.extractForwardHeaders(
+      req.headers as Record<string, string>
+    );
+    const config = new Config();
+    const fetchClient = new FetchClient(config, customHeaders);
+
+    const response = await fetchClient.fetch(url);
+
+    if (response.status_code !== 0) {
+      return res.status(500).json({ 
+        error: "获取链接内容失败", 
+        statusMessage: response.status_message 
+      });
+    }
+
+    // 提取文本内容
+    const originalContent = response.content
+      .filter(item => item.type === 'text')
+      .map(item => item.text)
+      .join('\n');
+
+    if (!originalContent) {
+      return res.status(400).json({ error: "该链接没有可提取的文本内容" });
+    }
+
+    // 润色内容
+    const llmClient = new LLMClient(config, customHeaders);
+    
+    let stylePrompt = '';
+    switch (polishStyle) {
+      case 'formal':
+        stylePrompt = '请将以下文案改写成正式、专业的风格，适合商务场景使用。保持原意，但用词更加规范、正式。';
+        break;
+      case 'casual':
+        stylePrompt = '请将以下文案改写成轻松、活泼的风格，适合社交媒体和日常分享。保持原意，但语气更加亲切自然。';
+        break;
+      case 'creative':
+        stylePrompt = '请将以下文案进行创意润色，增加文案的艺术感和吸引力，让语言更加生动有感染力。';
+        break;
+      case 'short':
+        stylePrompt = '请将以下文案精简压缩，保留核心信息，去除冗余表达，使文案更加简洁有力。';
+        break;
+      default:
+        stylePrompt = '请对以下文案进行润色优化，提升文案质量和可读性，保持原意但表达更加流畅优美。';
+    }
+
+    const messages: Message[] = [
+      { 
+        role: "system" as const, 
+        content: `你是一位资深文案编辑，擅长各种文风的文案润色和优化。\n请直接输出润色后的文案内容，不要添加任何说明或注释。` 
+      },
+      { 
+        role: "user" as const, 
+        content: `${stylePrompt}\n\n原始文案：\n${originalContent}` 
+      },
+    ];
+
+    const llmResponse = await llmClient.invoke(messages, {
+      model: "doubao-seed-2-0-lite-260215",
+      temperature: 0.7,
+    });
+
+    // 提取图片链接
+    const images = response.content
+      .filter(item => item.type === 'image')
+      .map(item => ({
+        url: item.image?.display_url || item.image?.image_url,
+        width: item.image?.width,
+        height: item.image?.height,
+      }));
+
+    res.json({
+      title: response.title || '',
+      original: originalContent,
+      polished: llmResponse.content?.trim() || '',
+      images,
+      sourceUrl: response.url || url,
+      publishTime: response.publish_time,
+      style: polishStyle || 'default',
+    });
+  } catch (error) {
+    console.error("Extract and polish error:", error);
+    res.status(500).json({ error: "提取并润色失败" });
   }
 });
 

@@ -598,6 +598,33 @@ export default function HomeScreen() {
                 ))}
               </View>
             </View>
+
+            {/* Content Tools */}
+            <View style={styles.toolsSection}>
+              <Text style={styles.toolsSectionTitle}>文案工具</Text>
+              <View style={styles.toolsGrid}>
+                <TouchableOpacity
+                  style={styles.toolCard}
+                  onPress={() => router.push("/polish")}
+                >
+                  <View style={[styles.toolIcon, { backgroundColor: "#EDE9FE" }]}>
+                    <Text style={styles.toolIconText}>润</Text>
+                  </View>
+                  <Text style={styles.toolTitle}>内容润色</Text>
+                  <Text style={styles.toolDesc}>一键优化文案</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.toolCard}
+                  onPress={() => router.push("/extract")}
+                >
+                  <View style={[styles.toolIcon, { backgroundColor: "#DBEAFE" }]}>
+                    <Text style={styles.toolIconText}>提</Text>
+                  </View>
+                  <Text style={styles.toolTitle}>链接提取</Text>
+                  <Text style={styles.toolDesc}>从链接获取文案</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
           {/* Bottom Tips */}
@@ -1171,6 +1198,54 @@ const styles = StyleSheet.create({
   quickIdeaText: {
     color: "#4B5563",
     fontSize: 14,
+  },
+  toolsSection: {
+    marginBottom: 20,
+  },
+  toolsSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 12,
+  },
+  toolsGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  toolCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  toolIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  toolIconText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#4F46E5",
+  },
+  toolTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  toolDesc: {
+    fontSize: 12,
+    color: "#9CA3AF",
   },
   tips: {
     paddingHorizontal: 20,
