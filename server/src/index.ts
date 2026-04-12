@@ -18,10 +18,109 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// 视频时长配置
+const VIDEO_DURATIONS = {
+  free: { duration: 5, label: "5秒内", price: "免费", maxPerDay: 3 },
+  standard: { duration: 8, label: "6-8秒", price: "标准收费", maxPerDay: -1 },
+  premium: { duration: 12, label: "9-12秒", price: "高级收费", maxPerDay: -1 },
+} as const;
+
+// 内存中的每日编辑计数（生产环境应使用数据库）
+const dailyEditCounts: Record<string, { date: string; count: number }> = {};
+
+/**
+ * 获取今天的日期字符串
+ */
+function getTodayKey(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+/**
+ * 检查并更新每日编辑次数
+ * @param deviceId 设备标识
+ * @param duration 视频时长
+ * @returns 是否允许编辑
+ */
+function checkAndIncrementEditCount(deviceId: string, duration: number): { allowed: boolean; remaining: number; isFree: boolean } {
+  const today = getTodayKey();
+  const record = dailyEditCounts[deviceId] || { date: today, count: 0 };
+  
+  // 新的一天，重置计数
+  if (record.date !== today) {
+    dailyEditCounts[deviceId] = { date: today, count: 0 };
+  }
+  
+  const isFree = duration <= 5;
+  
+  // 5秒内免费视频，每日限制3次
+  if (isFree) {
+    const remaining = 3 - record.count;
+    if (remaining > 0) {
+      dailyEditCounts[deviceId].count += 1;
+      return { allowed: true, remaining: remaining - 1, isFree: true };
+    }
+    return { allowed: false, remaining: 0, isFree: true };
+  }
+  
+  // 收费视频不限制
+  return { allowed: true, remaining: -1, isFree: false };
+}
+
+/**
+ * 获取每日编辑剩余次数
+ */
+function getRemainingEdits(deviceId: string): { remaining: number; isFree: boolean; resetDate: string } {
+  const today = getTodayKey();
+  const record = dailyEditCounts[deviceId] || { date: today, count: 0 };
+  
+  if (record.date !== today) {
+    return { remaining: 3, isFree: true, resetDate: today };
+  }
+  
+  return { remaining: Math.max(0, 3 - record.count), isFree: true, resetDate: today };
+}
+
 // Health check
 app.get("/api/v1/health", (req, res) => {
   console.log("Health check success");
   res.status(200).json({ status: "ok" });
+});
+
+/**
+ * 获取视频时长选项
+ * GET /api/v1/video/durations
+ */
+app.get("/api/v1/video/durations", (req, res) => {
+  const deviceId = (req.headers["x-device-id"] as string) || "default";
+  const remaining = getRemainingEdits(deviceId);
+  
+  res.json({
+    durations: [
+      {
+        type: "free",
+        duration: VIDEO_DURATIONS.free.duration,
+        label: VIDEO_DURATIONS.free.label,
+        price: VIDEO_DURATIONS.free.price,
+        description: `每日可编辑${VIDEO_DURATIONS.free.maxPerDay}次`,
+        remainingEdits: remaining.remaining,
+      },
+      {
+        type: "standard",
+        duration: VIDEO_DURATIONS.standard.duration,
+        label: VIDEO_DURATIONS.standard.label,
+        price: VIDEO_DURATIONS.standard.price,
+        description: "标准时长，适合大多数场景",
+      },
+      {
+        type: "premium",
+        duration: VIDEO_DURATIONS.premium.duration,
+        label: VIDEO_DURATIONS.premium.label,
+        price: VIDEO_DURATIONS.premium.price,
+        description: "超长时长，电影级效果",
+      },
+    ],
+    remainingFreeEdits: remaining.remaining,
+  });
 });
 
 /**
@@ -101,15 +200,33 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
 });
 
 /**
- * 生成视频
+ * 生成视频（支持不同时长）
  * POST /api/v1/generate/video
- * Body: { prompt: string, imageUrl?: string }
+ * Body: { prompt: string, imageUrl?: string, durationType?: "free" | "standard" | "premium" }
  */
 app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
   try {
-    const { prompt, imageUrl } = req.body;
+    const { prompt, imageUrl, durationType = "free" } = req.body;
+    const deviceId = (req.headers["x-device-id"] as string) || "default";
+    
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
+    }
+
+    // 获取视频时长
+    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
+    const duration = durationConfig.duration;
+
+    // 检查编辑次数限制（仅免费视频限制）
+    if (duration <= 5) {
+      const check = checkAndIncrementEditCount(deviceId, duration);
+      if (!check.allowed) {
+        return res.status(403).json({
+          error: "今日免费编辑次数已用完",
+          remainingEdits: 0,
+          message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
+        });
+      }
     }
 
     const customHeaders = HeaderUtils.extractForwardHeaders(
@@ -136,7 +253,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
 
     const response = await client.videoGeneration(contentItems, {
       model: "doubao-seedance-1-5-pro-251215",
-      duration: 5,
+      duration,
       ratio: "9:16",
       resolution: "720p",
       watermark: false,
@@ -144,9 +261,16 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     });
 
     if (response.videoUrl) {
+      // 获取剩余编辑次数
+      const remaining = getRemainingEdits(deviceId);
+      
       res.json({
         videoUrl: response.videoUrl,
         lastFrameUrl: response.lastFrameUrl,
+        duration,
+        durationType,
+        isFree: duration <= 5,
+        remainingFreeEdits: remaining.remaining,
       });
     } else {
       res.status(500).json({ error: "Video generation failed" });
@@ -160,13 +284,31 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
 /**
  * 一键生成全部内容（图片+文案+视频）
  * POST /api/v1/generate/all
- * Body: { prompt: string }
+ * Body: { prompt: string, durationType?: "free" | "standard" | "premium" }
  */
 app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, durationType = "free" } = req.body;
+    const deviceId = (req.headers["x-device-id"] as string) || "default";
+    
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
+    }
+
+    // 获取视频时长
+    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
+    const duration = durationConfig.duration;
+
+    // 检查编辑次数限制（仅免费视频限制）
+    if (duration <= 5) {
+      const check = checkAndIncrementEditCount(deviceId, duration);
+      if (!check.allowed) {
+        return res.status(403).json({
+          error: "今日免费编辑次数已用完",
+          remainingEdits: 0,
+          message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
+        });
+      }
     }
 
     const customHeaders = HeaderUtils.extractForwardHeaders(
@@ -223,7 +365,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       ],
       {
         model: "doubao-seedance-1-5-pro-251215",
-        duration: 5,
+        duration,
         ratio: "9:16",
         resolution: "720p",
         watermark: false,
@@ -231,11 +373,18 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       }
     );
 
+    // 获取剩余编辑次数
+    const remaining = getRemainingEdits(deviceId);
+
     res.json({
       imageUrl,
       text: textResponse.content,
       videoUrl: videoResponse.videoUrl || null,
       lastFrameUrl: videoResponse.lastFrameUrl || null,
+      duration,
+      durationType,
+      isFree: duration <= 5,
+      remainingFreeEdits: remaining.remaining,
     });
   } catch (error) {
     console.error("Generate all error:", error);
@@ -246,17 +395,35 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
 /**
  * 重新生成视频（基于现有图片）
  * POST /api/v1/generate/video-regenerate
- * Body: { prompt: string, imageUrl: string }
+ * Body: { prompt: string, imageUrl: string, durationType?: "free" | "standard" | "premium" }
  */
 app.post(
   "/api/v1/generate/video-regenerate",
   async (req: Request, res: Response) => {
     try {
-      const { prompt, imageUrl } = req.body;
+      const { prompt, imageUrl, durationType = "free" } = req.body;
+      const deviceId = (req.headers["x-device-id"] as string) || "default";
+      
       if (!prompt || !imageUrl) {
         return res
           .status(400)
           .json({ error: "prompt and imageUrl are required" });
+      }
+
+      // 获取视频时长
+      const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
+      const duration = durationConfig.duration;
+
+      // 检查编辑次数限制（仅免费视频限制）
+      if (duration <= 5) {
+        const check = checkAndIncrementEditCount(deviceId, duration);
+        if (!check.allowed) {
+          return res.status(403).json({
+            error: "今日免费编辑次数已用完",
+            remainingEdits: 0,
+            message: "5秒内视频每日可编辑3次，请明天再来或选择更长时长"
+          });
+        }
       }
 
       const customHeaders = HeaderUtils.extractForwardHeaders(
@@ -276,7 +443,7 @@ app.post(
         ],
         {
           model: "doubao-seedance-1-5-pro-251215",
-          duration: 5,
+          duration,
           ratio: "9:16",
           resolution: "720p",
           watermark: false,
@@ -285,9 +452,16 @@ app.post(
       );
 
       if (response.videoUrl) {
+        // 获取剩余编辑次数
+        const remaining = getRemainingEdits(deviceId);
+        
         res.json({
           videoUrl: response.videoUrl,
           lastFrameUrl: response.lastFrameUrl,
+          duration,
+          durationType,
+          isFree: duration <= 5,
+          remainingFreeEdits: remaining.remaining,
         });
       } else {
         res.status(500).json({ error: "Video generation failed" });
@@ -298,6 +472,24 @@ app.post(
     }
   }
 );
+
+/**
+ * 获取剩余编辑次数
+ * GET /api/v1/user/remaining-edits
+ */
+app.get("/api/v1/user/remaining-edits", (req, res) => {
+  const deviceId = (req.headers["x-device-id"] as string) || "default";
+  const remaining = getRemainingEdits(deviceId);
+  
+  res.json({
+    remainingFreeEdits: remaining.remaining,
+    isFree: true,
+    resetDate: remaining.resetDate,
+    message: remaining.remaining > 0
+      ? `今日还可编辑${remaining.remaining}次`
+      : "今日免费编辑次数已用完，明天恢复",
+  });
+});
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Dimensions,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -16,9 +15,16 @@ import {
 import { Screen } from "@/components/Screen";
 import { useSafeRouter, useSafeSearchParams } from "@/hooks/useSafeRouter";
 import { Video, ResizeMode } from "expo-av";
+import * as SecureStore from "expo-secure-store";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
-const { width } = Dimensions.get("window");
+
+// 视频时长选项
+const DURATION_OPTIONS = [
+  { type: "free", duration: 5, label: "5秒内", price: "免费", color: "#10B981" },
+  { type: "standard", duration: 8, label: "6-8秒", price: "标准收费", color: "#F59E0B" },
+  { type: "premium", duration: 12, label: "9-12秒", price: "高级收费", color: "#8B5CF6" },
+];
 
 export default function EditScreen() {
   const router = useSafeRouter();
@@ -28,16 +34,34 @@ export default function EditScreen() {
     text: string;
     videoUrl: string;
     lastFrameUrl: string;
+    durationType: string;
+    remainingFreeEdits: number;
   }>();
 
   const [text, setText] = useState(params.text || "");
   const [imageUrl, setImageUrl] = useState(params.imageUrl || "");
   const [videoUrl, setVideoUrl] = useState(params.videoUrl || "");
   const [lastFrameUrl, setLastFrameUrl] = useState(params.lastFrameUrl || "");
+  const [selectedDuration, setSelectedDuration] = useState(params.durationType || "free");
+  const [remainingEdits, setRemainingEdits] = useState(params.remainingFreeEdits ?? 3);
   const [loadingImage, setLoadingImage] = useState(false);
   const [loadingText, setLoadingText] = useState(false);
   const [loadingVideo, setLoadingVideo] = useState(false);
+  const [deviceId, setDeviceId] = useState("");
   const videoRef = useRef<Video>(null);
+
+  // 获取设备ID
+  useEffect(() => {
+    const getDeviceId = async () => {
+      try {
+        const id = await SecureStore.getItemAsync("deviceId");
+        if (id) setDeviceId(id);
+      } catch (err) {
+        console.error("Device ID error:", err);
+      }
+    };
+    getDeviceId();
+  }, []);
 
   // 重新生成图片
   const regenerateImage = async () => {
@@ -85,17 +109,51 @@ export default function EditScreen() {
       Alert.alert("提示", "请先生成图片");
       return;
     }
+
+    // 检查免费视频编辑次数
+    if (selectedDuration === "free" && remainingEdits <= 0) {
+      Alert.alert(
+        "免费次数已用完",
+        "今日5秒内视频免费编辑次数已用完，请明天再来或选择更长时长",
+        [
+          { text: "选择更长时长", onPress: () => setSelectedDuration("standard") },
+          { text: "确定", style: "cancel" },
+        ]
+      );
+      return;
+    }
+
     setLoadingVideo(true);
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/video-regenerate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: params.idea, imageUrl }),
-      });
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/v1/generate/video-regenerate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-device-id": deviceId,
+          },
+          body: JSON.stringify({
+            prompt: params.idea,
+            imageUrl,
+            durationType: selectedDuration,
+          }),
+        }
+      );
+
       const data = await response.json();
-      if (data.videoUrl) {
+
+      if (response.ok && data.videoUrl) {
         setVideoUrl(data.videoUrl);
         setLastFrameUrl(data.lastFrameUrl || "");
+        if (data.remainingFreeEdits !== undefined) {
+          setRemainingEdits(data.remainingFreeEdits);
+        }
+      } else {
+        Alert.alert("错误", data.message || data.error || "视频生成失败");
+        if (data.remainingEdits !== undefined) {
+          setRemainingEdits(data.remainingEdits);
+        }
       }
     } catch (err) {
       Alert.alert("错误", "视频生成失败");
@@ -103,6 +161,10 @@ export default function EditScreen() {
       setLoadingVideo(false);
     }
   };
+
+  const selectedDurationInfo = DURATION_OPTIONS.find(
+    (o) => o.type === selectedDuration
+  ) || DURATION_OPTIONS[0];
 
   return (
     <Screen>
@@ -116,7 +178,10 @@ export default function EditScreen() {
             <Text style={styles.backText}>← 返回</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>编辑创作</Text>
-          <TouchableOpacity onPress={() => router.replace("/")} style={styles.newButton}>
+          <TouchableOpacity
+            onPress={() => router.replace("/")}
+            style={styles.newButton}
+          >
             <Text style={styles.newButtonText}>新建</Text>
           </TouchableOpacity>
         </View>
@@ -140,7 +205,11 @@ export default function EditScreen() {
             </View>
             {imageUrl ? (
               <View style={styles.imageContainer}>
-                <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
               </View>
             ) : (
               <View style={styles.placeholder}>
@@ -181,18 +250,64 @@ export default function EditScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>视频</Text>
-              <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={regenerateVideo}
-                disabled={loadingVideo}
-              >
-                {loadingVideo ? (
-                  <ActivityIndicator size="small" color="#4F46E5" />
-                ) : (
-                  <Text style={styles.regenerateText}>重新生成</Text>
-                )}
-              </TouchableOpacity>
+              {selectedDuration === "free" && (
+                <View style={styles.quotaBadge}>
+                  <Text style={styles.quotaText}>今日剩余 {remainingEdits} 次</Text>
+                </View>
+              )}
             </View>
+
+            {/* Duration Selector */}
+            <View style={styles.durationSelector}>
+              {DURATION_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.type}
+                  style={[
+                    styles.durationChip,
+                    selectedDuration === option.type && {
+                      backgroundColor: option.color,
+                      borderColor: option.color,
+                    },
+                  ]}
+                  onPress={() => setSelectedDuration(option.type)}
+                  disabled={loadingVideo}
+                >
+                  <Text
+                    style={[
+                      styles.durationChipText,
+                      selectedDuration === option.type && styles.durationChipTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {selectedDuration === "free" && remainingEdits <= 0 && (
+              <Text style={styles.quotaWarning}>
+                今日免费编辑次数已用完，请明天再来或选择付费时长
+              </Text>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.regenerateVideoButton,
+                (loadingVideo || (selectedDuration === "free" && remainingEdits <= 0)) &&
+                  styles.regenerateVideoButtonDisabled,
+              ]}
+              onPress={regenerateVideo}
+              disabled={loadingVideo || (selectedDuration === "free" && remainingEdits <= 0)}
+            >
+              {loadingVideo ? (
+                <ActivityIndicator color="#4F46E5" />
+              ) : (
+                <Text style={styles.regenerateVideoText}>
+                  重新生成 {selectedDurationInfo.duration}秒 视频
+                </Text>
+              )}
+            </TouchableOpacity>
+
             {videoUrl ? (
               <View style={styles.videoContainer}>
                 <Video
@@ -206,7 +321,11 @@ export default function EditScreen() {
               </View>
             ) : lastFrameUrl ? (
               <View style={styles.imageContainer}>
-                <Image source={{ uri: lastFrameUrl }} style={styles.image} resizeMode="cover" />
+                <Image
+                  source={{ uri: lastFrameUrl }}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
                 <View style={styles.videoProcessing}>
                   <ActivityIndicator color="#FFFFFF" />
                   <Text style={styles.videoProcessingText}>视频生成中...</Text>
@@ -298,6 +417,17 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1F2937",
   },
+  quotaBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  quotaText: {
+    color: "#10B981",
+    fontSize: 12,
+    fontWeight: "600",
+  },
   regenerateButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -367,6 +497,56 @@ const styles = StyleSheet.create({
     color: "#1F2937",
     lineHeight: 24,
     minHeight: 100,
+  },
+  durationSelector: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 12,
+  },
+  durationChip: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+  },
+  durationChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  durationChipTextSelected: {
+    color: "#FFFFFF",
+  },
+  quotaWarning: {
+    color: "#EF4444",
+    fontSize: 12,
+    marginBottom: 10,
+    backgroundColor: "#FEF2F2",
+    padding: 8,
+    borderRadius: 8,
+    textAlign: "center",
+  },
+  regenerateVideoButton: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#4F46E5",
+  },
+  regenerateVideoButtonDisabled: {
+    backgroundColor: "#F3F4F6",
+    borderColor: "#D1D5DB",
+  },
+  regenerateVideoText: {
+    color: "#4F46E5",
+    fontSize: 15,
+    fontWeight: "600",
   },
   ideaSection: {
     marginTop: 24,
