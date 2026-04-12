@@ -1195,13 +1195,16 @@ function hashPassword(password: string): string {
 app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
   try {
     const { phone, purpose } = req.body;
+    console.log(`[发送验证码] 收到请求: phone=${phone}, purpose=${purpose}`);
     
     if (!phone || !purpose) {
+      console.log(`[发送验证码] 参数缺失: phone=${phone}, purpose=${purpose}`);
       return res.status(400).json({ error: "手机号和用途不能为空" });
     }
 
     // 验证手机号格式
     if (!/^1\d{10}$/.test(phone)) {
+      console.log(`[发送验证码] 手机号格式错误: ${phone}`);
       return res.status(400).json({ error: "手机号格式不正确" });
     }
 
@@ -1210,15 +1213,20 @@ app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
     // 生成6位验证码
     const code = generateCode(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10分钟有效期
+    console.log(`[发送验证码] 生成验证码: ${phone} - ${code}`);
     
     // 标记旧验证码为已使用
-    await client.from('verification_codes')
+    const { error: updateError } = await client.from('verification_codes')
       .update({ is_used: true })
       .eq('phone', phone)
       .eq('purpose', purpose);
     
+    if (updateError) {
+      console.error(`[发送验证码] 更新旧验证码失败:`, updateError);
+    }
+    
     // 插入新验证码
-    const { error } = await client.from('verification_codes')
+    const { error: insertError } = await client.from('verification_codes')
       .insert({
         phone,
         code,
@@ -1226,10 +1234,13 @@ app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
         expires_at: expiresAt.toISOString(),
       });
     
-    if (error) throw error;
+    if (insertError) {
+      console.error(`[发送验证码] 插入验证码失败:`, insertError);
+      throw insertError;
+    }
     
     // 模拟发送验证码（实际应接入短信网关）
-    console.log(`[验证码] ${phone} - ${code} (${purpose})`);
+    console.log(`[验证码] ${phone} - ${code} (${purpose}) - 已保存到数据库`);
     
     res.json({ 
       success: true, 
@@ -1238,7 +1249,7 @@ app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
       code
     });
   } catch (error: any) {
-    console.error("Send code error:", error);
+    console.error("[发送验证码] 错误:", error);
     res.status(500).json({ error: "发送验证码失败" });
   }
 });

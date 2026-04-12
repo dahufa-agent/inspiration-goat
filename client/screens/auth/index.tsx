@@ -58,6 +58,13 @@ export default function AuthScreen() {
 
   // 发送验证码
   const handleSendCode = async () => {
+    console.log("[发送验证码] 开始执行, phone:", phone);
+    
+    if (!phone || phone.length !== 11) {
+      setError("请输入11位手机号");
+      return;
+    }
+    
     if (!/^1\d{10}$/.test(phone)) {
       setError("请输入正确的手机号");
       return;
@@ -67,7 +74,10 @@ export default function AuthScreen() {
     setError("");
     
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/auth/send-code`, {
+      const requestUrl = `${BACKEND_BASE_URL}/api/v1/auth/send-code`;
+      console.log("[发送验证码] 请求发送:", { phone, purpose: "register", url: requestUrl });
+      
+      const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -77,16 +87,30 @@ export default function AuthScreen() {
       });
       
       const data = await response.json();
+      console.log("[发送验证码] 响应:", { status: response.status, data });
       
-      if (response.ok) {
+      if (response.ok && data.success) {
         setCountdown(60);
         // 始终显示验证码，方便调试
-        Alert.alert("提示", data.code ? `验证码：${data.code}` : "验证码已发送");
+        if (data.code) {
+          Alert.alert(
+            "验证码", 
+            `您的验证码是：${data.code}\n请在10分钟内完成验证`,
+            [{ text: "知道了" }]
+          );
+        } else {
+          Alert.alert("提示", "验证码已发送，请查收短信");
+        }
       } else {
-        setError(data.error || "发送验证码失败");
+        const errorMsg = data.error || "发送验证码失败";
+        setError(errorMsg);
+        Alert.alert("发送失败", errorMsg);
       }
-    } catch (err) {
-      setError("网络错误，请重试");
+    } catch (err: any) {
+      console.error("[发送验证码] 网络错误:", err);
+      const errorMsg = "网络错误，请检查网络连接";
+      setError(errorMsg);
+      Alert.alert("网络错误", `无法连接到服务器\n\n${BACKEND_BASE_URL}\n\n错误: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -237,13 +261,13 @@ export default function AuthScreen() {
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[styles.tab, isLogin && styles.tabActive]}
-              onPress={() => { setIsLogin(true); setError(""); }}
+              onPress={() => { setIsLogin(true); setError(""); setLoading(false); }}
             >
               <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>登录</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, !isLogin && styles.tabActive]}
-              onPress={() => { setIsLogin(false); setError(""); }}
+              onPress={() => { setIsLogin(false); setError(""); setLoading(false); }}
             >
               <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>注册</Text>
             </TouchableOpacity>
