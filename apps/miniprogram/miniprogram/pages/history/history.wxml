@@ -1,0 +1,44 @@
+<view class="container">
+  <!-- 未登录提示 -->
+  <view class="login-tip" wx:if="{{!isLoggedIn}}">
+    <view class="tip-icon">🔒</view>
+    <view class="tip-text">登录后查看历史记录</view>
+    <button class="btn-login" bindtap="goToLogin">去登录</button>
+  </view>
+
+  <!-- 历史记录列表 -->
+  <view class="history-list" wx:if="{{isLoggedIn && history.length > 0}}">
+    <view class="history-item" wx:for="{{history}}" wx:key="index">
+      <view class="item-header">
+        <view class="item-time">{{item.createdAt}}</view>
+        <view class="item-type">{{item.type || '创作'}}</view>
+      </view>
+      <view class="item-content">{{item.prompt || item.content || '无内容'}}</view>
+      
+      <!-- 图片 -->
+      <view class="item-images" wx:if="{{item.imageUrls && item.imageUrls.length > 0}}">
+        <image 
+          wx:for="{{item.imageUrls}}" 
+          wx:for-item="img" 
+          wx:key="index"
+          src="{{img}}" 
+          mode="aspectFill"
+          bindtap="previewImage"
+          data-url="{{img}}"
+        />
+      </view>
+      
+      <!-- 文案 -->
+      <view class="item-text" wx:if="{{item.texts && item.texts.length > 0}}">
+        <text>{{item.texts[0]}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{isLoggedIn && history.length === 0 && !loading}}">
+    <view class="empty-icon">📭</view>
+    <view class="empty-text">暂无历史记录</view>
+    <view class="empty-desc">开始你的第一次创作吧</view>
+  </view>
+</view>

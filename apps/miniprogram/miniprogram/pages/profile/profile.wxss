@@ -1,0 +1,213 @@
+/* pages/profile/profile.wxss */
+
+.container {
+  min-height: 100vh;
+  background: #f3f4f6;
+  padding-bottom: 120rpx;
+}
+
+/* Not Login */
+.not-login {
+  text-align: center;
+  padding: 120rpx 48rpx;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24rpx;
+  font-size: 48rpx;
+  color: #ffffff;
+}
+
+.avatar.default {
+  background: #e5e7eb;
+}
+
+.login-tip {
+  font-size: 28rpx;
+  color: #6b7280;
+  margin-bottom: 32rpx;
+}
+
+.btn-login {
+  padding: 24rpx 64rpx;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 24rpx;
+  font-size: 28rpx;
+}
+
+/* Profile Section */
+.profile-section {
+  padding: 24rpx;
+}
+
+/* User Card */
+.user-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.user-info {
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.username {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.userphone {
+  font-size: 24rpx;
+  color: #9ca3af;
+  margin-top: 8rpx;
+}
+
+.vip-badge {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  font-size: 22rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+/* Membership Card */
+.membership-card {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+  color: #ffffff;
+}
+
+.membership-icon {
+  font-size: 48rpx;
+  margin-right: 16rpx;
+}
+
+.membership-info {
+  flex: 1;
+}
+
+.membership-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.membership-desc {
+  font-size: 22rpx;
+  opacity: 0.9;
+  margin-top: 4rpx;
+}
+
+.btn-upgrade {
+  padding: 12rpx 24rpx;
+  background: #ffffff;
+  color: #6366f1;
+  border: none;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+}
+
+/* Checkin Card */
+.checkin-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.checkin-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.checkin-icon {
+  font-size: 40rpx;
+  margin-right: 16rpx;
+}
+
+.checkin-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #111827;
+}
+
+.checkin-desc {
+  font-size: 22rpx;
+  color: #9ca3af;
+  margin-top: 4rpx;
+}
+
+.btn-checkin {
+  padding: 16rpx 32rpx;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+}
+
+/* Menu Section */
+.menu-section {
+  background: #ffffff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  margin-bottom: 32rpx;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 24rpx;
+  border-bottom: 1rpx solid #f3f4f6;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon {
+  font-size: 36rpx;
+  margin-right: 16rpx;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: #111827;
+}
+
+.menu-arrow {
+  font-size: 36rpx;
+  color: #d1d5db;
+}
+
+/* Logout Button */
+.btn-logout {
+  width: 100%;
+  padding: 28rpx;
+  background: #ffffff;
+  color: #ef4444;
+  border: none;
+  border-radius: 20rpx;
+  font-size: 28rpx;
+}

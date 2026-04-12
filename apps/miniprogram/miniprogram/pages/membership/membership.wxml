@@ -1,0 +1,92 @@
+<view class="container">
+  <!-- 当前状态 -->
+  <view class="status-card" wx:if="{{membership}}">
+    <view class="status-header">
+      <view class="status-icon">👑</view>
+      <view class="status-info">
+        <view class="status-title">
+          {{membership.isPermanentVip ? '永久会员' : membership.isVip ? '会员' : '普通用户'}}
+        </view>
+        <view class="status-subtitle" wx:if="{{membership.isVip && !membership.isPermanentVip}}">
+          有效期至：{{membership.vipEndDate}}
+        </view>
+        <view class="status-subtitle" wx:if="{{membership.isPermanentVip}}">
+          终身有效
+        </view>
+      </view>
+    </view>
+    <view class="status-tip" wx:if="{{!membership.isVip}}">
+      升级会员，解锁更多创作次数
+    </view>
+  </view>
+
+  <!-- 会员方案 -->
+  <view class="plans-section">
+    <view class="section-title">会员方案</view>
+    
+    <view class="plans-grid">
+      <!-- 月度会员 -->
+      <view class="plan-card">
+        <view class="plan-name">月度会员</view>
+        <view class="plan-period">1个月</view>
+        <view class="plan-price">¥29</view>
+        <view class="plan-features">
+          <view class="feature-item">每日20张图片</view>
+          <view class="feature-item">每日10条文案</view>
+          <view class="feature-item">每日10次视频</view>
+        </view>
+        <button class="btn-plan" data-type="1_month" bindtap="handleBuyMember">
+          立即开通
+        </button>
+      </view>
+
+      <!-- 季度会员 -->
+      <view class="plan-card popular">
+        <view class="popular-tag">最受欢迎</view>
+        <view class="plan-name">季度会员</view>
+        <view class="plan-period">3个月</view>
+        <view class="plan-price">¥79</view>
+        <view class="plan-features">
+          <view class="feature-item">每日30张图片</view>
+          <view class="feature-item">每日20条文案</view>
+          <view class="feature-item">每日20次视频</view>
+          <view class="feature-item">专属客服</view>
+        </view>
+        <button class="btn-plan primary" data-type="3_months" bindtap="handleBuyMember">
+          立即开通
+        </button>
+      </view>
+
+      <!-- 年度会员 -->
+      <view class="plan-card">
+        <view class="plan-name">年度会员</view>
+        <view class="plan-period">12个月</view>
+        <view class="plan-price">¥199</view>
+        <view class="plan-features">
+          <view class="feature-item">每日50张图片</view>
+          <view class="feature-item">每日50条文案</view>
+          <view class="feature-item">每日30次视频</view>
+          <view class="feature-item">新功能优先</view>
+        </view>
+        <button class="btn-plan" data-type="1_year" bindtap="handleBuyMember">
+          立即开通
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 永久会员 -->
+  <view class="permanent-section">
+    <view class="permanent-card">
+      <view class="permanent-icon">👑</view>
+      <view class="permanent-info">
+        <view class="permanent-title">永久会员</view>
+        <view class="permanent-desc">一次购买，终身享用</view>
+      </view>
+      <view class="permanent-price">¥599</view>
+    </view>
+    <button class="btn-permanent" bindtap="handleBuyPermanent">
+      立即开通
+    </button>
+  </view>
+</view>
