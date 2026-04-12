@@ -11,6 +11,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
+  Modal,
 } from "react-native";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter, useSafeSearchParams } from "@/hooks/useSafeRouter";
@@ -18,6 +20,8 @@ import { Video, ResizeMode } from "expo-av";
 import * as SecureStore from "expo-secure-store";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
+const { width } = Dimensions.get("window");
+const IMAGE_ITEM_WIDTH = (width - 48) / 3;
 
 // 视频时长选项
 const DURATION_OPTIONS = [
@@ -30,16 +34,24 @@ export default function EditScreen() {
   const router = useSafeRouter();
   const params = useSafeSearchParams<{
     idea: string;
-    imageUrl: string;
-    text: string;
+    imageUrls: string;
+    texts: string;
     videoUrl: string;
     lastFrameUrl: string;
     durationType: string;
     remainingFreeEdits: number;
   }>();
 
-  const [text, setText] = useState(params.text || "");
-  const [imageUrl, setImageUrl] = useState(params.imageUrl || "");
+  // 解析传递的数组
+  const initialImageUrls = params.imageUrls ? JSON.parse(params.imageUrls) : [];
+  const initialTexts = params.texts ? JSON.parse(params.texts) : [];
+
+  const [imageUrls, setImageUrls] = useState<string[]>(initialImageUrls);
+  const [texts, setTexts] = useState<string[]>(initialTexts);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedTextIndex, setSelectedTextIndex] = useState(0);
+  const [text, setText] = useState(initialTexts[0] || "");
+  
   const [videoUrl, setVideoUrl] = useState(params.videoUrl || "");
   const [lastFrameUrl, setLastFrameUrl] = useState(params.lastFrameUrl || "");
   const [selectedDuration, setSelectedDuration] = useState(params.durationType || "free");
@@ -48,6 +60,8 @@ export default function EditScreen() {
   const [loadingText, setLoadingText] = useState(false);
   const [loadingVideo, setLoadingVideo] = useState(false);
   const [deviceId, setDeviceId] = useState("");
+  const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
+  
   const videoRef = useRef<Video>(null);
 
   // 获取设备ID
@@ -63,8 +77,27 @@ export default function EditScreen() {
     getDeviceId();
   }, []);
 
-  // 重新生成图片
-  const regenerateImage = async () => {
+  // 选择图片
+  const handleSelectImage = (index: number) => {
+    setSelectedImageIndex(index);
+  };
+
+  // 选择文案
+  const handleSelectText = (index: number) => {
+    setSelectedTextIndex(index);
+    setText(texts[index]);
+  };
+
+  // 编辑文案
+  const handleEditText = (newText: string) => {
+    setText(newText);
+    const newTexts = [...texts];
+    newTexts[selectedTextIndex] = newText;
+    setTexts(newTexts);
+  };
+
+  // 重新生成单张图片
+  const regenerateSingleImage = async (index: number) => {
     setLoadingImage(true);
     try {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/image`, {
@@ -74,7 +107,9 @@ export default function EditScreen() {
       });
       const data = await response.json();
       if (data.imageUrls && data.imageUrls.length > 0) {
-        setImageUrl(data.imageUrls[0]);
+        const newUrls = [...imageUrls];
+        newUrls[index] = data.imageUrls[0];
+        setImageUrls(newUrls);
       }
     } catch (err) {
       Alert.alert("错误", "图片生成失败");
@@ -83,8 +118,29 @@ export default function EditScreen() {
     }
   };
 
-  // 重新生成文案
-  const regenerateText = async () => {
+  // 重新生成全部图片
+  const regenerateAllImages = async () => {
+    setLoadingImage(true);
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: params.idea, count: 20 }),
+      });
+      const data = await response.json();
+      if (data.imageUrls && data.imageUrls.length > 0) {
+        setImageUrls(data.imageUrls);
+        setSelectedImageIndex(0);
+      }
+    } catch (err) {
+      Alert.alert("错误", "图片生成失败");
+    } finally {
+      setLoadingImage(false);
+    }
+  };
+
+  // 重新生成单条文案
+  const regenerateSingleText = async (index: number) => {
     setLoadingText(true);
     try {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/text`, {
@@ -94,7 +150,34 @@ export default function EditScreen() {
       });
       const data = await response.json();
       if (data.text) {
-        setText(data.text);
+        const newTexts = [...texts];
+        newTexts[index] = data.text;
+        setTexts(newTexts);
+        if (index === selectedTextIndex) {
+          setText(data.text);
+        }
+      }
+    } catch (err) {
+      Alert.alert("错误", "文案生成失败");
+    } finally {
+      setLoadingText(false);
+    }
+  };
+
+  // 重新生成全部文案
+  const regenerateAllTexts = async () => {
+    setLoadingText(true);
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/texts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: params.idea, count: 10 }),
+      });
+      const data = await response.json();
+      if (data.texts && data.texts.length > 0) {
+        setTexts(data.texts);
+        setSelectedTextIndex(0);
+        setText(data.texts[0]);
       }
     } catch (err) {
       Alert.alert("错误", "文案生成失败");
@@ -105,12 +188,12 @@ export default function EditScreen() {
 
   // 重新生成视频
   const regenerateVideo = async () => {
-    if (!imageUrl) {
-      Alert.alert("提示", "请先生成图片");
+    const currentImageUrl = imageUrls[selectedImageIndex];
+    if (!currentImageUrl) {
+      Alert.alert("提示", "请先选择图片");
       return;
     }
 
-    // 检查免费视频编辑次数
     if (selectedDuration === "free" && remainingEdits <= 0) {
       Alert.alert(
         "免费次数已用完",
@@ -135,7 +218,7 @@ export default function EditScreen() {
           },
           body: JSON.stringify({
             prompt: params.idea,
-            imageUrl,
+            imageUrl: currentImageUrl,
             durationType: selectedDuration,
           }),
         }
@@ -177,73 +260,140 @@ export default function EditScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backText}>← 返回</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>编辑创作</Text>
-          <TouchableOpacity
-            onPress={() => router.replace("/")}
-            style={styles.newButton}
-          >
+          <Text style={styles.headerTitle}>选择素材</Text>
+          <TouchableOpacity onPress={() => router.replace("/")} style={styles.newButton}>
             <Text style={styles.newButtonText}>新建</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Image Section */}
+          {/* Images Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>图片</Text>
+              <Text style={styles.sectionTitle}>图片库 ({imageUrls.length}张)</Text>
               <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={regenerateImage}
+                style={styles.regenerateAllButton}
+                onPress={regenerateAllImages}
                 disabled={loadingImage}
               >
                 {loadingImage ? (
                   <ActivityIndicator size="small" color="#4F46E5" />
                 ) : (
-                  <Text style={styles.regenerateText}>重新生成</Text>
+                  <Text style={styles.regenerateAllText}>重新生成全部</Text>
                 )}
               </TouchableOpacity>
             </View>
-            {imageUrl ? (
-              <View style={styles.imageContainer}>
+
+            {/* Selected Image Preview */}
+            {imageUrls.length > 0 && (
+              <TouchableOpacity
+                style={styles.mainImageContainer}
+                onPress={() => setImagePreviewVisible(true)}
+                activeOpacity={0.9}
+              >
                 <Image
-                  source={{ uri: imageUrl }}
-                  style={styles.image}
+                  source={{ uri: imageUrls[selectedImageIndex] }}
+                  style={styles.mainImage}
                   resizeMode="cover"
                 />
-              </View>
-            ) : (
-              <View style={styles.placeholder}>
-                <Text style={styles.placeholderText}>图片生成中...</Text>
-              </View>
+                <View style={styles.mainImageOverlay}>
+                  <Text style={styles.mainImageHint}>点击预览大图</Text>
+                </View>
+              </TouchableOpacity>
             )}
+
+            {/* Image Grid */}
+            <View style={styles.imageGrid}>
+              {imageUrls.map((url, index) => (
+                <TouchableOpacity
+                  key={`${url}-${index}`}
+                  style={[
+                    styles.imageItem,
+                    selectedImageIndex === index && styles.imageItemSelected,
+                  ]}
+                  onPress={() => handleSelectImage(index)}
+                >
+                  <Image source={{ uri: url }} style={styles.imageThumb} />
+                  {selectedImageIndex === index && (
+                    <View style={styles.selectedBadge}>
+                      <Text style={styles.selectedBadgeText}>{selectedImageIndex + 1}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.imageRefreshBtn}
+                    onPress={() => regenerateSingleImage(index)}
+                    disabled={loadingImage}
+                  >
+                    <Text style={styles.imageRefreshText}>↻</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          {/* Text Section */}
+          {/* Texts Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>文案</Text>
+              <Text style={styles.sectionTitle}>文案库 ({texts.length}条)</Text>
               <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={regenerateText}
+                style={styles.regenerateAllButton}
+                onPress={regenerateAllTexts}
                 disabled={loadingText}
               >
                 {loadingText ? (
                   <ActivityIndicator size="small" color="#4F46E5" />
                 ) : (
-                  <Text style={styles.regenerateText}>重新生成</Text>
+                  <Text style={styles.regenerateAllText}>重新生成全部</Text>
                 )}
               </TouchableOpacity>
             </View>
-            <View style={styles.textCard}>
-              <TextInput
-                style={styles.textInput}
-                value={text}
-                onChangeText={setText}
-                multiline
-                placeholder="在这里编辑你的文案..."
-                placeholderTextColor="#9CA3AF"
-              />
+
+            {/* Text List */}
+            <View style={styles.textList}>
+              {texts.map((t, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.textItem,
+                    selectedTextIndex === index && styles.textItemSelected,
+                  ]}
+                  onPress={() => handleSelectText(index)}
+                >
+                  <View style={styles.textItemHeader}>
+                    <Text style={styles.textItemIndex}>文案 {index + 1}</Text>
+                    <TouchableOpacity
+                      onPress={() => regenerateSingleText(index)}
+                      disabled={loadingText}
+                    >
+                      <Text style={styles.textRefreshText}>↻</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text
+                    style={styles.textItemContent}
+                    numberOfLines={selectedTextIndex === index ? undefined : 2}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+
+            {/* Edit Selected Text */}
+            {texts.length > 0 && (
+              <View style={styles.textEditor}>
+                <Text style={styles.textEditorLabel}>编辑当前文案</Text>
+                <View style={styles.textCard}>
+                  <TextInput
+                    style={styles.textInput}
+                    value={text}
+                    onChangeText={handleEditText}
+                    multiline
+                    placeholder="在这里编辑你的文案..."
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Video Section */}
@@ -303,7 +453,7 @@ export default function EditScreen() {
                 <ActivityIndicator color="#4F46E5" />
               ) : (
                 <Text style={styles.regenerateVideoText}>
-                  重新生成 {selectedDurationInfo.duration}秒 视频
+                  生成 {selectedDurationInfo.duration}秒 视频
                 </Text>
               )}
             </TouchableOpacity>
@@ -320,20 +470,18 @@ export default function EditScreen() {
                 />
               </View>
             ) : lastFrameUrl ? (
-              <View style={styles.imageContainer}>
-                <Image
-                  source={{ uri: lastFrameUrl }}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
+              <View style={styles.mainImageContainer}>
+                <Image source={{ uri: lastFrameUrl }} style={styles.mainImage} />
                 <View style={styles.videoProcessing}>
                   <ActivityIndicator color="#FFFFFF" />
                   <Text style={styles.videoProcessingText}>视频生成中...</Text>
                 </View>
               </View>
             ) : (
-              <View style={styles.placeholder}>
-                <Text style={styles.placeholderText}>视频生成中...</Text>
+              <View style={styles.videoPlaceholder}>
+                <Text style={styles.videoPlaceholderText}>
+                  选择图片后点击上方按钮生成视频
+                </Text>
               </View>
             )}
           </View>
@@ -344,7 +492,7 @@ export default function EditScreen() {
             <Text style={styles.ideaText}>{params.idea}</Text>
           </View>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* Bottom Action */}
@@ -356,6 +504,47 @@ export default function EditScreen() {
             <Text style={styles.saveButtonText}>保存创作</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Image Preview Modal */}
+        <Modal
+          visible={imagePreviewVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setImagePreviewVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={() => setImagePreviewVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+            <Image
+              source={{ uri: imageUrls[selectedImageIndex] }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+            <View style={styles.previewNav}>
+              <TouchableOpacity
+                style={styles.previewNavBtn}
+                onPress={() => setSelectedImageIndex(Math.max(0, selectedImageIndex - 1))}
+                disabled={selectedImageIndex === 0}
+              >
+                <Text style={styles.previewNavText}>{"<"}</Text>
+              </TouchableOpacity>
+              <Text style={styles.previewIndex}>
+                {selectedImageIndex + 1} / {imageUrls.length}
+              </Text>
+              <TouchableOpacity
+                style={styles.previewNavBtn}
+                onPress={() => setSelectedImageIndex(Math.min(imageUrls.length - 1, selectedImageIndex + 1))}
+                disabled={selectedImageIndex === imageUrls.length - 1}
+              >
+                <Text style={styles.previewNavText}>{">"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -417,6 +606,147 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1F2937",
   },
+  regenerateAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+  },
+  regenerateAllText: {
+    fontSize: 13,
+    color: "#4F46E5",
+    fontWeight: "500",
+  },
+  mainImageContainer: {
+    backgroundColor: "#1F2937",
+    borderRadius: 16,
+    overflow: "hidden",
+    position: "relative",
+    marginBottom: 12,
+  },
+  mainImage: {
+    width: "100%",
+    aspectRatio: 9 / 16,
+  },
+  mainImageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    padding: 8,
+    alignItems: "center",
+  },
+  mainImageHint: {
+    color: "#FFFFFF",
+    fontSize: 12,
+  },
+  imageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  imageItem: {
+    width: IMAGE_ITEM_WIDTH,
+    height: IMAGE_ITEM_WIDTH,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  imageItemSelected: {
+    borderColor: "#4F46E5",
+  },
+  imageThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  selectedBadge: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    backgroundColor: "#4F46E5",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectedBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  imageRefreshBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageRefreshText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+  },
+  textList: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  textItem: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  textItemSelected: {
+    borderColor: "#4F46E5",
+    backgroundColor: "#EEF2FF",
+  },
+  textItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  textItemIndex: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "600",
+  },
+  textRefreshText: {
+    fontSize: 18,
+    color: "#4F46E5",
+  },
+  textItemContent: {
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 20,
+  },
+  textEditor: {
+    marginTop: 8,
+  },
+  textEditorLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  textCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+  },
+  textInput: {
+    fontSize: 15,
+    color: "#1F2937",
+    lineHeight: 22,
+    minHeight: 80,
+  },
   quotaBadge: {
     backgroundColor: "#DCFCE7",
     paddingHorizontal: 10,
@@ -427,76 +757,6 @@ const styles = StyleSheet.create({
     color: "#10B981",
     fontSize: 12,
     fontWeight: "600",
-  },
-  regenerateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#EEF2FF",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  regenerateText: {
-    fontSize: 14,
-    color: "#4F46E5",
-    fontWeight: "500",
-  },
-  imageContainer: {
-    backgroundColor: "#1F2937",
-    borderRadius: 16,
-    overflow: "hidden",
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    aspectRatio: 9 / 16,
-  },
-  videoContainer: {
-    backgroundColor: "#000",
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  video: {
-    width: "100%",
-    aspectRatio: 9 / 16,
-  },
-  placeholder: {
-    backgroundColor: "#E5E7EB",
-    borderRadius: 16,
-    height: 300,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    color: "#9CA3AF",
-    fontSize: 16,
-  },
-  videoProcessing: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  videoProcessingText: {
-    color: "#FFFFFF",
-    marginTop: 8,
-    fontSize: 14,
-  },
-  textCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  textInput: {
-    fontSize: 16,
-    color: "#1F2937",
-    lineHeight: 24,
-    minHeight: 100,
   },
   durationSelector: {
     flexDirection: "row",
@@ -548,6 +808,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  videoContainer: {
+    backgroundColor: "#000",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  video: {
+    width: "100%",
+    aspectRatio: 9 / 16,
+  },
+  videoPlaceholder: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 16,
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoPlaceholderText: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  videoProcessing: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoProcessingText: {
+    color: "#FFFFFF",
+    marginTop: 8,
+    fontSize: 14,
+  },
   ideaSection: {
     marginTop: 24,
     backgroundColor: "#FFFFFF",
@@ -565,6 +858,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   bottomAction: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 16,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
@@ -580,5 +877,53 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  modalCloseText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+  },
+  previewImage: {
+    width: "100%",
+    height: "70%",
+  },
+  previewNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    gap: 40,
+  },
+  previewNavBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewNavText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+  },
+  previewIndex: {
+    color: "#FFFFFF",
+    fontSize: 16,
   },
 });

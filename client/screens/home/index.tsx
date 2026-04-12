@@ -99,11 +99,11 @@ export default function HomeScreen() {
           setRemainingEdits(data.remainingFreeEdits);
         }
 
-        // 跳转到编辑页面
+        // 跳转到编辑页面，传递生成的数组
         router.push("/edit", {
           idea: idea.trim(),
-          imageUrl: data.imageUrl || "",
-          text: data.text || "",
+          imageUrls: JSON.stringify(data.imageUrls || []),
+          texts: JSON.stringify(data.texts || []),
           videoUrl: data.videoUrl || "",
           lastFrameUrl: data.lastFrameUrl || "",
           durationType: data.durationType || "free",
@@ -139,7 +139,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.greeting}>你好，我是山羊老师</Text>
-              <Text style={styles.subtitle}>一键帮你生成创意内容</Text>
+              <Text style={styles.subtitle}>一键生成20张图片+10条文案</Text>
             </View>
           </View>
 
@@ -211,6 +211,40 @@ export default function HomeScreen() {
               )}
             </View>
 
+            {/* Content Preview Card */}
+            <View style={styles.previewCard}>
+              <Text style={styles.previewTitle}>一键生成内容</Text>
+              <View style={styles.previewItems}>
+                <View style={styles.previewItem}>
+                  <View style={[styles.previewIcon, { backgroundColor: "#FEF3C7" }]}>
+                    <Text style={styles.previewIconText}>IMG</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.previewItemTitle}>20张图片</Text>
+                    <Text style={styles.previewItemDesc}>多种风格可选</Text>
+                  </View>
+                </View>
+                <View style={styles.previewItem}>
+                  <View style={[styles.previewIcon, { backgroundColor: "#DBEAFE" }]}>
+                    <Text style={styles.previewIconText}>TXT</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.previewItemTitle}>10条文案</Text>
+                    <Text style={styles.previewItemDesc}>多种表达方式</Text>
+                  </View>
+                </View>
+                <View style={styles.previewItem}>
+                  <View style={[styles.previewIcon, { backgroundColor: "#FCE7F3" }]}>
+                    <Text style={styles.previewIconText}>VID</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.previewItemTitle}>视频</Text>
+                    <Text style={styles.previewItemDesc}>配套生成</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
             {/* Generate Button */}
             <TouchableOpacity
               style={[
@@ -222,14 +256,17 @@ export default function HomeScreen() {
               disabled={loading || (selectedDuration === "free" && remainingEdits <= 0)}
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text style={styles.loadingText}>生成中，请稍候...</Text>
+                </View>
               ) : (
                 <>
-                  <Text style={styles.generateButtonText}>一键生成</Text>
+                  <Text style={styles.generateButtonText}>一键生成全部</Text>
                   <Text style={styles.generateButtonSubtext}>
                     {selectedDuration === "free"
-                      ? `图片 + 文案 + ${DURATION_OPTIONS[0].duration}秒视频`
-                      : `图片 + 文案 + ${DURATION_OPTIONS.find((o) => o.type === selectedDuration)?.duration}秒视频`}
+                      ? `20张图片 + 10条文案 + ${DURATION_OPTIONS[0].duration}秒视频`
+                      : `20张图片 + 10条文案 + ${DURATION_OPTIONS.find((o) => o.type === selectedDuration)?.duration}秒视频`}
                   </Text>
                 </>
               )}
@@ -254,19 +291,19 @@ export default function HomeScreen() {
 
           {/* Bottom Tips */}
           <View style={styles.tips}>
-            <Text style={styles.tipsTitle}>时长说明</Text>
+            <Text style={styles.tipsTitle}>功能说明</Text>
             <View style={styles.tipsList}>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#10B981" }]} />
-                <Text style={styles.tipText}>5秒内：每日免费编辑3次，适合短视频预览</Text>
+                <Text style={styles.tipText}>5秒内：每日免费编辑3次</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#F59E0B" }]} />
-                <Text style={styles.tipText}>6-8秒：标准时长，适合大多数社交媒体</Text>
+                <Text style={styles.tipText}>6-8秒：标准时长，不限次数</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={[styles.tipDot, { backgroundColor: "#8B5CF6" }]} />
-                <Text style={styles.tipText}>9-12秒：超长时长，电影级效果</Text>
+                <Text style={styles.tipText}>9-12秒：超长时长，不限次数</Text>
               </View>
             </View>
           </View>
@@ -452,6 +489,51 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
   },
+  previewCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 16,
+  },
+  previewItems: {
+    gap: 12,
+  },
+  previewItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  previewIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  previewIconText: {
+    fontSize: 20,
+  },
+  previewItemTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  previewItemDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
   generateButton: {
     backgroundColor: "#4F46E5",
     borderRadius: 16,
@@ -477,6 +559,15 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.8)",
     fontSize: 12,
     marginTop: 4,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  loadingText: {
+    color: "#FFFFFF",
+    fontSize: 14,
   },
   quickIdeas: {
     marginBottom: 20,
