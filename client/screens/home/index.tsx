@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import {
   View,
   Text,
@@ -9,11 +9,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Image,
   ScrollView,
   Alert,
   Modal,
 } from "react-native";
+import { Image } from "expo-image"; // 高性能图片组件
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  FadeInDown,
+  Layout,
+} from "react-native-reanimated";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter } from "@/hooks/useSafeRouter";
 import { FontAwesome6 } from "@expo/vector-icons";
@@ -471,7 +477,13 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.avatarContainer}>
-                <Image source={{ uri: GOAT_TEACHER_AVATAR }} style={styles.avatar} />
+                <Image
+                  source={{ uri: GOAT_TEACHER_AVATAR }}
+                  style={styles.avatar}
+                  contentFit="cover"
+                  transition={300}
+                  cachePolicy="memory-disk"
+                />
                 <View style={styles.avatarBadge}>
                   <Text style={styles.badgeText}>AI</Text>
                 </View>

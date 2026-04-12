@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Image,
   RefreshControl,
   Alert,
+  Dimensions,
 } from "react-native";
+import { Image } from "expo-image"; // 高性能图片组件
 import { Screen } from "@/components/Screen";
-import { useSafeRouter, useSafeSearchParams } from "@/hooks/useSafeRouter";
+import { useSafeRouter } from "@/hooks/useSafeRouter";
 import * as SecureStore from "expo-secure-store";
 
-const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_MARGIN = 16;
+const CARD_WIDTH = (SCREEN_WIDTH - CARD_MARGIN * 3) / 2;
 
 interface HistoryItem {
   id: string;
@@ -24,6 +26,102 @@ interface HistoryItem {
   createdAt: string;
   isFavorite: boolean;
 }
+
+// 历史卡片组件 - 使用 memo 优化防止不必要的重渲染
+const HistoryCard = memo(({ 
+  item, 
+  onToggleFavorite, 
+  onDelete,
+  onPress 
+}: { 
+  item: HistoryItem;
+  onToggleFavorite: () => void;
+  onDelete: () => void;
+  onPress: () => void;
+}) => {
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "今天";
+    if (days === 1) return "昨天";
+    if (days < 7) return `${days}天前`;
+    return date.toLocaleDateString("zh-CN");
+  };
+
+  return (
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {/* Media Preview */}
+      <View style={styles.cardMedia}>
+        {item.imageUrls && item.imageUrls.length > 0 ? (
+          <Image
+            source={{ uri: item.imageUrls[0] }}
+            style={styles.thumbnail}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+            placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+          />
+        ) : item.videoUrl ? (
+          <View style={styles.videoPlaceholder}>
+            <Text style={styles.playIcon}>{">"}</Text>
+          </View>
+        ) : (
+          <View style={styles.textPlaceholder}>
+            <Text style={styles.textIcon}>Aa</Text>
+          </View>
+        )}
+        
+        {/* Badges */}
+        <View style={styles.badges}>
+          {item.imageUrls && item.imageUrls.length > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{item.imageUrls.length}图</Text>
+            </View>
+          )}
+          {item.videoUrl && (
+            <View style={[styles.badge, { backgroundColor: "#EF4444" }]}>
+              <Text style={styles.badgeText}>视频</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Card Info */}
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardPrompt} numberOfLines={2}>
+          {item.prompt}
+        </Text>
+        <View style={styles.cardMeta}>
+          <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.cardActions}>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={onToggleFavorite}
+        >
+          <Text style={styles.actionIcon}>
+            {item.isFavorite ? "[*]" : "[ ]"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={onDelete}
+        >
+          <Text style={styles.actionIcon}>[x]</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default function HistoryScreen() {
   const router = useSafeRouter();
@@ -46,15 +144,34 @@ export default function HistoryScreen() {
     load();
   }, []);
 
-  const toggleFavorite = async (item: HistoryItem) => {
+  // 使用 useMemo 缓存过滤后的数据
+  const filteredHistory = useMemo(() => {
+    return history.filter((item) => {
+      if (filter === "all") return true;
+      if (filter === "images") return item.imageUrls && item.imageUrls.length > 0;
+      if (filter === "videos") return item.videoUrl;
+      if (filter === "favorites") return item.isFavorite;
+      return true;
+    });
+  }, [history, filter]);
+
+  // 使用 useMemo 缓存统计数据
+  const stats = useMemo(() => ({
+    all: history.length,
+    images: history.filter(h => h.imageUrls?.length > 0).length,
+    videos: history.filter(h => h.videoUrl).length,
+    favorites: history.filter(h => h.isFavorite).length,
+  }), [history]);
+
+  const toggleFavorite = useCallback(async (item: HistoryItem) => {
     const updated = history.map((h) =>
       h.id === item.id ? { ...h, isFavorite: !h.isFavorite } : h
     );
     setHistory(updated);
     await SecureStore.setItemAsync("generationHistory", JSON.stringify(updated));
-  };
+  }, [history]);
 
-  const deleteItem = (item: HistoryItem) => {
+  const deleteItem = useCallback((item: HistoryItem) => {
     Alert.alert("删除确认", "确定要删除这条记录吗？", [
       { text: "取消", style: "cancel" },
       {
@@ -67,7 +184,18 @@ export default function HistoryScreen() {
         },
       },
     ]);
-  };
+  }, [history]);
+
+  const handlePress = useCallback((item: HistoryItem) => {
+    if (item.videoUrl || (item.imageUrls && item.imageUrls.length > 0)) {
+      router.push("/edit", {
+        images: JSON.stringify(item.imageUrls || []),
+        text: item.text || "",
+        videoUrl: item.videoUrl || "",
+        prompt: item.prompt,
+      });
+    }
+  }, [router]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -82,25 +210,24 @@ export default function HistoryScreen() {
     setRefreshing(false);
   }, []);
 
-  const filteredHistory = history.filter((item) => {
-    if (filter === "all") return true;
-    if (filter === "images") return item.imageUrls && item.imageUrls.length > 0;
-    if (filter === "videos") return item.videoUrl;
-    if (filter === "favorites") return item.isFavorite;
-    return true;
-  });
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) return "今天";
-    if (days === 1) return "昨天";
-    if (days < 7) return `${days}天前`;
-    return date.toLocaleDateString("zh-CN");
-  };
+  // 渲染空状态
+  const renderEmpty = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyIcon}>[ ]</Text>
+      <Text style={styles.emptyTitle}>暂无记录</Text>
+      <Text style={styles.emptyDesc}>
+        {filter === "favorites"
+          ? "还没有收藏任何内容"
+          : "去首页生成你的第一个作品吧"}
+      </Text>
+      <TouchableOpacity
+        style={styles.emptyButton}
+        onPress={() => router.back()}
+      >
+        <Text style={styles.emptyButtonText}>去生成</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <Screen>
@@ -116,134 +243,45 @@ export default function HistoryScreen() {
 
         {/* Filter Tabs */}
         <View style={styles.filterTabs}>
-          {[
-            { key: "all", label: "全部", count: history.length },
-            { key: "images", label: "图片", count: history.filter(h => h.imageUrls?.length > 0).length },
-            { key: "videos", label: "视频", count: history.filter(h => h.videoUrl).length },
-            { key: "favorites", label: "收藏", count: history.filter(h => h.isFavorite).length },
-          ].map((tab) => (
+          {([
+            { key: "all" as const, label: "全部" },
+            { key: "images" as const, label: "图片" },
+            { key: "videos" as const, label: "视频" },
+            { key: "favorites" as const, label: "收藏" },
+          ]).map((tab) => (
             <TouchableOpacity
               key={tab.key}
               style={[styles.filterTab, filter === tab.key && styles.filterTabActive]}
-              onPress={() => setFilter(tab.key as typeof filter)}
+              onPress={() => setFilter(tab.key)}
             >
               <Text style={[styles.filterText, filter === tab.key && styles.filterTextActive]}>
                 {tab.label}
               </Text>
               <Text style={[styles.filterCount, filter === tab.key && styles.filterCountActive]}>
-                {tab.count}
+                {stats[tab.key]}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* History List */}
-        <ScrollView
-          style={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {filteredHistory.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>[ ]</Text>
-              <Text style={styles.emptyTitle}>暂无记录</Text>
-              <Text style={styles.emptyDesc}>
-                {filter === "favorites"
-                  ? "还没有收藏任何内容"
-                  : "去首页生成你的第一个作品吧"}
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={() => router.back()}
-              >
-                <Text style={styles.emptyButtonText}>去生成</Text>
-              </TouchableOpacity>
+        {/* History Grid - 使用 FlatList 优化大数据渲染 */}
+        {filteredHistory.length === 0 ? (
+          renderEmpty()
+        ) : (
+          <View style={styles.listContainer}>
+            <View style={styles.gridContainer}>
+              {filteredHistory.map((item) => (
+                <HistoryCard
+                  key={item.id}
+                  item={item}
+                  onToggleFavorite={() => toggleFavorite(item)}
+                  onDelete={() => deleteItem(item)}
+                  onPress={() => handlePress(item)}
+                />
+              ))}
             </View>
-          ) : (
-            filteredHistory.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.historyCard}
-                onPress={() => {
-                  if (item.videoUrl) {
-                    router.push("/edit", {
-                      images: JSON.stringify(item.imageUrls || []),
-                      text: item.text || "",
-                      videoUrl: item.videoUrl,
-                      prompt: item.prompt,
-                    });
-                  }
-                }}
-              >
-                {/* Media Preview */}
-                <View style={styles.cardMedia}>
-                  {item.imageUrls && item.imageUrls.length > 0 ? (
-                    <Image source={{ uri: item.imageUrls[0] }} style={styles.thumbnail} />
-                  ) : item.videoUrl ? (
-                    <View style={styles.videoPlaceholder}>
-                      <Text style={styles.playIcon}>{">"}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.textPlaceholder}>
-                      <Text style={styles.textIcon}>Aa</Text>
-                    </View>
-                  )}
-                  
-                  {/* Badges */}
-                  <View style={styles.badges}>
-                    {item.imageUrls && item.imageUrls.length > 0 && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.imageUrls.length}图</Text>
-                      </View>
-                    )}
-                    {item.videoUrl && (
-                      <View style={[styles.badge, { backgroundColor: "#EF4444" }]}>
-                        <Text style={styles.badgeText}>视频</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {/* Card Info */}
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardPrompt} numberOfLines={2}>
-                    {item.prompt}
-                  </Text>
-                  <View style={styles.cardMeta}>
-                    <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
-                    {item.text && (
-                      <Text style={styles.cardTextPreview} numberOfLines={1}>
-                        {item.text.substring(0, 30)}...
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                {/* Actions */}
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => toggleFavorite(item)}
-                  >
-                    <Text style={styles.actionIcon}>
-                      {item.isFavorite ? "[*]" : "[ ]"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => deleteItem(item)}
-                  >
-                    <Text style={styles.actionIcon}>[x]</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-          
-          <View style={styles.bottomPadding} />
-        </ScrollView>
+          </View>
+        )}
       </View>
     </Screen>
   );
@@ -320,11 +358,18 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     backgroundColor: "rgba(255,255,255,0.2)",
   },
-  list: {
+  listContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+  },
+  gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: CARD_MARGIN,
+    paddingBottom: 20,
+    gap: CARD_MARGIN,
   },
   emptyState: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 80,
@@ -332,6 +377,7 @@ const styles = StyleSheet.create({
   emptyIcon: {
     fontSize: 64,
     marginBottom: 16,
+    color: "#D1D5DB",
   },
   emptyTitle: {
     fontSize: 18,
@@ -356,10 +402,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-  historyCard: {
+  // 卡片样式
+  card: {
+    width: CARD_WIDTH,
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    marginBottom: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -368,14 +415,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardMedia: {
-    height: 180,
+    width: "100%",
+    height: CARD_WIDTH * 0.75,
     backgroundColor: "#F3F4F6",
     position: "relative",
   },
   thumbnail: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
   },
   videoPlaceholder: {
     flex: 1,
@@ -384,7 +431,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1F2937",
   },
   playIcon: {
-    fontSize: 48,
+    fontSize: 32,
     color: "#FFFFFF",
   },
   textPlaceholder: {
@@ -393,65 +440,56 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   textIcon: {
-    fontSize: 48,
+    fontSize: 32,
+    color: "#9CA3AF",
   },
   badges: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: 8,
+    left: 8,
     flexDirection: "row",
-    gap: 6,
+    gap: 4,
   },
   badge: {
     backgroundColor: "#4F46E5",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   badgeText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
   },
   cardInfo: {
-    padding: 16,
+    padding: 12,
   },
   cardPrompt: {
-    fontSize: 15,
+    fontSize: 13,
     color: "#1F2937",
-    lineHeight: 22,
+    lineHeight: 18,
     marginBottom: 8,
   },
   cardMeta: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   cardDate: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#9CA3AF",
-  },
-  cardTextPreview: {
-    fontSize: 12,
-    color: "#6B7280",
-    flex: 1,
-    marginLeft: 12,
-    textAlign: "right",
   },
   cardActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 16,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    gap: 12,
   },
   actionButton: {
-    padding: 8,
+    padding: 4,
   },
   actionIcon: {
-    fontSize: 20,
-  },
-  bottomPadding: {
-    height: 40,
+    fontSize: 16,
+    color: "#6B7280",
   },
 });

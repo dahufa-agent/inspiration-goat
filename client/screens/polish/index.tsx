@@ -7,12 +7,17 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   ScrollView,
   Alert,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter } from "@/hooks/useSafeRouter";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  Layout,
+} from "react-native-reanimated";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 
@@ -52,60 +57,66 @@ export default function PolishScreen() {
       });
 
       const data = await response.json();
-
       if (response.ok) {
-        setPolishedText(data.polished);
+        setPolishedText(data.data.polished_content);
       } else {
-        Alert.alert("提示", data.error || "润色失败");
+        Alert.alert("润色失败", data.message || "请稍后重试");
       }
-    } catch (err) {
-      Alert.alert("提示", "网络错误");
+    } catch (error) {
+      Alert.alert("错误", "网络请求失败，请检查网络连接");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (polishedText) {
-      // 使用剪贴板复制
-      Alert.alert("提示", "已复制到剪贴板", [
-        { text: "好的", style: "default" },
-      ]);
+      await Clipboard.setStringAsync(polishedText);
+      Alert.alert("复制成功", "已复制到剪贴板");
     }
   };
 
   return (
     <Screen>
       <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Text style={styles.backText}>{"< 返回"}</Text>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backBtn}
+            >
+              <Text style={styles.backBtnText}>← 返回</Text>
             </TouchableOpacity>
             <Text style={styles.title}>内容润色</Text>
-          </View>
+            <View style={{ width: 60 }} />
+          </Animated.View>
 
-          {/* Style Selection */}
-          <View style={styles.styleSection}>
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(300)}
+            style={styles.section}
+          >
             <Text style={styles.sectionTitle}>选择润色风格</Text>
             <View style={styles.styleGrid}>
-              {POLISH_STYLES.map((style) => (
+              {POLISH_STYLES.map((style, index) => (
                 <TouchableOpacity
                   key={style.type}
                   style={[
                     styles.styleCard,
-                    selectedStyle === style.type && styles.styleCardSelected,
+                    selectedStyle === style.type && styles.styleCardActive,
                   ]}
                   onPress={() => setSelectedStyle(style.type)}
                 >
                   <Text
                     style={[
                       styles.styleLabel,
-                      selectedStyle === style.type && styles.styleLabelSelected,
+                      selectedStyle === style.type && styles.styleLabelActive,
                     ]}
                   >
                     {style.label}
@@ -114,55 +125,51 @@ export default function PolishScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </Animated.View>
 
-          {/* Original Text Input */}
-          <View style={styles.inputSection}>
-            <View style={styles.inputHeader}>
-              <Text style={styles.sectionTitle}>原始内容</Text>
-              <Text style={styles.charCount}>{originalText.length} 字</Text>
-            </View>
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(300)}
+            style={styles.section}
+          >
+            <Text style={styles.sectionTitle}>输入内容</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="请输入需要润色的文案内容..."
+              placeholder="请输入需要润色的文案..."
               placeholderTextColor="#9CA3AF"
+              multiline
               value={originalText}
               onChangeText={setOriginalText}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
             />
-          </View>
+          </Animated.View>
 
-          {/* Polish Button */}
           <TouchableOpacity
-            style={[styles.polishButton, loading && styles.polishButtonDisabled]}
+            style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
             onPress={handlePolish}
             disabled={loading}
           >
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.polishButtonText}>润色中...</Text>
-              </View>
-            ) : (
-              <Text style={styles.polishButtonText}>开始润色</Text>
-            )}
+            <Text style={styles.submitBtnText}>
+              {loading ? "润色中..." : "开始润色"}
+            </Text>
           </TouchableOpacity>
 
-          {/* Polished Result */}
           {polishedText ? (
-            <View style={styles.resultSection}>
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(300)}
+              layout={Layout.springify()}
+              style={styles.resultSection}
+            >
               <View style={styles.resultHeader}>
                 <Text style={styles.sectionTitle}>润色结果</Text>
-                <TouchableOpacity onPress={handleCopy} style={styles.copyButton}>
-                  <Text style={styles.copyButtonText}>复制</Text>
+                <TouchableOpacity onPress={handleCopy}>
+                  <Text style={styles.copyBtn}>复制</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.resultCard}>
-                <Text style={styles.resultText}>{polishedText}</Text>
+                <ScrollView style={styles.resultContent}>
+                  <Text style={styles.resultText}>{polishedText}</Text>
+                </ScrollView>
               </View>
-            </View>
+            </Animated.View>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -172,29 +179,30 @@ export default function PolishScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
+    padding: 16,
+    paddingBottom: 40,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 24,
   },
-  backButton: {
-    marginBottom: 12,
+  backBtn: {
+    padding: 8,
   },
-  backText: {
-    fontSize: 16,
+  backBtnText: {
     color: "#4F46E5",
+    fontSize: 16,
+    fontWeight: "500",
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#1F2937",
   },
-  styleSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  section: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 16,
@@ -205,83 +213,59 @@ const styles = StyleSheet.create({
   styleGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
   },
   styleCard: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    width: "30%",
+    padding: 12,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    minWidth: "30%",
+    backgroundColor: "#F3F4F6",
     alignItems: "center",
   },
-  styleCardSelected: {
-    borderColor: "#4F46E5",
+  styleCardActive: {
     backgroundColor: "#EEF2FF",
+    borderWidth: 2,
+    borderColor: "#4F46E5",
   },
   styleLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#4B5563",
+    color: "#374151",
     marginBottom: 4,
   },
-  styleLabelSelected: {
+  styleLabelActive: {
     color: "#4F46E5",
   },
   styleDesc: {
     fontSize: 11,
     color: "#9CA3AF",
   },
-  inputSection: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  inputHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  charCount: {
-    fontSize: 12,
-    color: "#9CA3AF",
-  },
   textInput: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
     padding: 16,
+    minHeight: 120,
     fontSize: 15,
     color: "#1F2937",
-    minHeight: 150,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    textAlignVertical: "top",
   },
-  polishButton: {
+  submitBtn: {
     backgroundColor: "#4F46E5",
-    marginHorizontal: 20,
-    paddingVertical: 16,
     borderRadius: 12,
+    padding: 16,
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  polishButtonDisabled: {
-    backgroundColor: "#A5B4FC",
+  submitBtnDisabled: {
+    backgroundColor: "#9CA3AF",
   },
-  polishButtonText: {
+  submitBtnText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
   },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   resultSection: {
-    paddingHorizontal: 20,
-    marginBottom: 40,
+    marginBottom: 24,
   },
   resultHeader: {
     flexDirection: "row",
@@ -289,27 +273,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  copyButton: {
-    backgroundColor: "#4F46E5",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  copyButtonText: {
-    color: "#FFFFFF",
+  copyBtn: {
+    color: "#4F46E5",
     fontSize: 14,
     fontWeight: "500",
   },
   resultCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    backgroundColor: "#F0FDF4",
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#BBF7D0",
+  },
+  resultContent: {
+    maxHeight: 300,
   },
   resultText: {
     fontSize: 15,
-    color: "#1F2937",
+    color: "#166534",
     lineHeight: 24,
   },
 });
