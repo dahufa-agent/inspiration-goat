@@ -484,10 +484,6 @@ export default function HomeScreen() {
                   transition={300}
                   cachePolicy="memory-disk"
                 />
-                <View style={styles.headerText}>
-                  <Text style={styles.greeting}>灵感山羊</Text>
-                  <Text style={styles.subtitle}>一键生成创意内容</Text>
-                </View>
               </View>
               <View style={styles.headerRight}>
                 {userInfo ? (
@@ -516,6 +512,12 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                   </>
                 )}
+              </View>
+            </View>
+            <View style={styles.headerBottom}>
+              <View style={styles.brandInfo}>
+                <Text style={styles.greeting}>灵感山羊</Text>
+                <Text style={styles.subtitle}>一键生成创意内容</Text>
               </View>
             </View>
           </View>
@@ -1094,7 +1096,6 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   avatar: {
     width: 56,
@@ -1102,21 +1103,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 3,
     borderColor: "#4F46E5",
-    marginRight: 14,
-  },
-  headerText: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#1F2937",
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
   },
   headerRight: {
     flexDirection: "row",
@@ -1176,6 +1162,23 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "bold",
+  },
+  headerBottom: {
+    marginTop: 16,
+  },
+  brandInfo: {
+    alignItems: "flex-start",
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1F2937",
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 4,
   },
   historyButton: {
     width: 40,
