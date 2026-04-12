@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import InputForm from '../components/InputForm'
 import ResultCard from '../components/ResultCard'
-import { getMembership, getRemainingEdits } from '../services/api'
+import { getRemainingEdits } from '../services/api'
+
+interface Quota {
+  remainingImages: number
+  remainingTexts: number
+  remainingVideos: number
+}
 
 const Home: React.FC = () => {
   const { user } = useAuth()
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
-  const [quota, setQuota] = useState({ images: 0, texts: 0, videos: 0 })
+  const [quota, setQuota] = useState<Quota>({ remainingImages: 0, remainingTexts: 0, remainingVideos: 0 })
 
   useEffect(() => {
     if (user) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { register as registerApi, sendCode } from '../services/api'
+import { sendCode } from '../services/api'
 
 const Register: React.FC = () => {
   const { register } = useAuth()
@@ -10,7 +10,6 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [code, setCode] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -22,8 +21,7 @@ const Register: React.FC = () => {
     }
     
     try {
-      await sendCode(phone)
-      setCodeSent(true)
+      await sendCode(phone, 'register')
       setCountdown(60)
       const timer = setInterval(() => {
         setCountdown((prev) => {
