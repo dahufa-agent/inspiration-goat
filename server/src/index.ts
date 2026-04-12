@@ -537,7 +537,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
         return res.status(400).json({
           error: "内容包含敏感信息",
           code: "SENSITIVE_CONTENT",
-          message: "您的创意想法可能包含不适合生成的内容（如涉及政治、色情、暴力等），请换一个想法试试，如'海边日落'、'森林小路'、'美食分享'等"
+          message: "您的创意想法包含不适合生成的内容（如违法违纪等），请换一个想法试试。人物、风景、美食等创作都可以哦~"
         });
       }
       throw error;
