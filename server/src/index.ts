@@ -201,6 +201,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     let success = false;
     let imageUrls: string[] = [];
     let errorMessages: string[] = [];
+    let optimizationNote: string | undefined;
 
     // 首次尝试
     try {
@@ -223,7 +224,11 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
       
       if (isSensitiveError) {
         console.log("Original prompt rejected, trying sanitized version...");
-        currentPrompt = sanitizePrompt(prompt);
+        const result = sanitizePrompt(prompt);
+        currentPrompt = result.sanitized;
+        optimizationNote = result.reasons.length > 0 
+          ? `已为您优化：${result.reasons.join('；')}，以确保内容可正常生成` 
+          : undefined;
         
         // 脱敏后重试
         try {
@@ -249,7 +254,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     }
 
     if (success) {
-      res.json({ imageUrls });
+      res.json({ imageUrls, optimizationNote });
     } else {
       res.status(500).json({ errors: errorMessages });
     }
@@ -290,10 +295,16 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       temperature: 0.8,
     });
 
+    let optimizationNote: string | undefined;
+
     // 如果LLM返回错误包含敏感词，尝试脱敏重试
     if (response.content?.includes?.('敏感') || response.content?.includes?.('无法生成')) {
       console.log("Original prompt rejected by LLM, trying sanitized version...");
-      currentPrompt = sanitizePrompt(prompt);
+      const result = sanitizePrompt(prompt);
+      currentPrompt = result.sanitized;
+      optimizationNote = result.reasons.length > 0 
+        ? `已为您优化：${result.reasons.join('；')}，以确保内容可正常生成` 
+        : undefined;
       messages = [
         { role: "system" as const, content: systemPrompt },
         { role: "user" as const, content: `想法主题：${currentPrompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。` },
@@ -304,7 +315,7 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       });
     }
 
-    res.json({ text: response.content });
+    res.json({ text: response.content, optimizationNote });
   } catch (error) {
     console.error("Text generation error:", error);
     res.status(500).json({ error: "Text generation failed" });
@@ -433,6 +444,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
 
     let currentPrompt = prompt;
     let success = false;
+    let optimizationNote: string | undefined;
 
     // 首次尝试
     try {
@@ -450,7 +462,11 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       
       if (isSensitiveError) {
         console.log("Original prompt rejected, trying sanitized version...");
-        currentPrompt = sanitizePrompt(prompt);
+        const result = sanitizePrompt(prompt);
+        currentPrompt = result.sanitized;
+        optimizationNote = result.reasons.length > 0 
+          ? `已为您优化：${result.reasons.join('；')}，以确保内容可正常生成` 
+          : undefined;
         success = false;
       } else {
         throw error;
@@ -493,6 +509,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       perBatch: DAILY_LIMITS.images.perBatch,
       remaining: newRemaining,
       maxPerDay: DAILY_LIMITS.images.maxPerDay,
+      optimizationNote,
     });
   } catch (error) {
     console.error("Image batch generation error:", error);
@@ -512,14 +529,12 @@ app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "prompt is required" });
     }
 
-    // 检查内容是否允许，并获取脱敏后的提示词
-    const contentCheck = await isContentAllowed(prompt);
-    if (!contentCheck.allowed) {
-      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
-    }
-
-    // 使用脱敏后的提示词
-    const finalPrompt = contentCheck.sanitizedPrompt || prompt;
+    // 先直接脱敏（让AI自动处理）
+    const sanitizeResult = sanitizePrompt(prompt);
+    const finalPrompt = sanitizeResult.sanitized;
+    const optimizationNote = sanitizeResult.reasons.length > 0 
+      ? `已为您优化：${sanitizeResult.reasons.join('；')}，以确保内容可正常生成` 
+      : undefined;
 
     const data = getOrCreateDailyData(deviceId);
     const remaining = DAILY_LIMITS.texts.maxPerDay - data.textCount;
@@ -577,6 +592,7 @@ app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
       perBatch: DAILY_LIMITS.texts.perBatch,
       remaining: newRemaining,
       maxPerDay: DAILY_LIMITS.texts.maxPerDay,
+      optimizationNote,
     });
   } catch (error) {
     console.error("Text batch generation error:", error);
@@ -600,14 +616,12 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "prompt is required" });
     }
 
-    // 检查内容是否允许，并获取脱敏后的提示词
-    const contentCheck = await isContentAllowed(prompt);
-    if (!contentCheck.allowed) {
-      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
-    }
-
-    // 使用脱敏后的提示词
-    const finalPrompt = contentCheck.sanitizedPrompt || prompt;
+    // 先直接脱敏获取优化说明
+    const sanitizeResult = sanitizePrompt(prompt);
+    const finalPrompt = sanitizeResult.sanitized;
+    const optimizationNote = sanitizeResult.reasons.length > 0 
+      ? `已为您优化：${sanitizeResult.reasons.join('；')}，以确保内容可正常生成` 
+      : undefined;
 
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
@@ -682,15 +696,29 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
         }
       });
     } catch (error: any) {
-      // 检查是否是敏感内容审核错误
+      // 检查是否是敏感内容审核错误 - 自动脱敏重试
       if (error?.response?.error?.code === 'InputTextSensitiveContentDetected') {
-        return res.status(400).json({
-          error: "内容包含敏感信息",
-          code: "SENSITIVE_CONTENT",
-          message: "您的创意想法包含不适合生成的内容（如违法违纪等），请换一个想法试试。人物、风景、美食等创作都可以哦~"
+        console.log("Image generation sensitive error, retrying with sanitized prompt...");
+        const retryResult = sanitizePrompt(prompt);
+        const retryPrompt = retryResult.sanitized;
+        
+        const retryRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({
+          prompt: retryPrompt,
+          size: "2K",
+          watermark: false,
+        }));
+        
+        const retryResponses = await imageClient.batchGenerate(retryRequests);
+        retryResponses.forEach((response: any) => {
+          const helper = imageClient.getResponseHelper(response);
+          if (helper.success && helper.imageUrls.length > 0) {
+            imageUrls.push(helper.imageUrls[0]);
+            data.imageCount += 1;
+          }
         });
+      } else {
+        throw error;
       }
-      throw error;
     }
 
     // 2. 生成文案（1条）
@@ -764,6 +792,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       remainingFreeEdits,
       remainingImages,
       remainingTexts,
+      optimizationNote,
       imageLimits: {
         perBatch: DAILY_LIMITS.images.perBatch,
         maxPerDay: imageMaxPerDay,
@@ -1741,39 +1770,38 @@ app.put("/api/v1/admin/settings", async (req: Request, res: Response) => {
 
 /**
  * 提示词脱敏函数 - 将敏感词替换为中性描述
+ * 返回脱敏后的提示词和优化说明
  */
-function sanitizePrompt(prompt: string): string {
+function sanitizePrompt(prompt: string): { sanitized: string; reasons: string[] } {
   let sanitized = prompt;
+  const reasons: string[] = [];
   
-  // 定义敏感词映射表
-  const sensitiveWordMap: { [key: string]: string | string[] } = {
-    // 政治敏感人物
-    '特朗普': ['an elderly white male politician with suit and tie', '一位穿着西装打领带的老年白人政治人物'],
-    'Trump': ['an elderly white male politician with suit and tie', '一位穿着西装打领带的老年白人政治人物'],
-    'trump': ['an elderly white male politician with suit and tie', '一位穿着西装打领带的老年白人政治人物'],
-    
-    // 可以添加更多敏感词映射
-    // '习近平': ['a Chinese male leader', '一位中国男性领导人'],
-    // '普京': ['a Russian male leader', '一位俄罗斯男性领导人'],
+  // 定义敏感词映射表（只做最小改动，保持原意）
+  const sensitiveWordMap: { [key: string]: { en: string; zh: string } } = {
+    // 政治敏感人物 - 用特征描述替代
+    '特朗普': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
+    'Trump': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
+    'trump': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
+    '川普': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
   };
   
   // 遍历映射表进行替换
   for (const [sensitiveWord, replacement] of Object.entries(sensitiveWordMap)) {
     if (sanitized.includes(sensitiveWord)) {
-      const replacements = Array.isArray(replacement) ? replacement : [replacement];
-      // 随机选择一个替换词（50%概率英文描述，50%概率中文描述）
-      const replacementText = replacements[Math.floor(Math.random() * replacements.length)];
-      sanitized = sanitized.split(sensitiveWord).join(replacementText);
+      // 保留原词在括号注释中，便于理解
+      const note = `[${sensitiveWord}]`;
+      sanitized = sanitized.split(sensitiveWord).join(replacement.zh);
+      reasons.push(`"${sensitiveWord}"已优化为"${replacement.zh}"`);
     }
   }
   
-  return sanitized;
+  return { sanitized, reasons };
 }
 
 /**
  * 检查内容是否允许生成（根据后台设置，并自动脱敏提示词）
  */
-async function isContentAllowed(prompt: string): Promise<{ allowed: boolean; reason?: string; sanitizedPrompt?: string }> {
+async function isContentAllowed(prompt: string): Promise<{ allowed: boolean; reason?: string; sanitizedPrompt?: string; reasons?: string[] }> {
   try {
     const client = getSupabaseClient();
     
@@ -1784,30 +1812,31 @@ async function isContentAllowed(prompt: string): Promise<{ allowed: boolean; rea
       .single();
     
     // 默认进行提示词脱敏（解决AI模型的内容审核问题）
-    const sanitizedPrompt = sanitizePrompt(prompt);
+    const sanitizeResult = sanitizePrompt(prompt);
     
     // 如果脱敏后的提示词与原提示词不同，说明进行了替换
-    if (sanitizedPrompt !== prompt) {
-      console.log(`Prompt sanitized: "${prompt}" -> "${sanitizedPrompt}"`);
+    if (sanitizeResult.sanitized !== prompt) {
+      console.log(`Prompt sanitized: "${prompt}" -> "${sanitizeResult.sanitized}"`);
     }
     
     // 如果获取失败或未配置，默认允许（但仍脱敏）
     if (error || !data) {
-      return { allowed: true, sanitizedPrompt };
+      return { allowed: true, sanitizedPrompt: sanitizeResult.sanitized, reasons: sanitizeResult.reasons };
     }
     
     // 如果开关关闭，不限制内容（但仍脱敏提示词以通过AI审核）
     if (!data.content_filter_enabled) {
-      return { allowed: true, sanitizedPrompt };
+      return { allowed: true, sanitizedPrompt: sanitizeResult.sanitized, reasons: sanitizeResult.reasons };
     }
     
     // 开关开启时的过滤逻辑（可根据需要扩展）
     // 这里可以添加更严格的敏感词检测等逻辑
     
-    return { allowed: true, sanitizedPrompt };
+    return { allowed: true, sanitizedPrompt: sanitizeResult.sanitized, reasons: sanitizeResult.reasons };
   } catch (error) {
     // 出错时默认允许（但仍脱敏提示词）
     console.error("Content filter check error:", error);
-    return { allowed: true, sanitizedPrompt: sanitizePrompt(prompt) };
+    const sanitizeResult = sanitizePrompt(prompt);
+    return { allowed: true, sanitizedPrompt: sanitizeResult.sanitized, reasons: sanitizeResult.reasons };
   }
 }
