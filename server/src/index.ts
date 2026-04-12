@@ -1005,6 +1005,12 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "手机号和时长类型不能为空" });
     }
 
+    // 只有指定手机号才能申请免费码
+    const ALLOWED_FREE_CODE_PHONE = "18104962855";
+    if (phone !== ALLOWED_FREE_CODE_PHONE) {
+      return res.status(403).json({ error: "抱歉，仅限指定用户申请免费码" });
+    }
+
     const client = getSupabaseClient();
     
     // 查询用户
@@ -1018,11 +1024,6 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
     
     if (!user) {
       return res.status(400).json({ error: "请先注册账号" });
-    }
-    
-    // 如果用户是永久会员，不需要免费码
-    if (user.is_permanent_vip) {
-      return res.status(400).json({ error: "您是永久会员，无需申请免费码" });
     }
     
     // 如果是赠送模式，验证接收人
@@ -1060,7 +1061,7 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
         return res.status(400).json({ error: "接收人已有有效的会员期限" });
       }
     } else {
-      // 非赠送模式：检查用户自己是否已有有效会员
+      // 非赠送模式：只有永久会员可以为自己申请（实际上永久会员不需要，所以这里检查是否有有效会员）
       const now = new Date().toISOString();
       const { data: activeMembership } = await client
         .from('user_memberships')
@@ -1069,7 +1070,8 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
         .gt('end_date', now)
         .maybeSingle();
       
-      if (activeMembership) {
+      // 如果用户已有有效会员且不是永久会员，不允许申请
+      if (activeMembership && !user.is_permanent_vip) {
         return res.status(400).json({ error: "您已有有效的会员期限" });
       }
     }
@@ -1092,6 +1094,7 @@ app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
         code,
         duration_type: durationType,
         duration_days: durationDays,
+        recipient_phone: recipientPhone || null,
       });
     
     if (insertError) throw insertError;
@@ -1142,7 +1145,7 @@ app.post("/api/v1/free-codes/activate", async (req: Request, res: Response) => {
     // 查询用户
     const { data: user, error: userError } = await client
       .from('users')
-      .select('id, is_permanent_vip')
+      .select('id, phone, is_permanent_vip')
       .eq('id', userId)
       .maybeSingle();
     
@@ -1154,6 +1157,11 @@ app.post("/api/v1/free-codes/activate", async (req: Request, res: Response) => {
     
     if (user.is_permanent_vip) {
       return res.status(400).json({ error: "您是永久会员，无需激活免费码" });
+    }
+    
+    // 如果是赠送码，验证用户手机号是否匹配
+    if (freeCode.recipient_phone && freeCode.recipient_phone !== user.phone) {
+      return res.status(400).json({ error: "此免费码不适用于您的账号" });
     }
     
     // 激活免费码
