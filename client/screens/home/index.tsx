@@ -475,50 +475,44 @@ export default function HomeScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header with Goat Teacher Avatar */}
           <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <View style={styles.headerLeft}>
-                <Image
-                  source={{ uri: GOAT_TEACHER_AVATAR }}
-                  style={styles.avatar}
-                  contentFit="cover"
-                  transition={300}
-                  cachePolicy="memory-disk"
-                />
-              </View>
-              <View style={styles.headerRight}>
-                {userInfo ? (
-                  <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
-                    {isPermanentVip ? (
-                      <View style={styles.vipBadge}>
-                        <Text style={styles.vipBadgeText}>永久</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.usernameText}>{userInfo.username}</Text>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <>
-                    <TouchableOpacity 
-                      style={styles.registerButton}
-                      onPress={() => router.push("/auth")}
-                    >
-                      <Text style={styles.registerButtonText}>注册</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.loginButton}
-                      onPress={() => router.push("/auth")}
-                    >
-                      <Text style={styles.loginButtonText}>登录</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
+            <View style={styles.brandSection}>
+              <Image
+                source={{ uri: GOAT_TEACHER_AVATAR }}
+                style={styles.avatar}
+                contentFit="cover"
+                transition={300}
+                cachePolicy="memory-disk"
+              />
+              <Text style={styles.greeting}>灵感山羊</Text>
+              <Text style={styles.subtitle}>一键生成创意内容</Text>
             </View>
-            <View style={styles.headerBottom}>
-              <View style={styles.brandInfo}>
-                <Text style={styles.greeting}>灵感山羊</Text>
-                <Text style={styles.subtitle}>一键生成创意内容</Text>
-              </View>
+            <View style={styles.authSection}>
+              {userInfo ? (
+                <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
+                  {isPermanentVip ? (
+                    <View style={styles.vipBadge}>
+                      <Text style={styles.vipBadgeText}>永久</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.usernameText}>{userInfo.username}</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={styles.registerButton}
+                    onPress={() => router.push("/auth")}
+                  >
+                    <Text style={styles.registerButtonText}>注册</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.loginButton}
+                    onPress={() => router.push("/auth")}
+                  >
+                    <Text style={styles.loginButtonText}>登录</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
 
@@ -1078,7 +1072,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -1088,29 +1082,37 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  headerTop: {
-    flexDirection: "row",
+  brandSection: {
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    marginBottom: 16,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 3,
     borderColor: "#4F46E5",
+    marginBottom: 12,
   },
-  headerRight: {
+  greeting: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1F2937",
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  authSection: {
     flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   registerButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: "#F1F5F9",
@@ -1123,7 +1125,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   loginButton: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: "#4F46E5",
@@ -1162,23 +1164,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "bold",
-  },
-  headerBottom: {
-    marginTop: 16,
-  },
-  brandInfo: {
-    alignItems: "flex-start",
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#1F2937",
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
   },
   historyButton: {
     width: 40,
