@@ -2003,29 +2003,8 @@ app.put("/api/v1/admin/settings", async (req: Request, res: Response) => {
  * 返回脱敏后的提示词和优化说明
  */
 function sanitizePrompt(prompt: string): { sanitized: string; reasons: string[] } {
-  let sanitized = prompt;
-  const reasons: string[] = [];
-  
-  // 定义敏感词映射表（只做最小改动，保持原意）
-  const sensitiveWordMap: { [key: string]: { en: string; zh: string } } = {
-    // 政治敏感人物 - 用特征描述替代
-    '特朗普': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
-    'Trump': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
-    'trump': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
-    '川普': { en: 'a senior male politician with suit', zh: '一位资深男装政治人物' },
-  };
-  
-  // 遍历映射表进行替换
-  for (const [sensitiveWord, replacement] of Object.entries(sensitiveWordMap)) {
-    if (sanitized.includes(sensitiveWord)) {
-      // 保留原词在括号注释中，便于理解
-      const note = `[${sensitiveWord}]`;
-      sanitized = sanitized.split(sensitiveWord).join(replacement.zh);
-      reasons.push(`"${sensitiveWord}"已优化为"${replacement.zh}"`);
-    }
-  }
-  
-  return { sanitized, reasons };
+  // 直接返回原始内容，不做任何脱敏处理
+  return { sanitized: prompt, reasons: [] };
 }
 
 /**
