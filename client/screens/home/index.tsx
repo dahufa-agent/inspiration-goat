@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
+  Alert,
+  Modal,
 } from "react-native";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter } from "@/hooks/useSafeRouter";
@@ -35,16 +37,64 @@ const LIMITS = {
   texts: { perBatch: 1, maxPerDay: 10, chargePerText: 2 },
 };
 
+// 免费码选项
+const FREE_CODE_OPTIONS = [
+  { type: '1_month', label: '1个月', days: 30 },
+  { type: '3_months', label: '一季度', days: 90 },
+  { type: '6_months', label: '半年', days: 180 },
+  { type: '1_year', label: '一年', days: 365 },
+];
+
+interface UserInfo {
+  id: string;
+  phone: string;
+  username: string;
+  isPermanentVip: boolean;
+  isVip: boolean;
+  vipEndDate?: string;
+}
+
 export default function HomeScreen() {
   const router = useSafeRouter();
   const [idea, setIdea] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("free");
-  const [remainingVideoEdits, setRemainingVideoEdits] = useState(3);
+  const [remainingVideoEdits, setRemainingVideoEdits] = useState(10);
   const [remainingImages, setRemainingImages] = useState(20);
   const [remainingTexts, setRemainingTexts] = useState(10);
   const [deviceId, setDeviceId] = useState("");
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [showFreeCodeModal, setShowFreeCodeModal] = useState(false);
+  const [freeCodePhone, setFreeCodePhone] = useState("");
+  const [selectedFreeCodeType, setSelectedFreeCodeType] = useState("1_month");
+  const [freeCode, setFreeCode] = useState("");
+  const [isPermanentVip, setIsPermanentVip] = useState(false);
+
+  // 获取用户信息
+  const loadUserInfo = useCallback(async () => {
+    try {
+      const stored = await SecureStore.getItemAsync("userInfo");
+      if (stored) {
+        const user = JSON.parse(stored) as UserInfo;
+        setUserInfo(user);
+        setIsPermanentVip(user.isPermanentVip);
+        
+        // 获取会员状态
+        if (user.id) {
+          const response = await fetch(`${BACKEND_BASE_URL}/api/v1/user/membership`, {
+            headers: { "x-user-id": user.id },
+          });
+          const data = await response.json();
+          if (data.isVip || data.isPermanentVip) {
+            setIsPermanentVip(true);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Load user info error:", err);
+    }
+  }, []);
 
   // 获取或生成设备ID
   useEffect(() => {
@@ -56,6 +106,7 @@ export default function HomeScreen() {
           await SecureStore.setItemAsync("deviceId", id);
         }
         setDeviceId(id);
+        await loadUserInfo();
         
         // 获取剩余次数
         const response = await fetch(`${BACKEND_BASE_URL}/api/v1/user/remaining-edits`, {
@@ -72,7 +123,7 @@ export default function HomeScreen() {
       }
     };
     getDeviceId();
-  }, []);
+  }, [loadUserInfo]);
 
   const canGenerate = () => {
     if (!idea.trim()) return { allowed: false, reason: "请输入你的创意想法" };
@@ -146,6 +197,82 @@ export default function HomeScreen() {
 
   const generateCheck = canGenerate();
 
+  // 申请免费码
+  const handleApplyFreeCode = async () => {
+    if (!freeCodePhone) {
+      Alert.alert("提示", "请输入手机号");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/free-codes/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: freeCodePhone,
+          durationType: selectedFreeCodeType,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setFreeCode(data.freeCode);
+      } else {
+        Alert.alert("提示", data.error || "申请失败");
+      }
+    } catch (err) {
+      Alert.alert("提示", "网络错误");
+    }
+  };
+
+  // 激活免费码
+  const handleActivateFreeCode = async (code: string) => {
+    if (!userInfo?.id) {
+      Alert.alert("提示", "请先登录");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/free-codes/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userInfo.id,
+          code,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        Alert.alert("成功", "免费码激活成功！", [
+          { text: "确定", onPress: () => {
+            setShowFreeCodeModal(false);
+            setFreeCode("");
+            loadUserInfo();
+          }}
+        ]);
+      } else {
+        Alert.alert("提示", data.error || "激活失败");
+      }
+    } catch (err) {
+      Alert.alert("提示", "网络错误");
+    }
+  };
+
+  // 登出
+  const handleLogout = async () => {
+    Alert.alert("提示", "确定要退出登录吗？", [
+      { text: "取消", style: "cancel" },
+      { text: "确定", onPress: async () => {
+        await SecureStore.deleteItemAsync("userInfo");
+        setUserInfo(null);
+        setIsPermanentVip(false);
+      }}
+    ]);
+  };
+
   return (
     <Screen>
       <KeyboardAvoidingView
@@ -165,7 +292,54 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>你好，我是山羊老师</Text>
               <Text style={styles.subtitle}>一键生成创意内容</Text>
             </View>
+            <View style={styles.userArea}>
+              {userInfo ? (
+                <TouchableOpacity onPress={handleLogout} style={styles.userButton}>
+                  {isPermanentVip ? (
+                    <View style={styles.vipBadge}>
+                      <Text style={styles.vipBadgeText}>永久会员</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.usernameText}>{userInfo.username}</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.loginButton}
+                  onPress={() => router.push("/auth")}
+                >
+                  <Text style={styles.loginButtonText}>登录</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
+
+          {/* Permanent VIP Banner (for permanent VIP users) */}
+          {userInfo && isPermanentVip && (
+            <TouchableOpacity 
+              style={styles.permanentVipBanner}
+              onPress={() => router.push("/auth")}
+            >
+              <Text style={styles.permanentVipText}>永久会员 - 无限创作</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Free Code Entry (only for logged in non-permanent VIP users) */}
+          {userInfo && !isPermanentVip && (
+            <TouchableOpacity 
+              style={styles.freeCodeEntry}
+              onPress={() => setShowFreeCodeModal(true)}
+            >
+              <View style={styles.freeCodeIcon}>
+                <Text style={styles.freeCodeIconText}>兑换</Text>
+              </View>
+              <View style={styles.freeCodeContent}>
+                <Text style={styles.freeCodeTitle}>免费码兑换</Text>
+                <Text style={styles.freeCodeDesc}>输入免费码获得会员时长</Text>
+              </View>
+              <Text style={styles.freeCodeArrow}>{">"}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Main Content */}
           <View style={styles.mainContent}>
@@ -332,8 +506,129 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+
+          {/* Free Code Entry */}
+          {!isPermanentVip && (
+            <TouchableOpacity 
+              style={styles.freeCodeEntry}
+              onPress={() => {
+                if (userInfo) {
+                  setFreeCodePhone(userInfo.phone || "");
+                }
+                setShowFreeCodeModal(true);
+              }}
+            >
+              <View style={styles.freeCodeIcon}>
+                <Text style={styles.freeCodeIconText}>VIP</Text>
+              </View>
+              <View style={styles.freeCodeContent}>
+                <Text style={styles.freeCodeTitle}>领取免费会员</Text>
+                <Text style={styles.freeCodeDesc}>获取1个月/季度/半年/年度会员</Text>
+              </View>
+              <Text style={styles.freeCodeArrow}>{">"}</Text>
+            </TouchableOpacity>
+          )}
+
+          {isPermanentVip && (
+            <View style={styles.permanentVipBanner}>
+              <Text style={styles.permanentVipText}>永久会员 · 无限创作</Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Free Code Modal */}
+      <Modal
+        visible={showFreeCodeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFreeCodeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>领取免费会员</Text>
+              <TouchableOpacity onPress={() => setShowFreeCodeModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {!freeCode ? (
+              <>
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalLabel}>手机号</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="请输入手机号"
+                    value={freeCodePhone}
+                    onChangeText={setFreeCodePhone}
+                    keyboardType="phone-pad"
+                  />
+                  
+                  <Text style={styles.modalLabel}>选择时长</Text>
+                  <View style={styles.durationSelect}>
+                    {FREE_CODE_OPTIONS.map((option) => (
+                      <TouchableOpacity
+                        key={option.type}
+                        style={[
+                          styles.durationChip,
+                          selectedFreeCodeType === option.type && styles.durationChipSelected,
+                        ]}
+                        onPress={() => setSelectedFreeCodeType(option.type)}
+                      >
+                        <Text style={[
+                          styles.durationChipText,
+                          selectedFreeCodeType === option.type && styles.durationChipTextSelected,
+                        ]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={styles.modalButton}
+                  onPress={handleApplyFreeCode}
+                >
+                  <Text style={styles.modalButtonText}>获取免费码</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalLabel}>您的免费码</Text>
+                  <View style={styles.freeCodeDisplay}>
+                    <Text style={styles.freeCodeValue}>{freeCode}</Text>
+                  </View>
+                  <Text style={styles.freeCodeHint}>
+                    请复制免费码并登录后点击&quot;激活&quot;使用
+                  </Text>
+                </View>
+                
+                {userInfo ? (
+                  <TouchableOpacity 
+                    style={styles.modalButton}
+                    onPress={() => handleActivateFreeCode(freeCode)}
+                  >
+                    <Text style={styles.modalButtonText}>立即激活</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity 
+                    style={styles.modalButton}
+                    onPress={() => {
+                      setShowFreeCodeModal(false);
+                      router.push("/auth");
+                    }}
+                  >
+                    <Text style={styles.modalButtonText}>登录后激活</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -643,5 +938,203 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: 13,
     color: "#9CA3AF",
+  },
+  // User Area
+  userArea: {
+    marginLeft: "auto",
+  },
+  userButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#EEF2FF",
+  },
+  usernameText: {
+    fontSize: 14,
+    color: "#4F46E5",
+    fontWeight: "500",
+  },
+  loginButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#4F46E5",
+  },
+  loginButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  vipBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  vipBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  // Free Code Entry
+  freeCodeEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: "#F59E0B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  freeCodeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#FEF3C7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  freeCodeIconText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#F59E0B",
+  },
+  freeCodeContent: {
+    flex: 1,
+  },
+  freeCodeTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  freeCodeDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  freeCodeArrow: {
+    fontSize: 18,
+    color: "#9CA3AF",
+  },
+  permanentVipBanner: {
+    backgroundColor: "#F59E0B",
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  permanentVipText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1F2937",
+  },
+  modalClose: {
+    fontSize: 24,
+    color: "#9CA3AF",
+  },
+  modalBody: {
+    marginBottom: 24,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#1F2937",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 20,
+  },
+  durationSelect: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  durationChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+  },
+  durationChipSelected: {
+    borderColor: "#4F46E5",
+    backgroundColor: "#EEF2FF",
+  },
+  durationChipText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  durationChipTextSelected: {
+    color: "#4F46E5",
+    fontWeight: "600",
+  },
+  modalButton: {
+    backgroundColor: "#4F46E5",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  freeCodeDisplay: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  freeCodeValue: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#D97706",
+    letterSpacing: 4,
+  },
+  freeCodeHint: {
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
   },
 });

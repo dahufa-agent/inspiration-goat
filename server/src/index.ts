@@ -735,3 +735,479 @@ app.get("/api/v1/user/remaining-edits", (req, res) => {
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
+
+// ==================== 用户注册登录模块 ====================
+import { getSupabaseClient } from './storage/database/supabase-client';
+import crypto from 'crypto';
+
+// 永久会员手机号
+const PERMANENT_VIP_PHONE = '18104962855';
+
+// 生成验证码
+function generateCode(length: number = 6): string {
+  return Math.random().toString().slice(2, 2 + length);
+}
+
+// 密码加密
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+/**
+ * 发送验证码
+ * POST /api/v1/auth/send-code
+ */
+app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
+  try {
+    const { phone, purpose } = req.body;
+    
+    if (!phone || !purpose) {
+      return res.status(400).json({ error: "手机号和用途不能为空" });
+    }
+
+    // 验证手机号格式
+    if (!/^1\d{10}$/.test(phone)) {
+      return res.status(400).json({ error: "手机号格式不正确" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 生成6位验证码
+    const code = generateCode(6);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10分钟有效期
+    
+    // 标记旧验证码为已使用
+    await client.from('verification_codes')
+      .update({ is_used: true })
+      .eq('phone', phone)
+      .eq('purpose', purpose);
+    
+    // 插入新验证码
+    const { error } = await client.from('verification_codes')
+      .insert({
+        phone,
+        code,
+        purpose,
+        expires_at: expiresAt.toISOString(),
+      });
+    
+    if (error) throw error;
+    
+    // 模拟发送验证码（实际应接入短信网关）
+    console.log(`[验证码] ${phone} - ${code} (${purpose})`);
+    
+    res.json({ 
+      success: true, 
+      message: "验证码已发送",
+      // 开发环境直接返回验证码方便测试
+      ...(process.env.NODE_ENV === 'development' && { code })
+    });
+  } catch (error: any) {
+    console.error("Send code error:", error);
+    res.status(500).json({ error: "发送验证码失败" });
+  }
+});
+
+/**
+ * 注册
+ * POST /api/v1/auth/register
+ */
+app.post("/api/v1/auth/register", async (req: Request, res: Response) => {
+  try {
+    const { phone, username, password, code } = req.body;
+    
+    if (!phone || !username || !password || !code) {
+      return res.status(400).json({ error: "所有字段都不能为空" });
+    }
+
+    // 验证手机号格式
+    if (!/^1\d{10}$/.test(phone)) {
+      return res.status(400).json({ error: "手机号格式不正确" });
+    }
+
+    // 验证用户名格式（3-20位字母数字下划线）
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+      return res.status(400).json({ error: "用户名需要3-20位字母、数字或下划线" });
+    }
+
+    // 验证密码长度
+    if (password.length < 6) {
+      return res.status(400).json({ error: "密码至少6位" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 验证验证码
+    const { data: validCode, error: codeError } = await client
+      .from('verification_codes')
+      .select('*')
+      .eq('phone', phone)
+      .eq('code', code)
+      .eq('purpose', 'register')
+      .eq('is_used', false)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    
+    if (codeError || !validCode) {
+      return res.status(400).json({ error: "验证码无效或已过期" });
+    }
+    
+    // 检查手机号是否已注册
+    const { data: existingPhone } = await client
+      .from('users')
+      .select('id')
+      .eq('phone', phone)
+      .maybeSingle();
+    
+    if (existingPhone) {
+      return res.status(400).json({ error: "该手机号已注册" });
+    }
+    
+    // 检查用户名是否已被使用
+    const { data: existingUsername } = await client
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+    
+    if (existingUsername) {
+      return res.status(400).json({ error: "用户名已被使用" });
+    }
+    
+    // 创建用户
+    const isPermanentVip = phone === PERMANENT_VIP_PHONE;
+    const hashedPassword = hashPassword(password);
+    
+    const { data: newUser, error: insertError } = await client
+      .from('users')
+      .insert({
+        phone,
+        username,
+        password: hashedPassword,
+        is_permanent_vip: isPermanentVip,
+      })
+      .select()
+      .single();
+    
+    if (insertError) throw insertError;
+    
+    // 标记验证码已使用
+    await client.from('verification_codes')
+      .update({ is_used: true })
+      .eq('id', validCode.id);
+    
+    res.json({
+      success: true,
+      message: "注册成功",
+      user: {
+        id: newUser.id,
+        phone: newUser.phone,
+        username: newUser.username,
+        isPermanentVip: newUser.is_permanent_vip,
+      },
+    });
+  } catch (error: any) {
+    console.error("Register error:", error);
+    res.status(500).json({ error: "注册失败" });
+  }
+});
+
+/**
+ * 登录
+ * POST /api/v1/auth/login
+ */
+app.post("/api/v1/auth/login", async (req: Request, res: Response) => {
+  try {
+    const { username, password, code } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: "用户名和密码不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    const hashedPassword = hashPassword(password);
+    
+    // 查询用户（支持手机号或用户名登录）
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('*')
+      .or(`phone.eq.${username},username.eq.${username}`)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(401).json({ error: "用户不存在" });
+    }
+    
+    if (user.password !== hashedPassword) {
+      return res.status(401).json({ error: "密码错误" });
+    }
+    
+    if (!user.is_active) {
+      return res.status(401).json({ error: "账号已被禁用" });
+    }
+    
+    // 检查会员有效期
+    const now = new Date().toISOString();
+    const { data: activeMembership } = await client
+      .from('user_memberships')
+      .select('*')
+      .eq('user_id', user.id)
+      .gt('end_date', now)
+      .maybeSingle();
+    
+    const isVip = user.is_permanent_vip || !!activeMembership;
+    const vipEndDate = user.is_permanent_vip ? '永久' : (activeMembership?.end_date || null);
+    
+    res.json({
+      success: true,
+      message: "登录成功",
+      user: {
+        id: user.id,
+        phone: user.phone,
+        username: user.username,
+        isPermanentVip: user.is_permanent_vip,
+        isVip,
+        vipEndDate,
+      },
+    });
+  } catch (error: any) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "登录失败" });
+  }
+});
+
+/**
+ * 获取免费码选项
+ * GET /api/v1/free-codes/options
+ */
+app.get("/api/v1/free-codes/options", (req, res) => {
+  res.json({
+    options: [
+      { type: '1_month', label: '1个月', days: 30 },
+      { type: '3_months', label: '一季度', days: 90 },
+      { type: '6_months', label: '半年', days: 180 },
+      { type: '1_year', label: '一年', days: 365 },
+    ],
+  });
+});
+
+/**
+ * 申请免费码
+ * POST /api/v1/free-codes/apply
+ */
+app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
+  try {
+    const { phone, durationType } = req.body;
+    
+    if (!phone || !durationType) {
+      return res.status(400).json({ error: "手机号和时长类型不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 查询用户
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, is_permanent_vip')
+      .eq('phone', phone)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(400).json({ error: "请先注册账号" });
+    }
+    
+    // 如果用户是永久会员，不需要免费码
+    if (user.is_permanent_vip) {
+      return res.status(400).json({ error: "您是永久会员，无需申请免费码" });
+    }
+    
+    // 检查用户是否已有有效会员
+    const now = new Date().toISOString();
+    const { data: activeMembership } = await client
+      .from('user_memberships')
+      .select('*')
+      .eq('user_id', user.id)
+      .gt('end_date', now)
+      .maybeSingle();
+    
+    if (activeMembership) {
+      return res.status(400).json({ error: "您已有有效的会员期限" });
+    }
+    
+    // 生成免费码
+    const code = generateCode(8).toUpperCase();
+    let durationDays = 30;
+    
+    switch (durationType) {
+      case '1_month': durationDays = 30; break;
+      case '3_months': durationDays = 90; break;
+      case '6_months': durationDays = 180; break;
+      case '1_year': durationDays = 365; break;
+      default: return res.status(400).json({ error: "无效的时长类型" });
+    }
+    
+    const { error: insertError } = await client
+      .from('free_codes')
+      .insert({
+        code,
+        duration_type: durationType,
+        duration_days: durationDays,
+      });
+    
+    if (insertError) throw insertError;
+    
+    res.json({
+      success: true,
+      message: "免费码生成成功",
+      freeCode: code,
+      durationType,
+      durationDays,
+    });
+  } catch (error: any) {
+    console.error("Apply free code error:", error);
+    res.status(500).json({ error: "申请免费码失败" });
+  }
+});
+
+/**
+ * 激活免费码
+ * POST /api/v1/free-codes/activate
+ */
+app.post("/api/v1/free-codes/activate", async (req: Request, res: Response) => {
+  try {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+      return res.status(400).json({ error: "用户ID和免费码不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 查询免费码
+    const { data: freeCode, error: codeError } = await client
+      .from('free_codes')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .eq('is_used', false)
+      .maybeSingle();
+    
+    if (codeError) throw codeError;
+    
+    if (!freeCode) {
+      return res.status(400).json({ error: "免费码无效或已被使用" });
+    }
+    
+    // 查询用户
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, is_permanent_vip')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(400).json({ error: "用户不存在" });
+    }
+    
+    if (user.is_permanent_vip) {
+      return res.status(400).json({ error: "您是永久会员，无需激活免费码" });
+    }
+    
+    // 激活免费码
+    const now = new Date();
+    const endDate = new Date(now.getTime() + freeCode.duration_days * 24 * 60 * 60 * 1000);
+    
+    // 标记免费码已使用
+    await client.from('free_codes')
+      .update({
+        is_used: true,
+        used_by: userId,
+        used_at: now.toISOString(),
+      })
+      .eq('id', freeCode.id);
+    
+    // 添加会员记录
+    await client.from('user_memberships')
+      .insert({
+        user_id: userId,
+        membership_type: 'free_code',
+        source: `free_code_${freeCode.duration_type}`,
+        start_date: now.toISOString(),
+        end_date: endDate.toISOString(),
+      });
+    
+    res.json({
+      success: true,
+      message: "免费码激活成功",
+      membership: {
+        startDate: now.toISOString(),
+        endDate: endDate.toISOString(),
+      },
+    });
+  } catch (error: any) {
+    console.error("Activate free code error:", error);
+    res.status(500).json({ error: "激活免费码失败" });
+  }
+});
+
+/**
+ * 获取用户会员状态
+ * GET /api/v1/user/membership
+ */
+app.get("/api/v1/user/membership", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.headers["x-user-id"] || req.headers["x-device-id"]) as string;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "用户ID不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    // 查询用户
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, username, is_permanent_vip')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    
+    if (user.is_permanent_vip) {
+      return res.json({
+        isVip: true,
+        isPermanentVip: true,
+        vipEndDate: null,
+        message: "永久会员",
+      });
+    }
+    
+    // 查询有效会员
+    const now = new Date().toISOString();
+    const { data: activeMembership } = await client
+      .from('user_memberships')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('end_date', now)
+      .maybeSingle();
+    
+    res.json({
+      isVip: !!activeMembership,
+      isPermanentVip: false,
+      vipEndDate: activeMembership?.end_date || null,
+      membership: activeMembership || null,
+    });
+  } catch (error: any) {
+    console.error("Get membership error:", error);
+    res.status(500).json({ error: "获取会员状态失败" });
+  }
+});
