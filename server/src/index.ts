@@ -191,19 +191,25 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "prompt is required" });
     }
 
+    // 检查内容是否允许
+    const check = await isContentAllowed(prompt);
+    if (!check.allowed) {
+      return res.status(400).json({ error: check.reason || "内容不允许生成" });
+    }
+
     const customHeaders = HeaderUtils.extractForwardHeaders(
       req.headers as Record<string, string>
     );
     const config = new Config();
-    const client = new ImageGenerationClient(config, customHeaders);
+    const imageClient = new ImageGenerationClient(config, customHeaders);
 
-    const response = await client.generate({
+    const response = await imageClient.generate({
       prompt,
       size: "2K",
       watermark: false,
     });
 
-    const helper = client.getResponseHelper(response);
+    const helper = imageClient.getResponseHelper(response);
 
     if (helper.success) {
       res.json({ imageUrls: helper.imageUrls });
@@ -226,11 +232,17 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "prompt is required" });
     }
 
+    // 检查内容是否允许
+    const check = await isContentAllowed(prompt);
+    if (!check.allowed) {
+      return res.status(400).json({ error: check.reason || "内容不允许生成" });
+    }
+
     const customHeaders = HeaderUtils.extractForwardHeaders(
       req.headers as Record<string, string>
     );
     const config = new Config();
-    const client = new LLMClient(config, customHeaders);
+    const llmClient = new LLMClient(config, customHeaders);
 
     const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。
 根据用户提供的想法，生成适合配图的文案内容。
@@ -241,7 +253,7 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       { role: "user" as const, content: `想法主题：${prompt}\n\n请生成一段吸引人的文案，可以用于配图或视频旁白。` },
     ];
 
-    const response = await client.invoke(messages, {
+    const response = await llmClient.invoke(messages, {
       model: "doubao-seed-2-0-lite-260215",
       temperature: 0.8,
     });
@@ -265,6 +277,12 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "prompt is required" });
     }
 
+    // 检查内容是否允许
+    const contentCheck = await isContentAllowed(prompt);
+    if (!contentCheck.allowed) {
+      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
+    }
+
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
@@ -284,7 +302,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
       req.headers as Record<string, string>
     );
     const config = new Config();
-    const client = new VideoGenerationClient(config, customHeaders);
+    const videoClient = new VideoGenerationClient(config, customHeaders);
 
     const contentItems: any[] = [];
 
@@ -301,7 +319,7 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
       text: prompt,
     });
 
-    const response = await client.videoGeneration(contentItems, {
+    const response = await videoClient.videoGeneration(contentItems, {
       model: "doubao-seedance-1-5-pro-251215",
       duration,
       ratio: "9:16",
@@ -342,6 +360,12 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "prompt is required" });
     }
 
+    // 检查内容是否允许
+    const contentCheck = await isContentAllowed(prompt);
+    if (!contentCheck.allowed) {
+      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
+    }
+
     const data = getOrCreateDailyData(deviceId);
     const remaining = DAILY_LIMITS.images.maxPerDay - data.imageCount;
     
@@ -362,7 +386,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       req.headers as Record<string, string>
     );
     const config = new Config();
-    const client = new ImageGenerationClient(config, customHeaders);
+    const imgClient = new ImageGenerationClient(config, customHeaders);
 
     const requests = Array(count).fill(null).map(() => ({
       prompt,
@@ -370,12 +394,12 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       watermark: false,
     }));
 
-    const responses = await client.batchGenerate(requests);
+    const responses = await imgClient.batchGenerate(requests);
     
     const imageUrls: string[] = [];
 
     responses.forEach((response) => {
-      const helper = client.getResponseHelper(response);
+      const helper = imgClient.getResponseHelper(response);
       if (helper.success && helper.imageUrls.length > 0) {
         imageUrls.push(helper.imageUrls[0]);
         data.imageCount += 1;
@@ -407,6 +431,12 @@ app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
     
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
+    }
+
+    // 检查内容是否允许
+    const contentCheck = await isContentAllowed(prompt);
+    if (!contentCheck.allowed) {
+      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
     }
 
     const data = getOrCreateDailyData(deviceId);
@@ -486,6 +516,12 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
+    }
+
+    // 检查内容是否允许
+    const contentCheck = await isContentAllowed(prompt);
+    if (!contentCheck.allowed) {
+      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
     }
 
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
@@ -672,6 +708,12 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
       return res.status(400).json({ error: "prompt and imageUrl are required" });
     }
 
+    // 检查内容是否允许
+    const contentCheck = await isContentAllowed(prompt);
+    if (!contentCheck.allowed) {
+      return res.status(400).json({ error: contentCheck.reason || "内容不允许生成" });
+    }
+
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
 
@@ -690,9 +732,9 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
       req.headers as Record<string, string>
     );
     const config = new Config();
-    const client = new VideoGenerationClient(config, customHeaders);
+    const videoClient = new VideoGenerationClient(config, customHeaders);
 
-    const response = await client.videoGeneration(
+    const response = await videoClient.videoGeneration(
       [
         {
           type: "image_url",
@@ -1537,3 +1579,108 @@ app.post("/api/v1/user/daily-checkin", async (req: Request, res: Response) => {
     res.status(500).json({ error: "签到失败" });
   }
 });
+
+/**
+ * 获取后台设置
+ */
+app.get("/api/v1/admin/settings", async (req: Request, res: Response) => {
+  try {
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('app_settings')
+      .select('*')
+      .eq('id', 'global')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error("Get settings error:", error);
+      return res.status(500).json({ error: "获取设置失败" });
+    }
+    
+    // 默认配置
+    const settings = data || {
+      id: 'global',
+      content_filter_enabled: false,
+    };
+    
+    res.json({
+      contentFilterEnabled: settings.content_filter_enabled,
+    });
+  } catch (error: any) {
+    console.error("Get settings error:", error);
+    res.status(500).json({ error: "获取设置失败" });
+  }
+});
+
+/**
+ * 更新后台设置
+ */
+app.put("/api/v1/admin/settings", async (req: Request, res: Response) => {
+  try {
+    const { contentFilterEnabled } = req.body;
+    
+    if (typeof contentFilterEnabled !== 'boolean') {
+      return res.status(400).json({ error: "contentFilterEnabled must be a boolean" });
+    }
+    
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('app_settings')
+      .upsert({
+        id: 'global',
+        content_filter_enabled: contentFilterEnabled,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error("Update settings error:", error);
+      return res.status(500).json({ error: "更新设置失败" });
+    }
+    
+    res.json({
+      success: true,
+      contentFilterEnabled: data.content_filter_enabled,
+    });
+  } catch (error: any) {
+    console.error("Update settings error:", error);
+    res.status(500).json({ error: "更新设置失败" });
+  }
+});
+
+/**
+ * 检查内容是否允许生成（根据后台设置）
+ */
+async function isContentAllowed(prompt: string): Promise<{ allowed: boolean; reason?: string }> {
+  try {
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('app_settings')
+      .select('content_filter_enabled')
+      .eq('id', 'global')
+      .single();
+    
+    // 如果获取失败或未配置，默认允许
+    if (error || !data) {
+      return { allowed: true };
+    }
+    
+    // 如果开关关闭，不限制
+    if (!data.content_filter_enabled) {
+      return { allowed: true };
+    }
+    
+    // 开关开启时的过滤逻辑（可根据需要扩展）
+    // 这里可以添加敏感词检测等逻辑
+    
+    return { allowed: true };
+  } catch (error) {
+    // 出错时默认允许
+    console.error("Content filter check error:", error);
+    return { allowed: true };
+  }
+}
