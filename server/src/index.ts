@@ -519,16 +519,29 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       size: "2K",
       watermark: false,
     }));
-    const imageResponses = await imageClient.batchGenerate(imageRequests);
     
-    const imageUrls: string[] = [];
-    imageResponses.forEach((response) => {
-      const helper = imageClient.getResponseHelper(response);
-      if (helper.success && helper.imageUrls.length > 0) {
-        imageUrls.push(helper.imageUrls[0]);
-        data.imageCount += 1;
+    let imageUrls: string[] = [];
+    try {
+      const imageResponses = await imageClient.batchGenerate(imageRequests);
+      
+      imageResponses.forEach((response) => {
+        const helper = imageClient.getResponseHelper(response);
+        if (helper.success && helper.imageUrls.length > 0) {
+          imageUrls.push(helper.imageUrls[0]);
+          data.imageCount += 1;
+        }
+      });
+    } catch (error: any) {
+      // 检查是否是敏感内容审核错误
+      if (error?.response?.error?.code === 'InputTextSensitiveContentDetected') {
+        return res.status(400).json({
+          error: "内容包含敏感信息",
+          code: "SENSITIVE_CONTENT",
+          message: "您的创意想法可能包含不适合生成的内容，请尝试换一个想法，比如'海边日落'、'森林小路'等"
+        });
       }
-    });
+      throw error;
+    }
 
     // 2. 生成文案（1条）
     const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。
