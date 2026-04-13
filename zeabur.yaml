@@ -1,0 +1,13 @@
+services:
+  - name: server
+    type: web
+    source:
+      type: github
+      repo: dahufa-agent/inspiration-goat
+      branch: main
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && node dist/index.js
+    env:
+      NODE_ENV: production
+      PORT: "5000"
+    healthCheckPath: /api/v1/health
