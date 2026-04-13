@@ -13,6 +13,7 @@ try {
     format: 'esm',
     outdir: 'dist',
     external: externalList,
+    logLevel: 'info',
   });
   console.log('⚡ Build complete!');
 } catch (e) {
