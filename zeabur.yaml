@@ -5,9 +5,8 @@ services:
       type: github
       repo: dahufa-agent/inspiration-goat
       branch: main
-    rootDirectory: server
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: cd server && npm install && npm run build
+    startCommand: bash start.sh
     env:
       NODE_ENV: production
       PORT: "5000"
