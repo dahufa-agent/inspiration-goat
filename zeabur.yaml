@@ -5,8 +5,8 @@ services:
       type: github
       repo: dahufa-agent/inspiration-goat
       branch: main
-    buildCommand: cd server && npm install && npm run build
-    startCommand: cd server && npm start
+    buildCommand: cd server && pnpm install && pnpm run build
+    startCommand: cd server && pnpm start
     env:
       NODE_ENV: production
       NODE_VERSION: "18"
