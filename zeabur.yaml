@@ -10,4 +10,6 @@ services:
     env:
       NODE_ENV: production
       PORT: "5000"
-    healthCheckPath: /api/v1/health
+    ports:
+      - port: 5000
+        expose: true
