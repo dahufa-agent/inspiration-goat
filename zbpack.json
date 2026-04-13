@@ -1,7 +1,8 @@
 {
+  "app_dir": "server",
   "build_command": "cd server && npm install && npm run build",
   "start_command": "cd server && node dist/index.js",
   "install_command": "cd server && npm install",
   "output_dir": "server/dist",
-  "use_dockerfile": true
+  "node_version": "18"
 }

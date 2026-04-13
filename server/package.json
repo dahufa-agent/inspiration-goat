@@ -1,7 +1,10 @@
 {
-  "name": "server",
-  "private": true,
+  "name": "inspiration-goat-server",
+  "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "build": "node build.js",
     "dev": "bash ../.cozeproj/scripts/server_dev_run.sh",
