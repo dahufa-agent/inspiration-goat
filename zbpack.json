@@ -1,0 +1,6 @@
+{
+  "build_command": "cd server && npm install && npm run build",
+  "start_command": "cd server && npm start",
+  "install_command": "cd server && npm install",
+  "output_dir": "server/dist"
+}
