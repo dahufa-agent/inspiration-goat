@@ -11,6 +11,19 @@ import {
 } from "coze-coding-dev-sdk";
 import type { Message } from "coze-coding-dev-sdk";
 
+// 强制全局捕获所有错误，保证日志能打出来
+process.on('uncaughtException', (err) => {
+  console.error('❌ UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ UNHANDLED REJECTION:', reason);
+});
+
+console.log('✅ Starting server...');
+console.log('✅ Process cwd:', process.cwd());
+console.log('✅ PORT from env:', process.env.PORT);
+
 // AI 模型配置
 const VIDEO_MODEL = "doubao-seedance-1-5-pro-251215";
 
@@ -41,7 +54,8 @@ interface TaskStatus {
 }
 
 const app = express();
-const port = process.env.PORT || 9091;
+const port = process.env.PORT || 5000;
+console.log(`✅ Using port: ${port}`);
 
 // Middleware - 性能优化
 app.use(cors());
@@ -1129,7 +1143,8 @@ app.post("/api/v1/auth/generate-free-code", async (req: Request, res: Response) 
 });
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 灵感山羊服务器已启动 (v2.0.0) - http://0.0.0.0:${port}/`);
+  console.log(`🚀 Server listening on http://0.0.0.0:${port}/`);
+  console.log(`✅ Zeabur should now forward to this port`);
   console.log(`📝 性能优化: 缓存系统已启用, 任务队列已就绪`);
 });
 
