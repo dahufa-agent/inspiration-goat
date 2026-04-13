@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: inspiration-goat-api
+    env: node
+    plan: free
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COZE_WORKLOAD_IDENTITY_API_KEY
+        value: sat_nueS7WO0yoEZZmOAxM4MezZHNB7CBNDqbMmiBuxEwXVNLn2pIkwlRuOmY9FenS5Z
+    healthCheckPath: /api/v1/health
