@@ -1,0 +1,15 @@
+name: Trigger Zeabur Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger redeploy
+        run: |
+          curl -X POST https://goatapi.zeabur.app/api/v1/redeploy \
+          -H "Content-Type: application/json" \
+          -d '{"force": true}'
