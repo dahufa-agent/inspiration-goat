@@ -10,3 +10,4 @@ services:
     env:
       NODE_ENV: production
       NODE_VERSION: "18"
+      PORT: "5000"
