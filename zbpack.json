@@ -1,8 +1,0 @@
-{
-  "app_dir": "server",
-  "build_command": "npm install && npm run build",
-  "start_command": "node dist/index.js",
-  "install_command": "npm install",
-  "output_dir": "server/dist",
-  "node_version": "18"
-}
