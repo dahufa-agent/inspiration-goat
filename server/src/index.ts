@@ -54,7 +54,7 @@ interface TaskStatus {
 }
 
 const app = express();
-const port = parseInt(process.env.PORT || '5000', 10);
+const port = Number(process.env.PORT) || 5000;
 console.log(`✅ Using port: ${port}`);
 
 // Middleware - 性能优化

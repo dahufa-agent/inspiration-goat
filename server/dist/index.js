@@ -138,7 +138,7 @@ var PROMPT_CACHE_SIZE = 1e3;
 var promptCache = /* @__PURE__ */ new Map();
 var taskQueue = /* @__PURE__ */ new Map();
 var app = express();
-var port = parseInt(process.env.PORT || "5000", 10);
+var port = Number(process.env.PORT) || 5e3;
 console.log(`\u2705 Using port: ${port}`);
 app.use(cors());
 app.use(express.json({ limit: "100mb" }));
