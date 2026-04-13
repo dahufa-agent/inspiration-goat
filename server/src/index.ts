@@ -1128,8 +1128,8 @@ app.post("/api/v1/auth/generate-free-code", async (req: Request, res: Response) 
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 灵感山羊服务器已启动 (v2.0.0) - http://localhost:${port}/`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 灵感山羊服务器已启动 (v2.0.0) - http://0.0.0.0:${port}/`);
   console.log(`📝 性能优化: 缓存系统已启用, 任务队列已就绪`);
 });
 
