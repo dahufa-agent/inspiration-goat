@@ -4,7 +4,7 @@
   "workspaces": [
     "server"
   ],
-  "version": "0.0.0",
+  "version": "0.0.1",
   "scripts": {
     "dev": "bash .cozeproj/scripts/dev_run.sh",
     "build": "bash .cozeproj/scripts/prod_build.sh",
