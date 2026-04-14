@@ -3,9 +3,5 @@ services:
   - type: web
     name: inspiration-goat-server
     env: node
-    region: singapore
-    buildCommand: cd server && pnpm install && pnpm run build
+    buildCommand: cd server && npm install && npm run build
     startCommand: cd server && npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
