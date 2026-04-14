@@ -3,8 +3,8 @@ services:
   - type: web
     name: inspiration-goat-server
     env: node
-    buildCommand: cd server && npm install --legacy-peer-deps && npm run build
-    startCommand: cd server && node dist/index.js
+    buildCommand: cd server && pnpm install && pnpm run build
+    startCommand: cd server && pnpm start
     envVars:
       - key: NODE_ENV
         value: production
