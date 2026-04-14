@@ -1142,6 +1142,585 @@ app.post("/api/v1/auth/generate-free-code", async (req: Request, res: Response) 
   }
 });
 
+/**
+ * 客户端日志
+ * POST /api/v1/logs/client
+ */
+app.post("/api/v1/logs/client", async (req: Request, res: Response) => {
+  try {
+    const { logs } = req.body;
+    
+    if (!logs || !Array.isArray(logs)) {
+      return res.status(400).json({ error: "无效的日志数据" });
+    }
+    
+    logs.forEach((log: any) => {
+      const logMessage = `[客户端日志] [${log.type}] [${log.source}] ${log.message}`;
+      if (log.type === "error") {
+        console.error(logMessage, log.details);
+      } else if (log.type === "warning") {
+        console.warn(logMessage, log.details);
+      } else {
+        console.log(logMessage, log.details);
+      }
+    });
+    
+    res.json({ success: true, count: logs.length });
+  } catch (error: any) {
+    console.error("Client logs error:", error);
+    res.status(500).json({ error: "接收日志失败" });
+  }
+});
+
+/**
+ * 获取免费码选项
+ * GET /api/v1/free-codes/options
+ */
+app.get("/api/v1/free-codes/options", (req, res) => {
+  res.json({
+    options: [
+      { type: '1_month', label: '1个月', days: 30 },
+      { type: '3_months', label: '一季度', days: 90 },
+      { type: '6_months', label: '半年', days: 180 },
+      { type: '1_year', label: '一年', days: 365 },
+    ],
+  });
+});
+
+/**
+ * 申请免费码
+ * POST /api/v1/free-codes/apply
+ */
+app.post("/api/v1/free-codes/apply", async (req: Request, res: Response) => {
+  try {
+    const { phone, durationType, recipientPhone } = req.body;
+    
+    if (!phone || !durationType) {
+      return res.status(400).json({ error: "手机号和时长类型不能为空" });
+    }
+
+    const ALLOWED_FREE_CODE_PHONE = "18104962855";
+    if (phone !== ALLOWED_FREE_CODE_PHONE) {
+      return res.status(403).json({ error: "抱歉，仅限指定用户申请免费码" });
+    }
+
+    const client = getSupabaseClient();
+    
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, username, is_permanent_vip')
+      .eq('phone', phone)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(400).json({ error: "请先注册账号" });
+    }
+    
+    if (recipientPhone) {
+      if (!/^1\d{10}$/.test(recipientPhone)) {
+        return res.status(400).json({ error: "接收人手机号格式不正确" });
+      }
+      
+      const { data: recipient, error: recipientError } = await client
+        .from('users')
+        .select('id, phone, username, is_permanent_vip')
+        .eq('phone', recipientPhone)
+        .maybeSingle();
+      
+      if (recipientError) throw recipientError;
+      
+      if (!recipient) {
+        return res.status(400).json({ error: "接收人账号不存在，请提醒好友先注册" });
+      }
+      
+      if (recipient.is_permanent_vip) {
+        return res.status(400).json({ error: "接收人是永久会员，无需免费码" });
+      }
+      
+      const now = new Date().toISOString();
+      const { data: recipientMembership } = await client
+        .from('user_memberships')
+        .select('*')
+        .eq('user_id', recipient.id)
+        .gt('end_date', now)
+        .maybeSingle();
+      
+      if (recipientMembership) {
+        return res.status(400).json({ error: "接收人已有有效的会员期限" });
+      }
+    }
+    
+    const code = generateCode(8).toUpperCase();
+    let durationDays = 30;
+    
+    switch (durationType) {
+      case '1_month': durationDays = 30; break;
+      case '3_months': durationDays = 90; break;
+      case '6_months': durationDays = 180; break;
+      case '1_year': durationDays = 365; break;
+      default: return res.status(400).json({ error: "无效的时长类型" });
+    }
+    
+    const { error: insertError } = await client
+      .from('free_codes')
+      .insert({
+        code,
+        duration_type: durationType,
+        duration_days: durationDays,
+        recipient_phone: recipientPhone || null,
+      });
+    
+    if (insertError) throw insertError;
+    
+    res.json({
+      success: true,
+      message: recipientPhone ? "赠送码生成成功，可直接发给好友使用" : "免费码生成成功",
+      freeCode: code,
+      durationType,
+      durationDays,
+      isGifted: !!recipientPhone,
+      recipientPhone: recipientPhone || null,
+    });
+  } catch (error: any) {
+    console.error("Apply free code error:", error);
+    res.status(500).json({ error: "申请免费码失败" });
+  }
+});
+
+/**
+ * 激活免费码
+ * POST /api/v1/free-codes/activate
+ */
+app.post("/api/v1/free-codes/activate", async (req: Request, res: Response) => {
+  try {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+      return res.status(400).json({ error: "用户ID和免费码不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    const { data: freeCode, error: codeError } = await client
+      .from('free_codes')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .eq('is_used', false)
+      .maybeSingle();
+    
+    if (codeError) throw codeError;
+    
+    if (!freeCode) {
+      return res.status(400).json({ error: "免费码无效或已被使用" });
+    }
+    
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, is_permanent_vip')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(400).json({ error: "用户不存在" });
+    }
+    
+    if (user.is_permanent_vip) {
+      return res.status(400).json({ error: "您是永久会员，无需激活免费码" });
+    }
+    
+    if (freeCode.recipient_phone && freeCode.recipient_phone !== user.phone) {
+      return res.status(400).json({ error: "此免费码不适用于您的账号" });
+    }
+    
+    const now = new Date();
+    const endDate = new Date(now.getTime() + freeCode.duration_days * 24 * 60 * 60 * 1000);
+    
+    await client.from('free_codes')
+      .update({
+        is_used: true,
+        used_by: userId,
+        used_at: now.toISOString(),
+      })
+      .eq('id', freeCode.id);
+    
+    await client.from('user_memberships')
+      .insert({
+        user_id: userId,
+        membership_type: 'free_code',
+        source: `free_code_${freeCode.duration_type}`,
+        start_date: now.toISOString(),
+        end_date: endDate.toISOString(),
+      });
+    
+    res.json({
+      success: true,
+      message: "免费码激活成功",
+      membership: {
+        startDate: now.toISOString(),
+        endDate: endDate.toISOString(),
+      },
+    });
+  } catch (error: any) {
+    console.error("Activate free code error:", error);
+    res.status(500).json({ error: "激活免费码失败" });
+  }
+});
+
+/**
+ * 获取用户会员状态
+ * GET /api/v1/user/membership
+ */
+app.get("/api/v1/user/membership", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.headers["x-user-id"] || req.headers["x-device-id"]) as string;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "用户ID不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, username, is_permanent_vip')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    
+    if (user.is_permanent_vip) {
+      return res.json({
+        isVip: true,
+        isPermanentVip: true,
+        vipEndDate: null,
+        message: "永久会员",
+      });
+    }
+    
+    const now = new Date().toISOString();
+    const { data: activeMembership } = await client
+      .from('user_memberships')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('end_date', now)
+      .maybeSingle();
+    
+    res.json({
+      isVip: !!activeMembership,
+      isPermanentVip: false,
+      vipEndDate: activeMembership?.end_date || null,
+      membership: activeMembership || null,
+    });
+  } catch (error: any) {
+    console.error("Get membership error:", error);
+    res.status(500).json({ error: "获取会员状态失败" });
+  }
+});
+
+/**
+ * 获取用户积分
+ * GET /api/v1/user/points
+ */
+app.get("/api/v1/user/points", async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "用户ID不能为空" });
+    }
+
+    const client = getSupabaseClient();
+    
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, points')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    
+    const { data: transactions, error: txError } = await client
+      .from('point_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (txError) throw txError;
+    
+    res.json({
+      points: user.points || 0,
+      transactions: transactions || [],
+    });
+  } catch (error: any) {
+    console.error("Get points error:", error);
+    res.status(500).json({ error: "获取积分失败" });
+  }
+});
+
+/**
+ * 购买免费码（积分兑换）
+ * POST /api/v1/free-codes/buy
+ */
+app.post("/api/v1/free-codes/buy", async (req: Request, res: Response) => {
+  try {
+    const { durationType, recipientPhone } = req.body;
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "请先登录" });
+    }
+    
+    if (!durationType) {
+      return res.status(400).json({ error: "请选择时长类型" });
+    }
+
+    const FREE_CODE_PRICES: Record<string, { points: number; days: number }> = {
+      '1_month': { points: 30, days: 30 },
+      '3_months': { points: 80, days: 90 },
+      '6_months': { points: 150, days: 180 },
+      '1_year': { points: 280, days: 365 },
+    };
+    
+    const price = FREE_CODE_PRICES[durationType];
+    if (!price) {
+      return res.status(400).json({ error: "无效的时长类型" });
+    }
+
+    const client = getSupabaseClient();
+    
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('id, phone, points')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    
+    const currentPoints = user.points || 0;
+    if (currentPoints < price.points) {
+      return res.status(400).json({ 
+        error: "积分不足",
+        required: price.points,
+        current: currentPoints,
+      });
+    }
+    
+    if (recipientPhone) {
+      if (!/^1\d{10}$/.test(recipientPhone)) {
+        return res.status(400).json({ error: "接收人手机号格式不正确" });
+      }
+      
+      const { data: recipient, error: recipientError } = await client
+        .from('users')
+        .select('id, phone, is_permanent_vip')
+        .eq('phone', recipientPhone)
+        .maybeSingle();
+      
+      if (recipientError) throw recipientError;
+      
+      if (!recipient) {
+        return res.status(400).json({ error: "接收人账号不存在，请提醒好友先注册" });
+      }
+      
+      if (recipient.is_permanent_vip) {
+        return res.status(400).json({ error: "接收人是永久会员，无需免费码" });
+      }
+    }
+    
+    const newPoints = currentPoints - price.points;
+    await client.from('users')
+      .update({ points: newPoints })
+      .eq('id', userId);
+    
+    await client.from('point_transactions').insert({
+      id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      type: 'spend',
+      amount: price.points,
+      source: 'buy_free_code',
+      description: `购买${durationType === '1_month' ? '1个月' : durationType === '3_months' ? '一季度' : durationType === '6_months' ? '半年' : '一年'}免费码${recipientPhone ? `（赠送给${recipientPhone}）` : ''}`,
+    });
+    
+    const code = generateCode(8).toUpperCase();
+    
+    await client.from('free_codes').insert({
+      code,
+      duration_type: durationType,
+      duration_days: price.days,
+      recipient_phone: recipientPhone || null,
+      is_purchased: true,
+    });
+    
+    res.json({
+      success: true,
+      message: recipientPhone ? "购买成功，好友可使用此码" : "购买成功",
+      freeCode: code,
+      durationType,
+      durationDays: price.days,
+      pointsSpent: price.points,
+      remainingPoints: newPoints,
+      recipientPhone: recipientPhone || null,
+    });
+  } catch (error: any) {
+    console.error("Buy free code error:", error);
+    res.status(500).json({ error: "购买免费码失败" });
+  }
+});
+
+/**
+ * 每日签到（送积分）
+ * POST /api/v1/user/daily-checkin
+ */
+app.post("/api/v1/user/daily-checkin", async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "请先登录" });
+    }
+
+    const client = getSupabaseClient();
+    
+    const today = new Date().toISOString().split('T')[0];
+    const { data: existingCheckin, error: checkinError } = await client
+      .from('point_transactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('source', 'daily_checkin')
+      .gte('created_at', `${today}T00:00:00`)
+      .maybeSingle();
+    
+    if (checkinError) throw checkinError;
+    
+    if (existingCheckin) {
+      return res.status(400).json({ error: "今日已签到，明天再来吧" });
+    }
+    
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('points')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (userError) throw userError;
+    
+    const CHECKIN_POINTS = 10;
+    const newPoints = (user?.points || 0) + CHECKIN_POINTS;
+    
+    await client.from('users')
+      .update({ points: newPoints })
+      .eq('id', userId);
+    
+    await client.from('point_transactions').insert({
+      id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      type: 'earn',
+      amount: CHECKIN_POINTS,
+      source: 'daily_checkin',
+      description: '每日签到',
+    });
+    
+    res.json({
+      success: true,
+      message: `签到成功，获得${CHECKIN_POINTS}积分`,
+      pointsEarned: CHECKIN_POINTS,
+      totalPoints: newPoints,
+    });
+  } catch (error: any) {
+    console.error("Daily checkin error:", error);
+    res.status(500).json({ error: "签到失败" });
+  }
+});
+
+/**
+ * 获取后台设置
+ * GET /api/v1/admin/settings
+ */
+app.get("/api/v1/admin/settings", async (req: Request, res: Response) => {
+  try {
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('app_settings')
+      .select('*')
+      .eq('id', 'global')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error("Get settings error:", error);
+      return res.status(500).json({ error: "获取设置失败" });
+    }
+    
+    const settings = data || {
+      id: 'global',
+      content_filter_enabled: false,
+    };
+    
+    res.json({
+      contentFilterEnabled: settings.content_filter_enabled,
+    });
+  } catch (error: any) {
+    console.error("Get settings error:", error);
+    res.status(500).json({ error: "获取设置失败" });
+  }
+});
+
+/**
+ * 更新后台设置
+ * PUT /api/v1/admin/settings
+ */
+app.put("/api/v1/admin/settings", async (req: Request, res: Response) => {
+  try {
+    const { contentFilterEnabled } = req.body;
+    
+    if (typeof contentFilterEnabled !== 'boolean') {
+      return res.status(400).json({ error: "contentFilterEnabled must be a boolean" });
+    }
+    
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('app_settings')
+      .upsert({
+        id: 'global',
+        content_filter_enabled: contentFilterEnabled,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error("Update settings error:", error);
+      return res.status(500).json({ error: "更新设置失败" });
+    }
+    
+    res.json({
+      success: true,
+      contentFilterEnabled: data.content_filter_enabled,
+    });
+  } catch (error: any) {
+    console.error("Update settings error:", error);
+    res.status(500).json({ error: "更新设置失败" });
+  }
+});
+
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Server listening on http://0.0.0.0:${port}/`);
   console.log(`✅ Zeabur should now forward to this port`);
