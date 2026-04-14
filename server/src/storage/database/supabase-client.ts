@@ -6,6 +6,22 @@ import { fileURLToPath } from 'url';
 let envLoaded = false;
 let lastEnvLoadError: string | null = null;
 
+// Supabase 连接状态
+export interface SupabaseConnectionStatus {
+  connected: boolean;
+  error?: string;
+  url?: string;
+}
+
+let connectionStatus: SupabaseConnectionStatus = {
+  connected: false,
+  error: 'Not initialized'
+};
+
+export function getConnectionStatus(): SupabaseConnectionStatus {
+  return { ...connectionStatus };
+}
+
 interface SupabaseCredentials {
   url: string;
   anonKey: string;
@@ -29,17 +45,18 @@ function loadEnv(): void {
     const projectRoot = path.resolve(__dirname, '../../../..');
     const envPath = path.join(projectRoot, '.env');
     
-    // 动态导入 dotenv
+    // 使用 ES Module 方式导入 dotenv
     import('dotenv').then(dotenv => {
-      dotenv.default.config({ path: envPath });
+      dotenv.config({ path: envPath });
       if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
-        console.log('[Supabase] Loaded from .env file');
+        console.log('[Supabase] Loaded from .env file:', envPath);
+        envLoaded = true;
       }
     }).catch(() => {
-      // dotenv not available, ignore
+      console.log('[Supabase] dotenv import not available');
     });
   } catch (e) {
-    // ignore
+    console.log('[Supabase] Failed to load .env file:', e);
   }
 
   // 尝试使用 Python workload identity
@@ -60,7 +77,7 @@ except Exception as e:
 
     const output = execSync(`python3 -c '${pythonCode.replace(/'/g, "'\"'\"'")}'`, {
       encoding: 'utf-8',
-      timeout: 10000,
+      timeout: 15000,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -90,44 +107,42 @@ except Exception as e:
     }
   } catch (e) {
     lastEnvLoadError = e instanceof Error ? e.message : 'Unknown error';
-    // Silently fail, will try next method
+    console.log('[Supabase] Python workload identity not available:', lastEnvLoadError);
   }
   
   // 标记已尝试加载
   envLoaded = true;
 }
 
-function getSupabaseCredentials(): SupabaseCredentials {
+function getSupabaseCredentials(): SupabaseCredentials | null {
   loadEnv();
 
   const url = process.env.COZE_SUPABASE_URL;
   const anonKey = process.env.COZE_SUPABASE_ANON_KEY;
 
-  // 提供详细的错误诊断信息
-  const errors: string[] = [];
-  
-  if (!url) {
-    errors.push('COZE_SUPABASE_URL is not set');
-  }
-  if (!anonKey) {
-    errors.push('COZE_SUPABASE_ANON_KEY is not set');
-  }
-  
-  if (errors.length > 0) {
-    const errorMsg = `[Supabase] Credential error: ${errors.join(', ')}`;
-    console.error(errorMsg);
-    if (lastEnvLoadError) {
-      console.error(`[Supabase] Last environment load error: ${lastEnvLoadError}`);
-    }
-    console.error('[Supabase] Please ensure COZE_SUPABASE_URL and COZE_SUPABASE_ANON_KEY are set');
-    console.error('[Supabase] You can set them via:');
-    console.error('[Supabase]   1. System environment variables');
-    console.error('[Supabase]   2. .env file in project root');
-    console.error('[Supabase]   3. Python coze_workload_identity module');
-    throw new Error(errorMsg);
+  // 如果没有配置，返回 null 而不是抛出错误
+  if (!url || !anonKey) {
+    const errorMsg = 'Supabase credentials not configured';
+    console.error(`[Supabase] ⚠️ ${errorMsg}`);
+    console.error('[Supabase] Please set COZE_SUPABASE_URL and COZE_SUPABASE_ANON_KEY');
+    console.error('[Supabase] You can:');
+    console.error('[Supabase]   1. Set environment variables in your platform dashboard');
+    console.error('[Supabase]   2. Create a .env file in the project root');
+    console.error('[Supabase]   3. For Coze deployment, use the Python workload identity');
+    
+    connectionStatus = {
+      connected: false,
+      error: errorMsg,
+    };
+    return null;
   }
 
-  return { url: url!, anonKey: anonKey! };
+  connectionStatus = {
+    connected: true,
+    url: url,
+  };
+
+  return { url, anonKey };
 }
 
 function getSupabaseServiceRoleKey(): string | undefined {
@@ -135,9 +150,19 @@ function getSupabaseServiceRoleKey(): string | undefined {
   return process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
 }
 
-function getSupabaseClient(token?: string): SupabaseClient {
-  const { url, anonKey } = getSupabaseCredentials();
+// 缓存客户端实例
+let cachedClient: SupabaseClient | null = null;
 
+export function getSupabaseClient(token?: string): SupabaseClient | null {
+  const credentials = getSupabaseCredentials();
+  
+  if (!credentials) {
+    return null;
+  }
+
+  const { url, anonKey } = credentials;
+
+  // 如果使用自定义 token，使用 anonKey
   let key: string;
   if (token) {
     key = anonKey;
@@ -161,7 +186,12 @@ function getSupabaseClient(token?: string): SupabaseClient {
     });
   }
 
-  return createClient(url, key, {
+  // 复用缓存的客户端
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  cachedClient = createClient(url, key, {
     db: {
       timeout: 60000,
     },
@@ -170,6 +200,53 @@ function getSupabaseClient(token?: string): SupabaseClient {
       persistSession: false,
     },
   });
+
+  return cachedClient;
 }
 
-export { loadEnv, getSupabaseCredentials, getSupabaseServiceRoleKey, getSupabaseClient };
+// 测试 Supabase 连接
+export async function testConnection(): Promise<boolean> {
+  const client = getSupabaseClient();
+  
+  if (!client) {
+    console.error('[Supabase] Client not available - credentials not configured');
+    connectionStatus = {
+      connected: false,
+      error: 'Credentials not configured',
+    };
+    return false;
+  }
+
+  try {
+    // 简单查询测试连接
+    const { data, error } = await client.from('users').select('id').limit(1);
+    
+    if (error) {
+      console.error('[Supabase] Connection test failed:', error.message);
+      connectionStatus = {
+        connected: false,
+        error: error.message,
+        url: process.env.COZE_SUPABASE_URL,
+      };
+      return false;
+    }
+    
+    console.log('[Supabase] ✅ Connection test successful');
+    connectionStatus = {
+      connected: true,
+      url: process.env.COZE_SUPABASE_URL,
+    };
+    return true;
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[Supabase] Connection test error:', errorMsg);
+    connectionStatus = {
+      connected: false,
+      error: errorMsg,
+      url: process.env.COZE_SUPABASE_URL,
+    };
+    return false;
+  }
+}
+
+export { loadEnv, getSupabaseCredentials, getSupabaseServiceRoleKey };

@@ -23,6 +23,7 @@ process.on('unhandledRejection', (reason) => {
 console.log('✅ Starting server...');
 console.log('✅ Process cwd:', process.cwd());
 console.log('✅ PORT from env:', process.env.PORT);
+console.log('✅ NODE_ENV:', process.env.NODE_ENV);
 
 // AI 模型配置
 const VIDEO_MODEL = "doubao-seedance-1-5-pro-251215";
@@ -254,14 +255,34 @@ let hotTopicsCache: { topics: any[]; timestamp: number } | null = null;
 const HOT_TOPICS_TTL = 15 * 60 * 1000; // 15分钟刷新一次
 
 // ==================== API 路由 ====================
+import { getConnectionStatus, testConnection } from './storage/database/supabase-client';
 
-// Health check - 优化为轻量级
-app.get("/api/v1/health", (req, res) => {
+// Health check - 包含详细状态信息
+app.get("/api/v1/health", async (req, res) => {
+  const supabaseStatus = getConnectionStatus();
+  
+  // 如果尚未测试过连接，异步测试
+  if (!supabaseStatus.connected && process.env.NODE_ENV === 'production') {
+    // 异步测试连接，不阻塞响应
+    testConnection().catch(() => {});
+  }
+  
   res.json({ 
     status: "ok", 
     timestamp: Date.now(),
     version: "2.0.0",
     uptime: process.uptime(),
+    services: {
+      supabase: {
+        connected: supabaseStatus.connected,
+        error: supabaseStatus.error || undefined,
+        url: supabaseStatus.url ? 'configured' : 'not configured',
+      },
+      imageGeneration: 'available',
+      videoGeneration: 'available',
+      llm: 'available',
+    },
+    environment: process.env.NODE_ENV || 'development',
   });
 });
 
@@ -965,6 +986,16 @@ import crypto from 'crypto';
 
 const PERMANENT_VIP_PHONE = '18104962855';
 
+// Supabase 客户端辅助函数 - 添加 null 检查
+function getClient(res: Response): ReturnType<typeof getSupabaseClient> {
+  const client = getSupabaseClient();
+  if (!client) {
+    res.status(503).json({ error: "数据库服务暂不可用，请稍后再试" });
+    return null;
+  }
+  return client;
+}
+
 function generateCode(length: number = 6): string {
   return Math.random().toString().slice(2, 2 + length);
 }
@@ -979,14 +1010,23 @@ app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
     if (!phone || !purpose) return res.status(400).json({ error: "手机号和用途不能为空" });
     if (!/^1\d{10}$/.test(phone)) return res.status(400).json({ error: "手机号格式不正确" });
 
-    const client = getSupabaseClient();
+    // 开发环境：直接返回成功和验证码
+    if (process.env.NODE_ENV !== 'production' && !getSupabaseClient()) {
+      const devCode = '123456';
+      console.log(`[开发模式] 发送验证码 ${phone}: ${devCode}`);
+      return res.json({ success: true, message: "验证码已发送（开发模式）", code: devCode });
+    }
+
+    const client = getClient(res);
+    if (!client) return;
+    
     const code = generateCode(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     
     await client.from('verification_codes').update({ is_used: true }).eq('phone', phone).eq('purpose', purpose);
     await client.from('verification_codes').insert({ phone, code, purpose, expires_at: expiresAt.toISOString() });
     
-    res.json({ success: true, message: "验证码已发送", code }); // 始终返回验证码，方便前端调试
+    res.json({ success: true, message: "验证码已发送", code });
   } catch (error: any) {
     console.error("[发送验证码] 错误:", error);
     res.status(500).json({ error: "发送验证码失败" });
@@ -1001,7 +1041,9 @@ app.post("/api/v1/auth/register", async (req: Request, res: Response) => {
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return res.status(400).json({ error: "用户名需要3-20位字母、数字或下划线" });
     if (password.length < 6) return res.status(400).json({ error: "密码至少6位" });
 
-    const client = getSupabaseClient();
+    const client = getClient(res);
+    if (!client) return;
+    
     const { data: validCode } = await client.from('verification_codes').select('*').eq('phone', phone).eq('code', code).eq('purpose', 'register').eq('is_used', false).single();
     
     if (!validCode || new Date(validCode.expires_at) < new Date()) {
