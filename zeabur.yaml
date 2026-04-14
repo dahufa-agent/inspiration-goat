@@ -4,7 +4,7 @@ services:
     name: inspiration-goat-server
     env: node
     buildCommand: cd server && npm install && npm run build
-    startCommand: bash start-server.sh
+    startCommand: cd server && node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
