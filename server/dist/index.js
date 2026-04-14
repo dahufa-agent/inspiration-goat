@@ -359,6 +359,9 @@ var IMAGE_STYLES = {
 };
 var hotTopicsCache = null;
 var HOT_TOPICS_TTL = 15 * 60 * 1e3;
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "\u7075\u611F\u5C71\u7F8A API \u670D\u52A1\u8FD0\u884C\u4E2D", timestamp: Date.now() });
+});
 app.get("/api/v1/health", async (req, res) => {
   const supabaseStatus = getConnectionStatus();
   if (!supabaseStatus.connected && process.env.NODE_ENV === "production") {

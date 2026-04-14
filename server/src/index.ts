@@ -257,6 +257,11 @@ const HOT_TOPICS_TTL = 15 * 60 * 1000; // 15分钟刷新一次
 // ==================== API 路由 ====================
 import { getConnectionStatus, testConnection } from './storage/database/supabase-client';
 
+// 根路径测试
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "灵感山羊 API 服务运行中", timestamp: Date.now() });
+});
+
 // Health check - 包含详细状态信息
 app.get("/api/v1/health", async (req, res) => {
   const supabaseStatus = getConnectionStatus();
