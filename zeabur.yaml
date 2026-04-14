@@ -5,16 +5,9 @@ services:
     env: node
     region: singapore
     buildCommand: cd server && pnpm install && pnpm run build
-    startCommand: cd server && PORT=5000 NODE_ENV=production node dist/index.js
+    startCommand: cd /workspace/projects/server && node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5000
-      # ⚠️ 请在 Zeabur 控制台设置以下环境变量（重要！）
-      - key: COZE_SUPABASE_URL
-        value: "${COZE_SUPABASE_URL}"
-      - key: COZE_SUPABASE_ANON_KEY
-        value: "${COZE_SUPABASE_ANON_KEY}"
-      - key: COZE_SUPABASE_SERVICE_ROLE_KEY
-        value: "${COZE_SUPABASE_SERVICE_ROLE_KEY}"
