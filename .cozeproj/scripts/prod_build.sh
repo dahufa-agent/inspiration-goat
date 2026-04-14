@@ -21,11 +21,11 @@ check_command() {
 }
 
 info "==================== 开始构建 ===================="
-info "开始执行构建脚本（build_prod.sh）..."
+info "开始执行构建脚本（prod_build.sh）..."
 info "正在检查依赖命令是否存在..."
 # 检查核心命令
 check_command "pnpm"
-check_command "npm"
+check_command "node"
 
 # ==================== 安装 Node 依赖 ====================
 info "==================== 安装 Node 依赖 ===================="

@@ -1,5 +1,5 @@
 [project]
-entrypoint = "server.js"
+entrypoint = "server/dist/index.js"
 requires = ["nodejs-24"]
 
 [dev]

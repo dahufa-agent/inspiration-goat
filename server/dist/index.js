@@ -1,10 +1,3 @@
-var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
-}) : x)(function(x) {
-  if (typeof require !== "undefined") return require.apply(this, arguments);
-  throw Error('Dynamic require of "' + x + '" is not supported');
-});
-
 // src/index.ts
 import express from "express";
 import cors from "cors";
@@ -20,20 +13,43 @@ import {
 // src/storage/database/supabase-client.ts
 import { createClient } from "@supabase/supabase-js";
 import { execSync } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
 var envLoaded = false;
+var lastEnvLoadError = null;
+var connectionStatus = {
+  connected: false,
+  error: "Not initialized"
+};
+function getConnectionStatus() {
+  return { ...connectionStatus };
+}
 function loadEnv() {
-  if (envLoaded || process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
+  if (envLoaded) {
+    return;
+  }
+  if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
+    console.log("[Supabase] Using environment variables from system");
+    envLoaded = true;
     return;
   }
   try {
-    try {
-      __require("dotenv").config();
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const projectRoot = path.resolve(__dirname, "../../../..");
+    const envPath = path.join(projectRoot, ".env");
+    import("dotenv").then((dotenv) => {
+      dotenv.config({ path: envPath });
       if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
+        console.log("[Supabase] Loaded from .env file:", envPath);
         envLoaded = true;
-        return;
       }
-    } catch {
-    }
+    }).catch(() => {
+      console.log("[Supabase] dotenv import not available");
+    });
+  } catch (e) {
+    console.log("[Supabase] Failed to load .env file:", e);
+  }
+  try {
     const pythonCode = `
 import os
 import sys
@@ -49,10 +65,11 @@ except Exception as e:
 `;
     const output = execSync(`python3 -c '${pythonCode.replace(/'/g, `'"'"'`)}'`, {
       encoding: "utf-8",
-      timeout: 1e4,
+      timeout: 15e3,
       stdio: ["pipe", "pipe", "pipe"]
     });
     const lines = output.trim().split("\n");
+    let loaded = false;
     for (const line of lines) {
       if (line.startsWith("#")) continue;
       const eqIndex = line.indexOf("=");
@@ -64,31 +81,56 @@ except Exception as e:
         }
         if (!process.env[key]) {
           process.env[key] = value;
+          loaded = true;
         }
       }
     }
-    envLoaded = true;
-  } catch {
+    if (loaded) {
+      console.log("[Supabase] Loaded from Python workload identity");
+      envLoaded = true;
+      return;
+    }
+  } catch (e) {
+    lastEnvLoadError = e instanceof Error ? e.message : "Unknown error";
+    console.log("[Supabase] Python workload identity not available:", lastEnvLoadError);
   }
+  envLoaded = true;
 }
 function getSupabaseCredentials() {
   loadEnv();
   const url = process.env.COZE_SUPABASE_URL;
   const anonKey = process.env.COZE_SUPABASE_ANON_KEY;
-  if (!url) {
-    throw new Error("COZE_SUPABASE_URL is not set");
+  if (!url || !anonKey) {
+    const errorMsg = "Supabase credentials not configured";
+    console.error(`[Supabase] \u26A0\uFE0F ${errorMsg}`);
+    console.error("[Supabase] Please set COZE_SUPABASE_URL and COZE_SUPABASE_ANON_KEY");
+    console.error("[Supabase] You can:");
+    console.error("[Supabase]   1. Set environment variables in your platform dashboard");
+    console.error("[Supabase]   2. Create a .env file in the project root");
+    console.error("[Supabase]   3. For Coze deployment, use the Python workload identity");
+    connectionStatus = {
+      connected: false,
+      error: errorMsg
+    };
+    return null;
   }
-  if (!anonKey) {
-    throw new Error("COZE_SUPABASE_ANON_KEY is not set");
-  }
+  connectionStatus = {
+    connected: true,
+    url
+  };
   return { url, anonKey };
 }
 function getSupabaseServiceRoleKey() {
   loadEnv();
   return process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
 }
+var cachedClient = null;
 function getSupabaseClient(token) {
-  const { url, anonKey } = getSupabaseCredentials();
+  const credentials = getSupabaseCredentials();
+  if (!credentials) {
+    return null;
+  }
+  const { url, anonKey } = credentials;
   let key;
   if (token) {
     key = anonKey;
@@ -110,7 +152,10 @@ function getSupabaseClient(token) {
       }
     });
   }
-  return createClient(url, key, {
+  if (cachedClient) {
+    return cachedClient;
+  }
+  cachedClient = createClient(url, key, {
     db: {
       timeout: 6e4
     },
@@ -119,6 +164,45 @@ function getSupabaseClient(token) {
       persistSession: false
     }
   });
+  return cachedClient;
+}
+async function testConnection() {
+  const client = getSupabaseClient();
+  if (!client) {
+    console.error("[Supabase] Client not available - credentials not configured");
+    connectionStatus = {
+      connected: false,
+      error: "Credentials not configured"
+    };
+    return false;
+  }
+  try {
+    const { data, error } = await client.from("users").select("id").limit(1);
+    if (error) {
+      console.error("[Supabase] Connection test failed:", error.message);
+      connectionStatus = {
+        connected: false,
+        error: error.message,
+        url: process.env.COZE_SUPABASE_URL
+      };
+      return false;
+    }
+    console.log("[Supabase] \u2705 Connection test successful");
+    connectionStatus = {
+      connected: true,
+      url: process.env.COZE_SUPABASE_URL
+    };
+    return true;
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : "Unknown error";
+    console.error("[Supabase] Connection test error:", errorMsg);
+    connectionStatus = {
+      connected: false,
+      error: errorMsg,
+      url: process.env.COZE_SUPABASE_URL
+    };
+    return false;
+  }
 }
 
 // src/index.ts
@@ -132,6 +216,7 @@ process.on("unhandledRejection", (reason) => {
 console.log("\u2705 Starting server...");
 console.log("\u2705 Process cwd:", process.cwd());
 console.log("\u2705 PORT from env:", process.env.PORT);
+console.log("\u2705 NODE_ENV:", process.env.NODE_ENV);
 var VIDEO_MODEL = "doubao-seedance-1-5-pro-251215";
 var CACHE_TTL = 5 * 60 * 1e3;
 var PROMPT_CACHE_SIZE = 1e3;
@@ -274,12 +359,28 @@ var IMAGE_STYLES = {
 };
 var hotTopicsCache = null;
 var HOT_TOPICS_TTL = 15 * 60 * 1e3;
-app.get("/api/v1/health", (req, res) => {
+app.get("/api/v1/health", async (req, res) => {
+  const supabaseStatus = getConnectionStatus();
+  if (!supabaseStatus.connected && process.env.NODE_ENV === "production") {
+    testConnection().catch(() => {
+    });
+  }
   res.json({
     status: "ok",
     timestamp: Date.now(),
     version: "2.0.0",
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    services: {
+      supabase: {
+        connected: supabaseStatus.connected,
+        error: supabaseStatus.error || void 0,
+        url: supabaseStatus.url ? "configured" : "not configured"
+      },
+      imageGeneration: "available",
+      videoGeneration: "available",
+      llm: "available"
+    },
+    environment: process.env.NODE_ENV || "development"
   });
 });
 app.get("/api/v1/limits", (req, res) => {
@@ -872,6 +973,14 @@ app.post("/api/v1/admin/clear-cache", (req, res) => {
   res.json({ success: true, message: "Cache cleared" });
 });
 var PERMANENT_VIP_PHONE = "18104962855";
+function getClient(res) {
+  const client = getSupabaseClient();
+  if (!client) {
+    res.status(503).json({ error: "\u6570\u636E\u5E93\u670D\u52A1\u6682\u4E0D\u53EF\u7528\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5" });
+    return null;
+  }
+  return client;
+}
 function generateCode(length = 6) {
   return Math.random().toString().slice(2, 2 + length);
 }
@@ -883,7 +992,13 @@ app.post("/api/v1/auth/send-code", async (req, res) => {
     const { phone, purpose } = req.body;
     if (!phone || !purpose) return res.status(400).json({ error: "\u624B\u673A\u53F7\u548C\u7528\u9014\u4E0D\u80FD\u4E3A\u7A7A" });
     if (!/^1\d{10}$/.test(phone)) return res.status(400).json({ error: "\u624B\u673A\u53F7\u683C\u5F0F\u4E0D\u6B63\u786E" });
-    const client = getSupabaseClient();
+    if (process.env.NODE_ENV !== "production" && !getSupabaseClient()) {
+      const devCode = "123456";
+      console.log(`[\u5F00\u53D1\u6A21\u5F0F] \u53D1\u9001\u9A8C\u8BC1\u7801 ${phone}: ${devCode}`);
+      return res.json({ success: true, message: "\u9A8C\u8BC1\u7801\u5DF2\u53D1\u9001\uFF08\u5F00\u53D1\u6A21\u5F0F\uFF09", code: devCode });
+    }
+    const client = getClient(res);
+    if (!client) return;
     const code = generateCode(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1e3);
     await client.from("verification_codes").update({ is_used: true }).eq("phone", phone).eq("purpose", purpose);
@@ -901,7 +1016,8 @@ app.post("/api/v1/auth/register", async (req, res) => {
     if (!/^1\d{10}$/.test(phone)) return res.status(400).json({ error: "\u624B\u673A\u53F7\u683C\u5F0F\u4E0D\u6B63\u786E" });
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return res.status(400).json({ error: "\u7528\u6237\u540D\u9700\u89813-20\u4F4D\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u4E0B\u5212\u7EBF" });
     if (password.length < 6) return res.status(400).json({ error: "\u5BC6\u7801\u81F3\u5C116\u4F4D" });
-    const client = getSupabaseClient();
+    const client = getClient(res);
+    if (!client) return;
     const { data: validCode } = await client.from("verification_codes").select("*").eq("phone", phone).eq("code", code).eq("purpose", "register").eq("is_used", false).single();
     if (!validCode || new Date(validCode.expires_at) < /* @__PURE__ */ new Date()) {
       return res.status(400).json({ error: "\u9A8C\u8BC1\u7801\u65E0\u6548\u6216\u5DF2\u8FC7\u671F" });
@@ -1012,6 +1128,379 @@ app.post("/api/v1/auth/generate-free-code", async (req, res) => {
   } catch (error) {
     console.error("[\u751F\u6210\u514D\u8D39\u7801] \u9519\u8BEF:", error);
     res.status(500).json({ error: "\u751F\u6210\u5931\u8D25" });
+  }
+});
+app.post("/api/v1/logs/client", async (req, res) => {
+  try {
+    const { logs } = req.body;
+    if (!logs || !Array.isArray(logs)) {
+      return res.status(400).json({ error: "\u65E0\u6548\u7684\u65E5\u5FD7\u6570\u636E" });
+    }
+    logs.forEach((log) => {
+      const logMessage = `[\u5BA2\u6237\u7AEF\u65E5\u5FD7] [${log.type}] [${log.source}] ${log.message}`;
+      if (log.type === "error") {
+        console.error(logMessage, log.details);
+      } else if (log.type === "warning") {
+        console.warn(logMessage, log.details);
+      } else {
+        console.log(logMessage, log.details);
+      }
+    });
+    res.json({ success: true, count: logs.length });
+  } catch (error) {
+    console.error("Client logs error:", error);
+    res.status(500).json({ error: "\u63A5\u6536\u65E5\u5FD7\u5931\u8D25" });
+  }
+});
+app.get("/api/v1/free-codes/options", (req, res) => {
+  res.json({
+    options: [
+      { type: "1_month", label: "1\u4E2A\u6708", days: 30 },
+      { type: "3_months", label: "\u4E00\u5B63\u5EA6", days: 90 },
+      { type: "6_months", label: "\u534A\u5E74", days: 180 },
+      { type: "1_year", label: "\u4E00\u5E74", days: 365 }
+    ]
+  });
+});
+app.post("/api/v1/free-codes/apply", async (req, res) => {
+  try {
+    const { phone, durationType, recipientPhone } = req.body;
+    if (!phone || !durationType) {
+      return res.status(400).json({ error: "\u624B\u673A\u53F7\u548C\u65F6\u957F\u7C7B\u578B\u4E0D\u80FD\u4E3A\u7A7A" });
+    }
+    const ALLOWED_FREE_CODE_PHONE = "18104962855";
+    if (phone !== ALLOWED_FREE_CODE_PHONE) {
+      return res.status(403).json({ error: "\u62B1\u6B49\uFF0C\u4EC5\u9650\u6307\u5B9A\u7528\u6237\u7533\u8BF7\u514D\u8D39\u7801" });
+    }
+    const client = getSupabaseClient();
+    const { data: user, error: userError } = await client.from("users").select("id, phone, username, is_permanent_vip").eq("phone", phone).maybeSingle();
+    if (userError) throw userError;
+    if (!user) {
+      return res.status(400).json({ error: "\u8BF7\u5148\u6CE8\u518C\u8D26\u53F7" });
+    }
+    if (recipientPhone) {
+      if (!/^1\d{10}$/.test(recipientPhone)) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u624B\u673A\u53F7\u683C\u5F0F\u4E0D\u6B63\u786E" });
+      }
+      const { data: recipient, error: recipientError } = await client.from("users").select("id, phone, username, is_permanent_vip").eq("phone", recipientPhone).maybeSingle();
+      if (recipientError) throw recipientError;
+      if (!recipient) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u8D26\u53F7\u4E0D\u5B58\u5728\uFF0C\u8BF7\u63D0\u9192\u597D\u53CB\u5148\u6CE8\u518C" });
+      }
+      if (recipient.is_permanent_vip) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u662F\u6C38\u4E45\u4F1A\u5458\uFF0C\u65E0\u9700\u514D\u8D39\u7801" });
+      }
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const { data: recipientMembership } = await client.from("user_memberships").select("*").eq("user_id", recipient.id).gt("end_date", now).maybeSingle();
+      if (recipientMembership) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u5DF2\u6709\u6709\u6548\u7684\u4F1A\u5458\u671F\u9650" });
+      }
+    }
+    const code = generateCode(8).toUpperCase();
+    let durationDays = 30;
+    switch (durationType) {
+      case "1_month":
+        durationDays = 30;
+        break;
+      case "3_months":
+        durationDays = 90;
+        break;
+      case "6_months":
+        durationDays = 180;
+        break;
+      case "1_year":
+        durationDays = 365;
+        break;
+      default:
+        return res.status(400).json({ error: "\u65E0\u6548\u7684\u65F6\u957F\u7C7B\u578B" });
+    }
+    const { error: insertError } = await client.from("free_codes").insert({
+      code,
+      duration_type: durationType,
+      duration_days: durationDays,
+      recipient_phone: recipientPhone || null
+    });
+    if (insertError) throw insertError;
+    res.json({
+      success: true,
+      message: recipientPhone ? "\u8D60\u9001\u7801\u751F\u6210\u6210\u529F\uFF0C\u53EF\u76F4\u63A5\u53D1\u7ED9\u597D\u53CB\u4F7F\u7528" : "\u514D\u8D39\u7801\u751F\u6210\u6210\u529F",
+      freeCode: code,
+      durationType,
+      durationDays,
+      isGifted: !!recipientPhone,
+      recipientPhone: recipientPhone || null
+    });
+  } catch (error) {
+    console.error("Apply free code error:", error);
+    res.status(500).json({ error: "\u7533\u8BF7\u514D\u8D39\u7801\u5931\u8D25" });
+  }
+});
+app.post("/api/v1/free-codes/activate", async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+    if (!userId || !code) {
+      return res.status(400).json({ error: "\u7528\u6237ID\u548C\u514D\u8D39\u7801\u4E0D\u80FD\u4E3A\u7A7A" });
+    }
+    const client = getSupabaseClient();
+    const { data: freeCode, error: codeError } = await client.from("free_codes").select("*").eq("code", code.toUpperCase()).eq("is_used", false).maybeSingle();
+    if (codeError) throw codeError;
+    if (!freeCode) {
+      return res.status(400).json({ error: "\u514D\u8D39\u7801\u65E0\u6548\u6216\u5DF2\u88AB\u4F7F\u7528" });
+    }
+    const { data: user, error: userError } = await client.from("users").select("id, phone, is_permanent_vip").eq("id", userId).maybeSingle();
+    if (userError) throw userError;
+    if (!user) {
+      return res.status(400).json({ error: "\u7528\u6237\u4E0D\u5B58\u5728" });
+    }
+    if (user.is_permanent_vip) {
+      return res.status(400).json({ error: "\u60A8\u662F\u6C38\u4E45\u4F1A\u5458\uFF0C\u65E0\u9700\u6FC0\u6D3B\u514D\u8D39\u7801" });
+    }
+    if (freeCode.recipient_phone && freeCode.recipient_phone !== user.phone) {
+      return res.status(400).json({ error: "\u6B64\u514D\u8D39\u7801\u4E0D\u9002\u7528\u4E8E\u60A8\u7684\u8D26\u53F7" });
+    }
+    const now = /* @__PURE__ */ new Date();
+    const endDate = new Date(now.getTime() + freeCode.duration_days * 24 * 60 * 60 * 1e3);
+    await client.from("free_codes").update({
+      is_used: true,
+      used_by: userId,
+      used_at: now.toISOString()
+    }).eq("id", freeCode.id);
+    await client.from("user_memberships").insert({
+      user_id: userId,
+      membership_type: "free_code",
+      source: `free_code_${freeCode.duration_type}`,
+      start_date: now.toISOString(),
+      end_date: endDate.toISOString()
+    });
+    res.json({
+      success: true,
+      message: "\u514D\u8D39\u7801\u6FC0\u6D3B\u6210\u529F",
+      membership: {
+        startDate: now.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error("Activate free code error:", error);
+    res.status(500).json({ error: "\u6FC0\u6D3B\u514D\u8D39\u7801\u5931\u8D25" });
+  }
+});
+app.get("/api/v1/user/membership", async (req, res) => {
+  try {
+    const userId = req.headers["x-user-id"] || req.headers["x-device-id"];
+    if (!userId) {
+      return res.status(400).json({ error: "\u7528\u6237ID\u4E0D\u80FD\u4E3A\u7A7A" });
+    }
+    const client = getSupabaseClient();
+    const { data: user, error: userError } = await client.from("users").select("id, phone, username, is_permanent_vip").eq("id", userId).maybeSingle();
+    if (userError) throw userError;
+    if (!user) {
+      return res.status(404).json({ error: "\u7528\u6237\u4E0D\u5B58\u5728" });
+    }
+    if (user.is_permanent_vip) {
+      return res.json({
+        isVip: true,
+        isPermanentVip: true,
+        vipEndDate: null,
+        message: "\u6C38\u4E45\u4F1A\u5458"
+      });
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const { data: activeMembership } = await client.from("user_memberships").select("*").eq("user_id", userId).gt("end_date", now).maybeSingle();
+    res.json({
+      isVip: !!activeMembership,
+      isPermanentVip: false,
+      vipEndDate: activeMembership?.end_date || null,
+      membership: activeMembership || null
+    });
+  } catch (error) {
+    console.error("Get membership error:", error);
+    res.status(500).json({ error: "\u83B7\u53D6\u4F1A\u5458\u72B6\u6001\u5931\u8D25" });
+  }
+});
+app.get("/api/v1/user/points", async (req, res) => {
+  try {
+    const userId = req.headers["x-user-id"];
+    if (!userId) {
+      return res.status(400).json({ error: "\u7528\u6237ID\u4E0D\u80FD\u4E3A\u7A7A" });
+    }
+    const client = getSupabaseClient();
+    const { data: user, error: userError } = await client.from("users").select("id, points").eq("id", userId).maybeSingle();
+    if (userError) throw userError;
+    if (!user) {
+      return res.status(404).json({ error: "\u7528\u6237\u4E0D\u5B58\u5728" });
+    }
+    const { data: transactions, error: txError } = await client.from("point_transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20);
+    if (txError) throw txError;
+    res.json({
+      points: user.points || 0,
+      transactions: transactions || []
+    });
+  } catch (error) {
+    console.error("Get points error:", error);
+    res.status(500).json({ error: "\u83B7\u53D6\u79EF\u5206\u5931\u8D25" });
+  }
+});
+app.post("/api/v1/free-codes/buy", async (req, res) => {
+  try {
+    const { durationType, recipientPhone } = req.body;
+    const userId = req.headers["x-user-id"];
+    if (!userId) {
+      return res.status(401).json({ error: "\u8BF7\u5148\u767B\u5F55" });
+    }
+    if (!durationType) {
+      return res.status(400).json({ error: "\u8BF7\u9009\u62E9\u65F6\u957F\u7C7B\u578B" });
+    }
+    const FREE_CODE_PRICES = {
+      "1_month": { points: 30, days: 30 },
+      "3_months": { points: 80, days: 90 },
+      "6_months": { points: 150, days: 180 },
+      "1_year": { points: 280, days: 365 }
+    };
+    const price = FREE_CODE_PRICES[durationType];
+    if (!price) {
+      return res.status(400).json({ error: "\u65E0\u6548\u7684\u65F6\u957F\u7C7B\u578B" });
+    }
+    const client = getSupabaseClient();
+    const { data: user, error: userError } = await client.from("users").select("id, phone, points").eq("id", userId).maybeSingle();
+    if (userError) throw userError;
+    if (!user) {
+      return res.status(404).json({ error: "\u7528\u6237\u4E0D\u5B58\u5728" });
+    }
+    const currentPoints = user.points || 0;
+    if (currentPoints < price.points) {
+      return res.status(400).json({
+        error: "\u79EF\u5206\u4E0D\u8DB3",
+        required: price.points,
+        current: currentPoints
+      });
+    }
+    if (recipientPhone) {
+      if (!/^1\d{10}$/.test(recipientPhone)) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u624B\u673A\u53F7\u683C\u5F0F\u4E0D\u6B63\u786E" });
+      }
+      const { data: recipient, error: recipientError } = await client.from("users").select("id, phone, is_permanent_vip").eq("phone", recipientPhone).maybeSingle();
+      if (recipientError) throw recipientError;
+      if (!recipient) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u8D26\u53F7\u4E0D\u5B58\u5728\uFF0C\u8BF7\u63D0\u9192\u597D\u53CB\u5148\u6CE8\u518C" });
+      }
+      if (recipient.is_permanent_vip) {
+        return res.status(400).json({ error: "\u63A5\u6536\u4EBA\u662F\u6C38\u4E45\u4F1A\u5458\uFF0C\u65E0\u9700\u514D\u8D39\u7801" });
+      }
+    }
+    const newPoints = currentPoints - price.points;
+    await client.from("users").update({ points: newPoints }).eq("id", userId);
+    await client.from("point_transactions").insert({
+      id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      type: "spend",
+      amount: price.points,
+      source: "buy_free_code",
+      description: `\u8D2D\u4E70${durationType === "1_month" ? "1\u4E2A\u6708" : durationType === "3_months" ? "\u4E00\u5B63\u5EA6" : durationType === "6_months" ? "\u534A\u5E74" : "\u4E00\u5E74"}\u514D\u8D39\u7801${recipientPhone ? `\uFF08\u8D60\u9001\u7ED9${recipientPhone}\uFF09` : ""}`
+    });
+    const code = generateCode(8).toUpperCase();
+    await client.from("free_codes").insert({
+      code,
+      duration_type: durationType,
+      duration_days: price.days,
+      recipient_phone: recipientPhone || null,
+      is_purchased: true
+    });
+    res.json({
+      success: true,
+      message: recipientPhone ? "\u8D2D\u4E70\u6210\u529F\uFF0C\u597D\u53CB\u53EF\u4F7F\u7528\u6B64\u7801" : "\u8D2D\u4E70\u6210\u529F",
+      freeCode: code,
+      durationType,
+      durationDays: price.days,
+      pointsSpent: price.points,
+      remainingPoints: newPoints,
+      recipientPhone: recipientPhone || null
+    });
+  } catch (error) {
+    console.error("Buy free code error:", error);
+    res.status(500).json({ error: "\u8D2D\u4E70\u514D\u8D39\u7801\u5931\u8D25" });
+  }
+});
+app.post("/api/v1/user/daily-checkin", async (req, res) => {
+  try {
+    const userId = req.headers["x-user-id"];
+    if (!userId) {
+      return res.status(401).json({ error: "\u8BF7\u5148\u767B\u5F55" });
+    }
+    const client = getSupabaseClient();
+    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const { data: existingCheckin, error: checkinError } = await client.from("point_transactions").select("id").eq("user_id", userId).eq("source", "daily_checkin").gte("created_at", `${today}T00:00:00`).maybeSingle();
+    if (checkinError) throw checkinError;
+    if (existingCheckin) {
+      return res.status(400).json({ error: "\u4ECA\u65E5\u5DF2\u7B7E\u5230\uFF0C\u660E\u5929\u518D\u6765\u5427" });
+    }
+    const { data: user, error: userError } = await client.from("users").select("points").eq("id", userId).maybeSingle();
+    if (userError) throw userError;
+    const CHECKIN_POINTS = 10;
+    const newPoints = (user?.points || 0) + CHECKIN_POINTS;
+    await client.from("users").update({ points: newPoints }).eq("id", userId);
+    await client.from("point_transactions").insert({
+      id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      type: "earn",
+      amount: CHECKIN_POINTS,
+      source: "daily_checkin",
+      description: "\u6BCF\u65E5\u7B7E\u5230"
+    });
+    res.json({
+      success: true,
+      message: `\u7B7E\u5230\u6210\u529F\uFF0C\u83B7\u5F97${CHECKIN_POINTS}\u79EF\u5206`,
+      pointsEarned: CHECKIN_POINTS,
+      totalPoints: newPoints
+    });
+  } catch (error) {
+    console.error("Daily checkin error:", error);
+    res.status(500).json({ error: "\u7B7E\u5230\u5931\u8D25" });
+  }
+});
+app.get("/api/v1/admin/settings", async (req, res) => {
+  try {
+    const client = getSupabaseClient();
+    const { data, error } = await client.from("app_settings").select("*").eq("id", "global").single();
+    if (error && error.code !== "PGRST116") {
+      console.error("Get settings error:", error);
+      return res.status(500).json({ error: "\u83B7\u53D6\u8BBE\u7F6E\u5931\u8D25" });
+    }
+    const settings = data || {
+      id: "global",
+      content_filter_enabled: false
+    };
+    res.json({
+      contentFilterEnabled: settings.content_filter_enabled
+    });
+  } catch (error) {
+    console.error("Get settings error:", error);
+    res.status(500).json({ error: "\u83B7\u53D6\u8BBE\u7F6E\u5931\u8D25" });
+  }
+});
+app.put("/api/v1/admin/settings", async (req, res) => {
+  try {
+    const { contentFilterEnabled } = req.body;
+    if (typeof contentFilterEnabled !== "boolean") {
+      return res.status(400).json({ error: "contentFilterEnabled must be a boolean" });
+    }
+    const client = getSupabaseClient();
+    const { data, error } = await client.from("app_settings").upsert({
+      id: "global",
+      content_filter_enabled: contentFilterEnabled,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    }).select().single();
+    if (error) {
+      console.error("Update settings error:", error);
+      return res.status(500).json({ error: "\u66F4\u65B0\u8BBE\u7F6E\u5931\u8D25" });
+    }
+    res.json({
+      success: true,
+      contentFilterEnabled: data.content_filter_enabled
+    });
+  } catch (error) {
+    console.error("Update settings error:", error);
+    res.status(500).json({ error: "\u66F4\u65B0\u8BBE\u7F6E\u5931\u8D25" });
   }
 });
 app.listen(port, "0.0.0.0", () => {

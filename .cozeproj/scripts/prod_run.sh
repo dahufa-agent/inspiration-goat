@@ -26,9 +26,9 @@ check_command() {
 
 # ============== 启动服务 ======================
 # 检查核心命令
-check_command "pnpm"
-check_command "npm"
+check_command "node"
 
-info "开始执行：pnpm run start (server)"
-(pushd "$ROOT_DIR/server" > /dev/null && PORT="$PORT" pnpm run start; popd > /dev/null) || error "服务启动失败"
+info "开始执行：node server/dist/index.js"
+cd "$ROOT_DIR"
+PORT="$PORT" NODE_ENV=production node server/dist/index.js || error "服务启动失败"
 info "服务启动完成！\n"
