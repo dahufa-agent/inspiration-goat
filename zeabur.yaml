@@ -9,10 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Supabase 配置（请在 Zeabur 控制台设置）
-      - key: COZE_SUPABASE_URL
-        value: "${COZE_SUPABASE_URL}"
-      - key: COZE_SUPABASE_ANON_KEY
-        value: "${COZE_SUPABASE_ANON_KEY}"
-      - key: COZE_SUPABASE_SERVICE_ROLE_KEY
-        value: "${COZE_SUPABASE_SERVICE_ROLE_KEY}"
+      # ⚠️ 重要：请在 Zeabur 控制台设置以下环境变量
+      # COZE_SUPABASE_URL
+      # COZE_SUPABASE_ANON_KEY
+      # COZE_SUPABASE_SERVICE_ROLE_KEY
