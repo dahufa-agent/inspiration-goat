@@ -1,10 +1,11 @@
 FROM node:18-alpine
+
 LABEL "language"="nodejs"
 LABEL "framework"="express"
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml patches ./
 COPY server/package.json ./server/
 
 RUN npm install -g pnpm@9 && pnpm install --frozen-lockfile
