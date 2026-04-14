@@ -6,7 +6,6 @@ services:
     region: singapore
     buildCommand: cd server && pnpm install && pnpm run build
     startCommand: cd server && pnpm start
-    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
         value: production
