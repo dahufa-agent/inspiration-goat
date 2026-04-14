@@ -5,19 +5,17 @@ services:
     env: node
     region: singapore
     buildCommand: cd server && pnpm install && pnpm run build
-    startCommand: cd server && node dist/index.js
+    startCommand: cd server && pnpm start
     healthCheckPath: /api/v1/health
     envVars:
-      - key: PORT
-        value: 5000
       - key: NODE_ENV
         value: production
-      # ⚠️ 请在 Zeabur 控制台设置以下环境变量
+      - key: PORT
+        value: 5000
+      # Supabase 配置（请在 Zeabur 控制台设置）
       - key: COZE_SUPABASE_URL
         value: "${COZE_SUPABASE_URL}"
-        # 格式: https://xxx.supabase.co
       - key: COZE_SUPABASE_ANON_KEY
         value: "${COZE_SUPABASE_ANON_KEY}"
-        # 格式: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       - key: COZE_SUPABASE_SERVICE_ROLE_KEY
         value: "${COZE_SUPABASE_SERVICE_ROLE_KEY}"
