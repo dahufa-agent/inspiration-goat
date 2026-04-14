@@ -1,12 +1,12 @@
 version: "1"
 services:
   - type: web
-    name: inspiration-goat-api
+    name: inspiration-goat-server
     env: node
     buildCommand: cd server && npm install && npm run build
-    startCommand: cd server && PORT=5001 npm start
+    startCommand: bash start-server.sh
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5001
+        value: 5000
