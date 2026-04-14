@@ -1,7 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { execSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 let envLoaded = false;
+let lastEnvLoadError: string | null = null;
 
 interface SupabaseCredentials {
   url: string;
@@ -9,21 +12,38 @@ interface SupabaseCredentials {
 }
 
 function loadEnv(): void {
-  if (envLoaded || (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY)) {
+  if (envLoaded) {
     return;
   }
 
-  try {
-    try {
-      require('dotenv').config();
-      if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
-        envLoaded = true;
-        return;
-      }
-    } catch {
-      // dotenv not available
-    }
+  // 如果环境变量已设置，直接返回
+  if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
+    console.log('[Supabase] Using environment variables from system');
+    envLoaded = true;
+    return;
+  }
 
+  // 尝试加载项目根目录的 .env 文件
+  try {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const projectRoot = path.resolve(__dirname, '../../../..');
+    const envPath = path.join(projectRoot, '.env');
+    
+    // 动态导入 dotenv
+    import('dotenv').then(dotenv => {
+      dotenv.default.config({ path: envPath });
+      if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
+        console.log('[Supabase] Loaded from .env file');
+      }
+    }).catch(() => {
+      // dotenv not available, ignore
+    });
+  } catch (e) {
+    // ignore
+  }
+
+  // 尝试使用 Python workload identity
+  try {
     const pythonCode = `
 import os
 import sys
@@ -45,6 +65,7 @@ except Exception as e:
     });
 
     const lines = output.trim().split('\n');
+    let loaded = false;
     for (const line of lines) {
       if (line.startsWith('#')) continue;
       const eqIndex = line.indexOf('=');
@@ -57,14 +78,23 @@ except Exception as e:
         }
         if (!process.env[key]) {
           process.env[key] = value;
+          loaded = true;
         }
       }
     }
-
-    envLoaded = true;
-  } catch {
-    // Silently fail
+    
+    if (loaded) {
+      console.log('[Supabase] Loaded from Python workload identity');
+      envLoaded = true;
+      return;
+    }
+  } catch (e) {
+    lastEnvLoadError = e instanceof Error ? e.message : 'Unknown error';
+    // Silently fail, will try next method
   }
+  
+  // 标记已尝试加载
+  envLoaded = true;
 }
 
 function getSupabaseCredentials(): SupabaseCredentials {
@@ -73,14 +103,31 @@ function getSupabaseCredentials(): SupabaseCredentials {
   const url = process.env.COZE_SUPABASE_URL;
   const anonKey = process.env.COZE_SUPABASE_ANON_KEY;
 
+  // 提供详细的错误诊断信息
+  const errors: string[] = [];
+  
   if (!url) {
-    throw new Error('COZE_SUPABASE_URL is not set');
+    errors.push('COZE_SUPABASE_URL is not set');
   }
   if (!anonKey) {
-    throw new Error('COZE_SUPABASE_ANON_KEY is not set');
+    errors.push('COZE_SUPABASE_ANON_KEY is not set');
+  }
+  
+  if (errors.length > 0) {
+    const errorMsg = `[Supabase] Credential error: ${errors.join(', ')}`;
+    console.error(errorMsg);
+    if (lastEnvLoadError) {
+      console.error(`[Supabase] Last environment load error: ${lastEnvLoadError}`);
+    }
+    console.error('[Supabase] Please ensure COZE_SUPABASE_URL and COZE_SUPABASE_ANON_KEY are set');
+    console.error('[Supabase] You can set them via:');
+    console.error('[Supabase]   1. System environment variables');
+    console.error('[Supabase]   2. .env file in project root');
+    console.error('[Supabase]   3. Python coze_workload_identity module');
+    throw new Error(errorMsg);
   }
 
-  return { url, anonKey };
+  return { url: url!, anonKey: anonKey! };
 }
 
 function getSupabaseServiceRoleKey(): string | undefined {
