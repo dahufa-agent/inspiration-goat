@@ -14,9 +14,9 @@ const Home: React.FC = () => {
   const [selectedDuration, setSelectedDuration] = useState('free')
 
   const textStyles = [
-    { id: 'xiaohongshu', name: '小红书', icon: '📕' },
-    { id: 'douyin', name: '抖音', icon: '🎵' },
-    { id: 'weibo', name: '微博', icon: '✉️' },
+    { id: 'xiaohongshu', name: '小红书', icon: '📕', color: 'from-red-400 to-pink-500' },
+    { id: 'douyin', name: '抖音', icon: '🎵', color: 'from-pink-400 to-purple-500' },
+    { id: 'weibo', name: '微博', icon: '✉️', color: 'from-orange-400 to-yellow-500' },
   ]
 
   const imageStyles = [
@@ -51,14 +51,15 @@ const Home: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 lg:pb-4">
-      <header className="bg-white sticky top-0 z-20 shadow-sm">
-        <div className="px-4 py-3">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src={GOAT_MASCOT} alt="灵感山羊" className="w-12 h-12 rounded-full object-cover" />
+            <div className="flex items-center gap-3">
+              <img src={GOAT_MASCOT} alt="灵感山羊" className="w-12 h-12 rounded-2xl shadow-lg" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900">你好，创意家</h1>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">你好，创意家</h1>
                 <p className="text-xs text-gray-500">一键生成创意内容</p>
               </div>
             </div>
@@ -67,8 +68,12 @@ const Home: React.FC = () => {
                 <span className="text-sm text-gray-600">{(user as any).username || '用户'}</span>
               ) : (
                 <>
-                  <Link to="/login" className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg font-medium">登录</Link>
-                  <Link to="/register" className="px-3 py-1.5 text-sm text-gray-700 font-medium">注册</Link>
+                  <Link to="/login" className="px-4 py-2 text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all">
+                    登录
+                  </Link>
+                  <Link to="/register" className="px-4 py-2 text-sm text-gray-600 hover:text-purple-600 font-medium transition-colors">
+                    注册
+                  </Link>
                 </>
               )}
             </div>
@@ -76,140 +81,211 @@ const Home: React.FC = () => {
         </div>
       </header>
 
-      <main className="px-4 py-4 space-y-5 max-w-7xl mx-auto">
-        <section>
-          <h2 className="text-base font-bold text-gray-900 mb-2">你的创意想法</h2>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        {/* Hero Section */}
+        <div className="text-center py-8">
+          <h2 className="text-4xl font-bold text-gray-800 mb-2">释放创意，AI赋能</h2>
+          <p className="text-gray-500 text-lg">灵感山羊致力于为创作者提供最优质的AI生成服务</p>
+        </div>
+
+        {/* Idea Input */}
+        <section className="bg-white rounded-3xl shadow-xl p-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">🎯 你的创意想法</h3>
           <div className="relative">
-            <input type="text" value={idea} onChange={(e) => setIdea(e.target.value)}
-              placeholder="例如：海边日落、可爱猫咪、产品宣传、节日祝福..."
-              className="w-full px-4 py-3 pr-10 bg-gray-100 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200" />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▼</span>
+            <input
+              type="text"
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              placeholder="描述你的创意..."
+              className="w-full px-6 py-4 bg-gray-50 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-purple-200 transition-all text-base"
+            />
           </div>
         </section>
 
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-bold text-gray-900">生成模式</h2>
-            <button className="text-sm text-blue-500">竞品对比</button>
+        {/* Mode Selection */}
+        <section className="bg-white rounded-3xl shadow-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-800">⚡ 生成模式</h3>
+            <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">竞品对比 →</button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => setMode('fast')} className={`p-3 rounded-xl border-2 transition ${mode === 'fast' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-lg">⚡</span>
-                {mode === 'fast' && <span className="text-green-500">✓</span>}
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => setMode('fast')}
+              className={`p-6 rounded-2xl border-2 transition-all ${mode === 'fast' ? 'border-green-500 bg-green-50 shadow-lg shadow-green-500/20' : 'border-gray-100 bg-gray-50 hover:border-green-200'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl">⚡</span>
+                {mode === 'fast' && <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm">✓</span>}
               </div>
-              <p className={`text-sm font-medium ${mode === 'fast' ? 'text-green-600' : 'text-gray-700'}`}>极速模式</p>
-              <p className="text-xs text-gray-400">≤60秒</p>
+              <p className={`text-lg font-bold ${mode === 'fast' ? 'text-green-600' : 'text-gray-700'}`}>极速模式</p>
+              <p className="text-sm text-gray-400 mt-1">≤60秒</p>
             </button>
-            <button onClick={() => setMode('quality')} className={`p-3 rounded-xl border-2 transition ${mode === 'quality' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-lg">💎</span>
-                {mode === 'quality' && <span className="text-blue-500">✓</span>}
+            <button
+              onClick={() => setMode('quality')}
+              className={`p-6 rounded-2xl border-2 transition-all ${mode === 'quality' ? 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-500/20' : 'border-gray-100 bg-gray-50 hover:border-purple-200'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-3xl">💎</span>
+                {mode === 'quality' && <span className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm">✓</span>}
               </div>
-              <p className={`text-sm font-medium ${mode === 'quality' ? 'text-blue-600' : 'text-gray-700'}`}>高质量模式</p>
-              <p className="text-xs text-gray-400">~120秒</p>
+              <p className={`text-lg font-bold ${mode === 'quality' ? 'text-purple-600' : 'text-gray-700'}`}>高质量模式</p>
+              <p className="text-sm text-gray-400 mt-1">~120秒</p>
             </button>
           </div>
         </section>
 
-        <button onClick={handleGenerate} className="w-full py-3 bg-gradient-to-r from-green-400 to-green-500 text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2">
-          <span>✨</span><span>一键生成全部</span>
+        {/* Generate Button */}
+        <button
+          onClick={handleGenerate}
+          className="w-full py-5 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold text-xl rounded-2xl shadow-xl shadow-green-500/30 hover:shadow-green-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          ✨ 一键生成全部
         </button>
 
-        <section>
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">文案风格</h3>
-              <div className="flex gap-2">
-                {textStyles.map((style) => (
-                  <button key={style.id} onClick={() => setSelectedTextStyle(style.id)}
-                    className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition flex items-center justify-center gap-1 ${selectedTextStyle === style.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                    <span>{style.icon}</span><span>{style.name}</span>
-                  </button>
-                ))}
-              </div>
+        {/* Style Selection */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Text Style */}
+          <section className="bg-white rounded-3xl shadow-xl p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">📝 文案风格</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {textStyles.map((style) => (
+                <button
+                  key={style.id}
+                  onClick={() => setSelectedTextStyle(style.id)}
+                  className={`p-4 rounded-2xl border-2 transition-all ${selectedTextStyle === style.id ? `border-transparent bg-gradient-to-br ${style.color} text-white shadow-lg` : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}
+                >
+                  <span className="text-2xl block mb-1">{style.icon}</span>
+                  <span className={`text-sm font-medium ${selectedTextStyle === style.id ? 'text-white' : 'text-gray-700'}`}>{style.name}</span>
+                </button>
+              ))}
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">图片风格</h3>
-              <div className="flex gap-2">
-                {imageStyles.map((style) => (
-                  <button key={style.id} onClick={() => setSelectedImageStyle(style.id)}
-                    className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition flex items-center justify-center gap-1 ${selectedImageStyle === style.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                    <span>{style.icon}</span><span>{style.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-bold text-gray-900">快速模板</h2>
-            <button className="text-sm text-blue-500">更多风格 →</button>
+          {/* Image Style */}
+          <section className="bg-white rounded-3xl shadow-xl p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">🎨 图片风格</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {imageStyles.map((style) => (
+                <button
+                  key={style.id}
+                  onClick={() => setSelectedImageStyle(style.id)}
+                  className={`p-4 rounded-2xl border-2 transition-all ${selectedImageStyle === style.id ? 'border-purple-500 bg-purple-50 shadow-lg' : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}
+                >
+                  <span className="text-2xl block mb-1">{style.icon}</span>
+                  <span className={`text-sm font-medium ${selectedImageStyle === style.id ? 'text-purple-600' : 'text-gray-700'}`}>{style.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* Quick Templates */}
+        <section className="bg-white rounded-3xl shadow-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-800">🚀 快速模板</h3>
+            <button className="text-sm text-purple-600 font-medium">更多风格 →</button>
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-4">
             {categories.map((cat) => (
-              <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition flex items-center justify-center gap-1 ${selectedCategory === cat.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                <span>{cat.icon}</span><span>{cat.name}</span>
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`p-5 rounded-2xl border-2 transition-all ${selectedCategory === cat.id ? 'border-purple-500 bg-purple-50 shadow-lg' : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}
+              >
+                <span className="text-3xl block mb-2">{cat.icon}</span>
+                <span className={`font-medium ${selectedCategory === cat.id ? 'text-purple-600' : 'text-gray-700'}`}>{cat.name}</span>
               </button>
             ))}
           </div>
         </section>
 
-        <section>
-          <h2 className="text-base font-bold text-gray-900 mb-2">视频时长</h2>
-          <div className="grid grid-cols-4 gap-2">
+        {/* Video Duration */}
+        <section className="bg-white rounded-3xl shadow-xl p-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">🎬 视频时长</h3>
+          <div className="grid grid-cols-4 gap-3">
             {durations.map((d) => (
-              <button key={d.type} onClick={() => setSelectedDuration(d.type)}
-                className={`p-2 rounded-lg border-2 text-center transition ${selectedDuration === d.type ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
-                <p className="text-xs font-medium px-2 py-0.5 rounded mb-1 inline-block" style={{ backgroundColor: d.color + '20', color: d.color }}>{d.label}</p>
-                <p className="text-xs text-gray-500">{d.price}</p>
+              <button
+                key={d.type}
+                onClick={() => setSelectedDuration(d.type)}
+                className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedDuration === d.type ? 'border-purple-500 bg-purple-50 shadow-lg' : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}
+              >
+                <p className="text-sm font-bold mb-1 px-3 py-1 rounded-full inline-block" style={{ backgroundColor: d.color + '20', color: d.color }}>{d.label}</p>
+                <p className="text-sm font-medium text-gray-700">{d.price}</p>
                 <p className="text-xs text-gray-400">{d.desc}</p>
               </button>
             ))}
           </div>
         </section>
 
-        <section className="flex gap-4 py-3 border-t border-b border-gray-200">
-          <div className="flex items-center gap-2"><span className="text-lg">🖼️</span><span className="text-sm text-gray-600">图片 20/20</span></div>
-          <div className="flex items-center gap-2"><span className="text-lg">✍️</span><span className="text-sm text-gray-600">文案 10/10</span></div>
-          <div className="flex items-center gap-2"><span className="text-lg">🎬</span><span className="text-sm text-gray-600">视频 10/10</span></div>
+        {/* Usage Stats */}
+        <section className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-3xl shadow-xl p-6 text-white">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-white/20 rounded-2xl p-4">
+              <p className="text-3xl font-bold">🖼️</p>
+              <p className="text-sm mt-1">图片 20/20</p>
+            </div>
+            <div className="bg-white/20 rounded-2xl p-4">
+              <p className="text-3xl font-bold">✍️</p>
+              <p className="text-sm mt-1">文案 10/10</p>
+            </div>
+            <div className="bg-white/20 rounded-2xl p-4">
+              <p className="text-3xl font-bold">🎬</p>
+              <p className="text-sm mt-1">视频 10/10</p>
+            </div>
+          </div>
         </section>
 
-        <section className="space-y-3">
-          <button className="w-full p-3 bg-amber-100 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">👑</span>
-              <div className="text-left">
-                <p className="text-sm font-medium text-amber-800">解锁无限创作</p>
-                <p className="text-xs text-amber-600">升级会员享更多权益</p>
+        {/* Feature Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <button className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-3xl shadow-xl p-6 text-left hover:scale-[1.02] transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xl font-bold text-white">👑 解锁无限创作</p>
+                <p className="text-white/80 text-sm mt-1">升级会员享更多权益</p>
               </div>
+              <span className="text-3xl">→</span>
             </div>
-            <span className="text-amber-500">→</span>
           </button>
-          <button className="w-full p-3 bg-gray-100 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🏆</span>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-800">对比全网竞品</p>
-                <p className="text-xs text-gray-500">一键三连·行业首创</p>
+          <button className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl shadow-xl p-6 text-left hover:scale-[1.02] transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xl font-bold text-white">🏆 对比全网竞品</p>
+                <p className="text-white/80 text-sm mt-1">一键三连·行业首创</p>
               </div>
+              <span className="text-white/80 text-sm">查看详情 →</span>
             </div>
-            <span className="text-blue-500 text-sm">查看详情 →</span>
           </button>
-        </section>
+        </div>
       </main>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20">
+      {/* Footer */}
+      <footer className="text-center py-8 text-gray-400 text-sm">
+        <p>灵感山羊 - 释放创意，AI赋能</p>
+      </footer>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 z-20">
         <div className="flex justify-around py-3">
-          <Link to="/" className="flex flex-col items-center text-pink-500"><span className="text-xl">🏠</span><span className="text-xs mt-1">首页</span></Link>
-          <Link to="/history" className="flex flex-col items-center text-gray-400"><span className="text-xl">📝</span><span className="text-xs mt-1">历史</span></Link>
-          <Link to="/membership" className="flex flex-col items-center text-gray-400"><span className="text-xl">💎</span><span className="text-xs mt-1">会员</span></Link>
-          <Link to={user ? "/credits" : "/login"} className="flex flex-col items-center text-gray-400"><span className="text-xl">⭐</span><span className="text-xs mt-1">积分</span></Link>
+          <Link to="/" className="flex flex-col items-center text-purple-500">
+            <span className="text-xl">🏠</span>
+            <span className="text-xs mt-1">首页</span>
+          </Link>
+          <Link to="/history" className="flex flex-col items-center text-gray-400">
+            <span className="text-xl">📝</span>
+            <span className="text-xs mt-1">历史</span>
+          </Link>
+          <Link to="/membership" className="flex flex-col items-center text-gray-400">
+            <span className="text-xl">💎</span>
+            <span className="text-xs mt-1">会员</span>
+          </Link>
+          <Link to={user ? "/credits" : "/login"} className="flex flex-col items-center text-gray-400">
+            <span className="text-xl">⭐</span>
+            <span className="text-xs mt-1">积分</span>
+          </Link>
         </div>
       </nav>
+      <div className="h-20 lg:hidden"></div>
     </div>
   )
 }
