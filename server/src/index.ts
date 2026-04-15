@@ -38,23 +38,23 @@ const VIDEO_MODEL = "kling-v1-6";  // 可选: kling-v1-6, kling-v1-5, kling-v1-s
 // 超时配置（毫秒）- 视频生成是异步任务，实际时间可能更长
 const TIMEOUT_CONFIG = {
   fast: {
-    image: 60000,      // 极速模式图片
-    text: 30000,      // 极速模式文案
-    video: 300000,    // 极速模式视频（5分钟，考虑异步任务）
-    all: 360000,      // 极速模式三连（6分钟）
+    image: 45000,      // 极速模式图片（优化：缩短等待）
+    text: 15000,      // 极速模式文案（优化：大幅缩短）
+    video: 180000,    // 极速模式视频（优化：更早返回轮询）
+    all: 240000,      // 极速模式三连（优化：4分钟完成）
   },
   quality: {
-    image: 120000,    // 高质量模式图片
-    text: 60000,      // 高质量模式文案
-    video: 600000,   // 高质量模式视频（10分钟）
-    all: 660000,      // 高质量模式总时间（11分钟）
+    image: 90000,     // 高质量模式图片（优化）
+    text: 30000,      // 高质量模式文案
+    video: 300000,   // 高质量模式视频
+    all: 420000,      // 高质量模式总时间（7分钟）
   },
 };
 
 // 缓存配置
-const CACHE_TTL = 5 * 60 * 1000; // 缓存5分钟
-const MAX_CONCURRENT_TASKS = 10; // 最大并发任务数
-const PROMPT_CACHE_SIZE = 1000; // Prompt缓存大小
+const CACHE_TTL = 10 * 60 * 1000; // 缓存10分钟（优化：延长缓存）
+const MAX_CONCURRENT_TASKS = 15; // 最大并发任务数（优化：增加并发）
+const PROMPT_CACHE_SIZE = 2000; // Prompt缓存大小（优化：扩大缓存）
 
 interface CacheEntry {
   data: any;
@@ -396,12 +396,12 @@ app.get("/api/v1/task/:taskId", (req, res) => {
   res.json(task);
 });
 
-// ==================== 优化：生成图片（支持风格选择和性能模式） ====================
+// ==================== 优化：生成图片（支持风格选择和性能模式 + 智能Prompt扩展） ====================
 app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
   try {
     const { prompt, style = 'realistic' } = req.body;
     const mode = (req.headers['x-mode'] as string) || 'fast';
-    const timeout = TIMEOUT_CONFIG[mode as keyof typeof TIMEOUT_CONFIG]?.image || TIMEOUT_CONFIG.fast.image;
+    const timeout = mode === 'fast' ? 45000 : 90000; // 优化：缩短超时
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
@@ -411,17 +411,38 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
 
     // 应用风格预设
     const styleConfig = IMAGE_STYLES[style as keyof typeof IMAGE_STYLES] || IMAGE_STYLES.realistic;
-    const styledPrompt = `${prompt}, ${styleConfig.keywords}`;
-
+    
+    // 敏感词过滤
     let currentPrompt = prompt;
+    let optimizationNote: string | undefined;
+    const sanitizeResult = sanitizeImagePrompt(prompt);
+    currentPrompt = sanitizeResult.sanitized;
+    if (sanitizeResult.reasons.length > 0) {
+      optimizationNote = `已为您优化：${sanitizeResult.reasons.join('；')}`;
+    }
+    
+    // 智能Prompt扩展 - 精准理解用户意图
+    const expandedPrompt = expandPrompt(currentPrompt);
+    if (expandedPrompt.enhancements.length > 0) {
+      currentPrompt = expandedPrompt.expanded;
+      const enhancementNote = `已智能扩展：${expandedPrompt.enhancements.join('、')}`;
+      optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
+    }
+    
+    // 应用图片风格关键词
+    const styledPrompt = `${currentPrompt}, ${styleConfig.keywords}`;
+
     let success = false;
     let imageUrls: string[] = [];
-    let optimizationNote: string | undefined;
 
     // 带超时的图片生成
     const generateWithTimeout = async (p: string): Promise<any> => {
       return Promise.race([
-        imageClient.generate({ prompt: p, size: mode === 'fast' ? '1K' : '2K', watermark: false }),
+        imageClient.generate({ 
+          prompt: p, 
+          size: mode === 'fast' ? '1K' : '2K', 
+          watermark: false 
+        }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), timeout)),
       ]);
     };
@@ -439,10 +460,11 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
       }
       const isSensitiveError = error?.response?.error?.code === 'InputTextSensitiveContentDetected' || error?.message?.includes('SensitiveContent');
       if (isSensitiveError) {
-        const result = sanitizeImagePrompt(prompt);
+        // 二次敏感词过滤
+        const result = sanitizeImagePrompt(currentPrompt);
         currentPrompt = result.sanitized;
         optimizationNote = result.reasons.length > 0 ? `已为您优化：${result.reasons.join('；')}` : undefined;
-        const retryResponse = await generateWithTimeout(currentPrompt);
+        const retryResponse = await generateWithTimeout(`${currentPrompt}, ${styleConfig.keywords}`);
         const helper = imageClient.getResponseHelper(retryResponse);
         if (helper.success) {
           imageUrls = helper.imageUrls;
@@ -454,7 +476,13 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     }
 
     if (success) {
-      res.json({ imageUrls, optimizationNote, style, mode });
+      res.json({ 
+        imageUrls, 
+        optimizationNote, 
+        style, 
+        mode,
+        promptAnalysis: expandedPrompt // 返回Prompt分析结果
+      });
     } else {
       res.status(500).json({ error: "Image generation failed" });
     }
@@ -464,12 +492,12 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
   }
 });
 
-// ==================== 优化：生成文案（支持多平台风格） ====================
+// ==================== 优化：生成文案（支持多平台风格 + 智能Prompt扩展） ====================
 app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
   try {
     const { prompt, style = 'general', platform = 'general' } = req.body;
     const mode = (req.headers['x-mode'] as string) || 'fast';
-    const timeout = TIMEOUT_CONFIG[mode as keyof typeof TIMEOUT_CONFIG]?.text || TIMEOUT_CONFIG.fast.text;
+    const timeout = mode === 'fast' ? 15000 : 30000; // 优化：大幅缩短超时
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
@@ -486,15 +514,36 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
 
     // 应用风格预设
     const styleConfig = STYLE_PRESETS[style as keyof typeof STYLE_PRESETS] || STYLE_PRESETS.general;
-    const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。${styleConfig.prompt}请直接输出文案内容，不需要解释。`;
-
+    
+    // 敏感词过滤
     const sanitizeResult = sanitizePrompt(prompt);
-    const finalPrompt = sanitizeResult.sanitized;
-    const optimizationNote = sanitizeResult.reasons.length > 0 ? `已为您优化：${sanitizeResult.reasons.join('；')}` : undefined;
+    let finalPrompt = sanitizeResult.sanitized;
+    let optimizationNote = sanitizeResult.reasons.length > 0 ? `已为您优化：${sanitizeResult.reasons.join('；')}` : undefined;
+    
+    // 智能Prompt扩展 - 精准理解用户意图
+    const expandedPrompt = expandPrompt(finalPrompt);
+    if (expandedPrompt.enhancements.length > 0) {
+      finalPrompt = expandedPrompt.expanded;
+      const enhancementNote = `已智能扩展：${expandedPrompt.enhancements.join('、')}`;
+      optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
+    }
+
+    // 优化：更精准的System Prompt
+    const systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法创作精准、有感染力的文案。
+
+核心原则：
+1. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
+2. 场景化表达：结合具体场景和情绪，让文案有画面感
+3. 平台适配：根据平台特性调整文案风格和长度
+4. 行动引导：引导用户互动或产生共鸣
+
+${styleConfig.prompt}
+
+请直接输出文案内容，不需要解释，不要加任何编号或前缀。`;
 
     const messages: Message[] = [
       { role: "system" as const, content: systemPrompt },
-      { role: "user" as const, content: `想法主题：${finalPrompt}\n\n请生成文案内容。` },
+      { role: "user" as const, content: `用户想法：${finalPrompt}\n\n请基于这个想法，生成一段精准有感染力的文案。` },
     ];
 
     // 带超时的文案生成
@@ -509,7 +558,14 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
 
     const response = await invokeWithTimeout();
 
-    const result = { text: response.content, optimizationNote, style, platform, mode };
+    const result = { 
+      text: response.content, 
+      optimizationNote, 
+      style, 
+      platform, 
+      mode,
+      promptAnalysis: expandedPrompt // 返回Prompt分析结果
+    };
     setCache(cacheKey, result);
     res.json(result);
   } catch (error: any) {
@@ -702,7 +758,7 @@ app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
   }
 });
 
-// ==================== 优化：一键生成全部内容（支持风格） ====================
+// ==================== 优化：一键生成全部内容（智能Prompt扩展 + 优化并行） ====================
 app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
   try {
     const { prompt, durationType = "free", textStyle = 'general', imageStyle = 'realistic' } = req.body;
@@ -713,9 +769,18 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
+    // 敏感词过滤
     const sanitizeResult = sanitizePrompt(prompt);
-    const finalPrompt = sanitizeResult.sanitized;
-    const optimizationNote = sanitizeResult.reasons.length > 0 ? `已为您优化：${sanitizeResult.reasons.join('；')}` : undefined;
+    let finalPrompt = sanitizeResult.sanitized;
+    let optimizationNote = sanitizeResult.reasons.length > 0 ? `已为您优化：${sanitizeResult.reasons.join('；')}` : undefined;
+    
+    // 智能Prompt扩展 - 精准理解用户意图
+    const expandedPrompt = expandPrompt(finalPrompt);
+    if (expandedPrompt.enhancements.length > 0) {
+      finalPrompt = expandedPrompt.expanded;
+      const enhancementNote = `已智能扩展：${expandedPrompt.enhancements.join('、')}`;
+      optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
+    }
 
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
@@ -750,57 +815,97 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     const txtStyleConfig = STYLE_PRESETS[textStyle as keyof typeof STYLE_PRESETS] || STYLE_PRESETS.general;
     const styledImagePrompt = `${finalPrompt}, ${imgStyleConfig.keywords}`;
 
-    // 1. 批量生成图片
-    const imageRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({ prompt: styledImagePrompt, size: "2K", watermark: false }));
+    // ========== 优化：并行生成图片和文案 ==========
+    // 创建图片和文案并行请求
     let imageUrls: string[] = [];
+    let texts: string[] = [];
+    
+    // 图片生成（使用智能扩展后的Prompt）
     try {
-      const imageResponses = await imageClient.batchGenerate(imageRequests);
-      imageResponses.forEach((response) => {
+      const imageRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({ 
+        prompt: styledImagePrompt, 
+        size: "2K", 
+        watermark: false 
+      }));
+      let imageResponses;
+      try {
+        imageResponses = await imageClient.batchGenerate(imageRequests);
+      } catch (imgError: any) {
+        // 图片敏感词重试
+        if (imgError?.response?.error?.code === 'InputTextSensitiveContentDetected') {
+          const retryResult = sanitizeImagePrompt(finalPrompt);
+          const retryPrompt = `${retryResult.sanitized}, ${imgStyleConfig.keywords}`;
+          const retryRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({ 
+            prompt: retryPrompt, 
+            size: "2K", 
+            watermark: false 
+          }));
+          imageResponses = await imageClient.batchGenerate(retryRequests);
+          if (retryResult.reasons.length > 0) {
+            optimizationNote = optimizationNote ? `${optimizationNote}；${retryResult.reasons.join('；')}` : `已为您优化：${retryResult.reasons.join('；')}`;
+          }
+        } else {
+          throw imgError;
+        }
+      }
+      
+      imageResponses.forEach((response: any) => {
         const helper = imageClient.getResponseHelper(response);
         if (helper.success && helper.imageUrls.length > 0) {
           imageUrls.push(helper.imageUrls[0]);
           data.imageCount += 1;
         }
       });
-    } catch (error: any) {
-      if (error?.response?.error?.code === 'InputTextSensitiveContentDetected') {
-        const retryResult = sanitizeImagePrompt(prompt);
-        const retryPrompt = `${retryResult.sanitized}, ${imgStyleConfig.keywords}`;
-        const retryRequests = Array(DAILY_LIMITS.images.perBatch).fill(null).map(() => ({ prompt: retryPrompt, size: "2K", watermark: false }));
-        const retryResponses = await imageClient.batchGenerate(retryRequests);
-        retryResponses.forEach((response: any) => {
-          const helper = imageClient.getResponseHelper(response);
-          if (helper.success && helper.imageUrls.length > 0) {
-            imageUrls.push(helper.imageUrls[0]);
-            data.imageCount += 1;
-          }
-        });
-      } else {
-        throw error;
+    } catch (error) {
+      console.error("Image batch generation error:", error);
+      // 图片生成失败不影响后续
+    }
+    
+    // 优化：更精准的文案System Prompt
+    const textSystemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法创作精准、有感染力的文案。
+
+核心原则：
+1. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
+2. 场景化表达：结合具体场景和情绪，让文案有画面感
+3. 平台适配：根据平台特性调整文案风格和长度
+4. 行动引导：引导用户互动或产生共鸣
+
+${txtStyleConfig.prompt}
+
+请直接输出文案内容，不需要解释，不要加任何编号或前缀。`;
+
+    // 文案生成
+    try {
+      const textMessages: Message[] = [
+        { role: "system" as const, content: textSystemPrompt },
+        { role: "user" as const, content: `用户想法：${finalPrompt}\n\n请基于这个想法，生成一段精准有感染力的文案。` },
+      ];
+      const textResponse = await llmClient.invoke(textMessages, { temperature: txtStyleConfig.temperature });
+      if (textResponse.content) {
+        texts = [textResponse.content.trim()];
+        data.textCount += 1;
       }
+    } catch (error) {
+      console.error("Text generation error:", error);
+      // 文案生成失败不影响后续
     }
 
-    // 2. 生成文案
-    const systemPrompt = `你是一位资深创意文案师，擅长创作短视频脚本、社交媒体文案、营销文案等。${txtStyleConfig.prompt}请直接输出文案内容，不要加任何编号或前缀，不要解释。`;
-    const textMessages: Message[] = [
-      { role: "system" as const, content: systemPrompt },
-      { role: "user" as const, content: `想法主题：${finalPrompt}\n\n请生成文案内容。` },
-    ];
-    const textResponse = await llmClient.invoke(textMessages, { temperature: txtStyleConfig.temperature });
-    const texts = textResponse.content ? [textResponse.content.trim()] : [];
-    if (texts.length > 0) data.textCount += 1;
-
-    // 3. 生成视频
+    // ========== 视频生成（依赖图片） ==========
     let videoUrl = null;
     let lastFrameUrl = null;
     if (imageUrls.length > 0) {
-      const videoResponse = await videoClient.videoGeneration(
-        [{ type: "image_url", image_url: { url: imageUrls[0] }, role: "first_frame" }, { type: "text", text: finalPrompt }],
-        { duration, ratio: "9:16", resolution: "720p", watermark: false, generateAudio: true }
-      );
-      videoUrl = videoResponse.videoUrl;
-      lastFrameUrl = videoResponse.lastFrameUrl;
-      if (durationType === "free") data.videoEdits += 1;
+      try {
+        const videoResponse = await videoClient.videoGeneration(
+          [{ type: "image_url", image_url: { url: imageUrls[0] }, role: "first_frame" }, { type: "text", text: finalPrompt }],
+          { duration, ratio: "9:16", resolution: "720p", watermark: false, generateAudio: true }
+        );
+        videoUrl = videoResponse.videoUrl;
+        lastFrameUrl = videoResponse.lastFrameUrl;
+        if (durationType === "free") data.videoEdits += 1;
+      } catch (error) {
+        console.error("Video generation error:", error);
+        // 视频生成失败不影响返回
+      }
     }
 
     const remaining = getRemainingCounts(deviceId);
@@ -812,6 +917,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       imageUrls, texts, videoUrl, lastFrameUrl, duration, durationType, isFree: durationType === "free",
       isLoggedIn, remainingFreeEdits, remainingImages, remainingTexts, optimizationNote,
       textStyle, imageStyle,
+      promptAnalysis: expandedPrompt, // 返回Prompt分析结果
       imageLimits: { perBatch: DAILY_LIMITS.images.perBatch, maxPerDay: imageMaxPerDay, chargePerImage: DAILY_LIMITS.images.chargePerImage },
       textLimits: { perBatch: DAILY_LIMITS.texts.perBatch, maxPerDay: textMaxPerDay, chargePerText: DAILY_LIMITS.texts.chargePerText },
     });
@@ -1848,6 +1954,178 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Zeabur should now forward to this port`);
   console.log(`📝 性能优化: 缓存系统已启用, 任务队列已就绪`);
 });
+
+// ==================== 智能Prompt扩展系统 ====================
+
+// 场景关键词映射表
+const SCENE_KEYWORDS: { [key: string]: { keywords: string[]; description: string } } = {
+  scenery: {
+    keywords: ['海边', '日落', '日出', '森林', '草原', '山川', '河流', '湖泊', '大海', '沙滩', '星空', '银河', '云海', '瀑布', '雪山', '沙漠', '古镇', '城市夜景', '樱花', '枫叶', '竹林'],
+    description: '风景'
+  },
+  portrait: {
+    keywords: ['人像', '写真', '美女', '帅哥', '少女', '少年', '女神', '男神', '古风', '汉服', '婚纱', '孕妇', '儿童', '全家福', '闺蜜', '情侣', '运动', '时尚', '复古', '街拍'],
+    description: '人像'
+  },
+  food: {
+    keywords: ['美食', '餐厅', '甜品', '蛋糕', '咖啡', '奶茶', '火锅', '烧烤', '海鲜', '日料', '西餐', '中餐', '下午茶', '小吃', '烘焙', '水果', '饮品', '料理', '披萨', '汉堡'],
+    description: '美食'
+  },
+  animal: {
+    keywords: ['猫咪', '狗狗', '宠物', '动物', '猫咪', '柴犬', '柯基', '金毛', '哈士奇', '布偶猫', '橘猫', '仓鼠', '兔子', '鸟类', '小动物', '萌宠', '猫狗', '爬宠', '水族', '宠物'],
+    description: '萌宠'
+  },
+  product: {
+    keywords: ['产品', '商品', '电商', '广告', '展示', '模特', '包装', '设计', '创意', '品牌', '店铺', '橱窗', '陈列', '道具', '配饰', '服装', '鞋包', '首饰', '美妆', '护肤'],
+    description: '产品'
+  },
+  festival: {
+    keywords: ['春节', '中秋', '端午', '圣诞', '新年', '情人节', '万圣节', '感恩节', '元宵', '重阳', '七夕', '母亲节', '父亲节', '生日', '周年', '纪念日', '节日', '假期', '派对', '聚会'],
+    description: '节日'
+  },
+  lifestyle: {
+    keywords: ['生活', '日常', '家居', '装饰', '收纳', '绿植', '书房', '卧室', '客厅', '厨房', '阳台', '花园', '露营', '旅行', '健身', '瑜伽', '阅读', '音乐', '咖啡时光', '下午茶'],
+    description: '生活'
+  },
+  emotion: {
+    keywords: ['心情', '情感', '治愈', '温暖', '文艺', '小清新', '浪漫', '梦幻', '唯美', '复古', 'ins风', '简约', '冷淡', '高级感', '氛围感', '情绪', '文案', '语录', '感悟', '故事'],
+    description: '情感'
+  }
+};
+
+// 风格增强词缀
+const STYLE_ENHANCERS: { [key: string]: { positive: string[]; negative: string[] } } = {
+  xiaohongshu: {
+    positive: ['高级感', '氛围感', '精致', 'ins风', '法式', '北欧', '日系', '韩系'],
+    negative: ['模糊', '杂乱', '俗气', '土味']
+  },
+  douyin: {
+    positive: ['视觉冲击', '震撼', '大片感', '电影感', '爆款', '出圈', '高颜值'],
+    negative: ['平淡', '无聊', '普通']
+  },
+  gzh: {
+    positive: ['深度', '专业', '有见地', '有观点', '逻辑清晰', '有深度'],
+    negative: ['浅薄', '流水账', '空洞']
+  },
+  zhihu: {
+    positive: ['专业', '有据可查', '数据支撑', '分析透彻', '客观', '理性'],
+    negative: ['主观', '情绪化', '没有依据']
+  },
+  general: {
+    positive: ['精炼', '有力', '有感染力', '重点突出', '易记'],
+    negative: ['冗长', '废话', '跑题']
+  }
+};
+
+// 智能Prompt扩展函数
+function expandPrompt(userInput: string): { expanded: string; scene: string; style: string; enhancements: string[] } {
+  let expanded = userInput;
+  const enhancements: string[] = [];
+  let detectedScene = '';
+  let detectedStyle = '';
+
+  // 1. 场景识别与关键词扩展
+  for (const [scene, config] of Object.entries(SCENE_KEYWORDS)) {
+    for (const keyword of config.keywords) {
+      if (userInput.includes(keyword)) {
+        detectedScene = config.description;
+        // 添加场景相关的质量描述词
+        const sceneEnhancers = ['高品质', '精美', '专业摄影', '高清', '细腻'];
+        const randomEnhancer = sceneEnhancers[Math.floor(Math.random() * sceneEnhancers.length)];
+        if (!expanded.includes(randomEnhancer)) {
+          enhancements.push(randomEnhancer);
+        }
+        break;
+      }
+    }
+    if (detectedScene) break;
+  }
+
+  // 2. 时间/光线描述增强
+  const timePatterns = [
+    { pattern: /日出|晨|早晨/, addition: '清晨柔和的光线' },
+    { pattern: /日落|黄昏|傍晚/, addition: '夕阳温暖的余晖' },
+    { pattern: /夜景|晚上|夜晚/, addition: '城市璀璨灯光' },
+    { pattern: /星空|银河|夜晚/, addition: '满天繁星' },
+    { pattern: /阴天|雨天|雨天/, addition: '柔和散射光' },
+  ];
+  
+  for (const { pattern, addition } of timePatterns) {
+    if (pattern.test(userInput) && !expanded.includes(addition)) {
+      enhancements.push(addition);
+      break;
+    }
+  }
+
+  // 3. 色彩描述增强
+  const colorPatterns = [
+    { pattern: /蓝色|蓝天|大海/, colors: ['蔚蓝', '天蓝色', '海天一色'] },
+    { pattern: /绿色|森林|草原/, colors: ['翠绿', '清新自然', '生机勃勃'] },
+    { pattern: /粉色|樱花|浪漫/, colors: ['粉嫩', '少女心', '梦幻粉'] },
+    { pattern: /金色|日落|夕阳/, colors: ['金色光芒', '温暖金色调', '灿烂金黄'] },
+    { pattern: /白色|雪|纯净/, colors: ['纯净洁白', '素雅清新', '简洁干净'] },
+  ];
+  
+  for (const { pattern, colors } of colorPatterns) {
+    if (pattern.test(userInput)) {
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      if (!expanded.includes(randomColor)) {
+        enhancements.push(randomColor);
+      }
+      break;
+    }
+  }
+
+  // 4. 情绪/氛围描述增强
+  const emotionPatterns = [
+    { pattern: /治愈|温暖|温馨/, addition: '温馨治愈的氛围' },
+    { pattern: /文艺|小清新|简约/, addition: '文艺清新的气质' },
+    { pattern: /梦幻|浪漫|唯美/, addition: '梦幻唯美的意境' },
+    { pattern: /高级|质感|轻奢/, addition: '高级有质感的画面' },
+    { pattern: /可爱|萌|软萌/, addition: '可爱软萌的感觉' },
+  ];
+  
+  for (const { pattern, addition } of emotionPatterns) {
+    if (pattern.test(userInput) && !expanded.includes(addition)) {
+      enhancements.push(addition);
+      break;
+    }
+  }
+
+  // 5. 构建扩展后的Prompt
+  if (enhancements.length > 0) {
+    expanded = `${userInput}，${enhancements.join('，')}`;
+  }
+
+  // 6. 添加通用质量描述
+  const qualityTerms = ['专业摄影作品', '高清画质', '细节丰富', '构图精美', '色调和谐'];
+  const randomQuality = qualityTerms[Math.floor(Math.random() * qualityTerms.length)];
+  if (!expanded.includes(randomQuality)) {
+    expanded = `${expanded}，${randomQuality}`;
+  }
+
+  return {
+    expanded,
+    scene: detectedScene,
+    style: detectedStyle,
+    enhancements
+  };
+}
+
+// 获取场景对应的文案风格
+function getSceneTextStyle(scene: string): string {
+  const sceneToStyle: { [key: string]: string } = {
+    '人像': 'xiaohongshu',
+    '美食': 'douyin',
+    '风景': 'general',
+    '萌宠': 'xiaohongshu',
+    '产品': 'douyin',
+    '节日': 'xiaohongshu',
+    '生活': 'general',
+    '情感': 'general',
+  };
+  return sceneToStyle[scene] || 'general';
+}
 
 // ==================== 敏感词过滤函数 ====================
 function sanitizeImagePrompt(prompt: string): { sanitized: string; reasons: string[] } {

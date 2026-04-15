@@ -280,6 +280,18 @@ export default function HomeScreen() {
       const imageData = await imageResponse.json();
       const textData = await textResponse.json();
 
+      // 显示Prompt分析结果
+      if (imageData.promptAnalysis || textData.promptAnalysis) {
+        const analysis = imageData.promptAnalysis || textData.promptAnalysis;
+        if (analysis.enhancements && analysis.enhancements.length > 0) {
+          setGenerationProgress({ 
+            stage: 'text', 
+            progress: 30, 
+            message: `已智能理解：${analysis.scene || '创意主题'}，${analysis.enhancements.join('、')}` 
+          });
+        }
+      }
+
       // 更新进度
       setGenerationProgress({ stage: 'text', progress: 40, message: '图片和文案生成完成，正在处理视频...' });
 
@@ -586,21 +598,43 @@ export default function HomeScreen() {
   );
 
   // ==================== 新增：生成进度弹窗 ====================
-  const ProgressModal = () => (
-    <Modal visible={showProgressModal} transparent animationType="fade">
-      <View style={styles.progressOverlay}>
-        <View style={styles.progressCard}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.progressTitle}>正在创作中...</Text>
-          <Text style={styles.progressMessage}>{generationProgress.message}</Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${generationProgress.progress}%` }]} />
+  const ProgressModal = () => {
+    // 根据阶段显示不同图标
+    const getStageIcon = () => {
+      switch (generationProgress.stage) {
+        case 'image': return '🖼️';
+        case 'text': return '✍️';
+        case 'video': return '🎬';
+        case 'complete': return '✅';
+        default: return '✨';
+      }
+    };
+    
+    return (
+      <Modal visible={showProgressModal} transparent animationType="fade">
+        <View style={styles.progressOverlay}>
+          <View style={styles.progressCard}>
+            <Text style={styles.progressStageIcon}>{getStageIcon()}</Text>
+            <Text style={styles.progressTitle}>
+              {generationProgress.stage === 'complete' ? '创作完成！' : '正在创作中...'}
+            </Text>
+            <Text style={styles.progressMessage}>{generationProgress.message}</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${generationProgress.progress}%` }]} />
+            </View>
+            <Text style={styles.progressPercent}>{generationProgress.progress}%</Text>
+            
+            {generationProgress.stage === 'complete' && (
+              <View style={styles.progressSuccessHint}>
+                <FontAwesome6 name="check-circle" size={16} color="#10B981" />
+                <Text style={styles.progressSuccessText}>准备跳转到编辑页面...</Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.progressPercent}>{generationProgress.progress}%</Text>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   const generateCheck = canGenerate();
 
@@ -1239,12 +1273,29 @@ const styles = StyleSheet.create({
   
   // 进度弹窗
   progressOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" },
-  progressCard: { backgroundColor: COLORS.white, borderRadius: 28, padding: 36, width: "80%", alignItems: "center", shadowColor: COLORS.shadowDark, shadowOffset: { width: 8, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 8 },
-  progressTitle: { fontSize: 20, fontWeight: "700", color: COLORS.text, marginTop: 24, marginBottom: 10 },
-  progressMessage: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 24 },
-  progressBar: { width: "100%", height: 10, backgroundColor: COLORS.pressed, borderRadius: 5, marginBottom: 10 },
-  progressFill: { height: "100%", backgroundColor: COLORS.primary, borderRadius: 5 },
-  progressPercent: { fontSize: 14, color: COLORS.textSecondary },
+  progressCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 28, 
+    padding: 36, 
+    width: "85%", 
+    alignItems: "center", 
+    shadowColor: COLORS.shadowDark, 
+    shadowOffset: { width: 8, height: 8 }, 
+    shadowOpacity: 0.4, 
+    shadowRadius: 16, 
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.8)',
+    borderTopColor: 'rgba(255,255,255,1)',
+  },
+  progressStageIcon: { fontSize: 48, marginBottom: 16 },
+  progressTitle: { fontSize: 22, fontWeight: "800", color: COLORS.text, marginTop: 16, marginBottom: 12 },
+  progressMessage: { fontSize: 15, color: COLORS.textSecondary, marginBottom: 20, textAlign: "center", lineHeight: 22 },
+  progressBar: { width: "100%", height: 12, backgroundColor: COLORS.pressed, borderRadius: 6, marginBottom: 12, overflow: 'hidden' },
+  progressFill: { height: "100%", backgroundColor: COLORS.primary, borderRadius: 6 },
+  progressPercent: { fontSize: 16, fontWeight: "700", color: COLORS.primary },
+  progressSuccessHint: { flexDirection: "row", alignItems: "center", marginTop: 20, gap: 8 },
+  progressSuccessText: { fontSize: 14, color: COLORS.success },
   
   // 通用弹窗
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
