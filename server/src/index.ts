@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response } from "express";
 import cors from "cors";
+import compression from "compression";
 import {
   ImageGenerationClient,
   VideoGenerationClient,
@@ -25,16 +26,32 @@ console.log('✅ Process cwd:', process.cwd());
 console.log('✅ PORT from env:', process.env.PORT);
 console.log('✅ NODE_ENV:', process.env.NODE_ENV);
 
-// AI 模型配置
-// 文案：DeepSeek V4 / R1 大模型库
-const TEXT_MODEL_V4 = "deepseek-v4-251201";
-const TEXT_MODEL_R1 = "deepseek-r1-251201";
-// 图片：腾讯混元 Image-3.0 大模型库
-const IMAGE_MODEL = "hunyuan-image-3-0";
-// 视频：Seedance 2.0 大模型库
-const VIDEO_MODEL = "seedance-2-0-pro";
+// AI 模型配置（使用SDK默认模型，用户可通过参数覆盖）
+// 文案模型：使用豆包Doubao模型
+const TEXT_MODEL = "doubao-pro-32k";  // 可选: doubao-pro-32k, doubao-lite-32k, doubao-pro-4k
+// 图片模型：使用即梦Seedance模型
+const IMAGE_MODEL = "seedance-3-0";  // 可选: seedance-3-0, seedance-2-0-pro, seedance-2-0, seedance-1-0
+// 视频模型：使用可灵Kling模型
+const VIDEO_MODEL = "kling-v1-6";  // 可选: kling-v1-6, kling-v1-5, kling-v1-standard, kling-v1-pro
 
 // ==================== 性能优化配置 ====================
+// 超时配置（毫秒）
+const TIMEOUT_CONFIG = {
+  fast: {
+    image: 8000,      // 极速模式图片 ≤5秒
+    text: 3000,      // 极速模式文案 ≤2秒
+    video: 20000,    // 极速模式视频 ≤15秒
+    all: 65000,      // 极速模式三连 ≤60秒
+  },
+  quality: {
+    image: 20000,    // 高质量模式图片 ≤15秒
+    text: 8000,      // 高质量模式文案 ≤5秒
+    video: 130000,   // 高质量模式视频 ≤120秒
+    all: 130000,     // 高质量模式总时间
+  },
+};
+
+// 缓存配置
 const CACHE_TTL = 5 * 60 * 1000; // 缓存5分钟
 const MAX_CONCURRENT_TASKS = 10; // 最大并发任务数
 const PROMPT_CACHE_SIZE = 1000; // Prompt缓存大小
@@ -72,18 +89,24 @@ app.use((req, res, next) => {
 
 // Middleware - 性能优化
 app.use(cors());
+app.use(compression({
+  level: 6, // 压缩级别 0-9，6是平衡点
+  threshold: 1024, // 只有大于1KB的响应才压缩
+  filter: (req, res) => {
+    if (req.headers['x-no-compress']) return false;
+    return compression.filter(req, res);
+  },
+}));
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
-// 响应压缩中间件
-app.use((req, res, next) => {
-  const originalSend = res.send;
-  res.send = function(data) {
-    if (req.query.compress === 'true') {
-      return originalSend.call(this, JSON.stringify(data));
-    }
-    return originalSend.call(this, data);
-  };
+// 响应时间追踪中间件
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const startTime = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    console.log(`[RESPONSE] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+  });
   next();
 });
 
@@ -373,10 +396,13 @@ app.get("/api/v1/task/:taskId", (req, res) => {
   res.json(task);
 });
 
-// ==================== 优化：生成图片（支持风格选择） ====================
+// ==================== 优化：生成图片（支持风格选择和性能模式） ====================
 app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
   try {
     const { prompt, style = 'realistic' } = req.body;
+    const mode = (req.headers['x-mode'] as string) || 'fast';
+    const timeout = TIMEOUT_CONFIG[mode as keyof typeof TIMEOUT_CONFIG]?.image || TIMEOUT_CONFIG.fast.image;
+    
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
     const customHeaders = HeaderUtils.extractForwardHeaders(req.headers as Record<string, string>);
@@ -392,20 +418,31 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     let imageUrls: string[] = [];
     let optimizationNote: string | undefined;
 
+    // 带超时的图片生成
+    const generateWithTimeout = async (p: string): Promise<any> => {
+      return Promise.race([
+        imageClient.generate({ prompt: p, size: mode === 'fast' ? '1K' : '2K', watermark: false }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), timeout)),
+      ]);
+    };
+
     try {
-      const response = await imageClient.generate({ prompt: styledPrompt, size: "2K", watermark: false });
+      const response = await generateWithTimeout(styledPrompt);
       const helper = imageClient.getResponseHelper(response);
       if (helper.success) {
         imageUrls = helper.imageUrls;
         success = true;
       }
     } catch (error: any) {
+      if (error.message === 'Image generation timeout') {
+        return res.status(504).json({ error: '图片生成超时，请切换高质量模式' });
+      }
       const isSensitiveError = error?.response?.error?.code === 'InputTextSensitiveContentDetected' || error?.message?.includes('SensitiveContent');
       if (isSensitiveError) {
         const result = sanitizeImagePrompt(prompt);
         currentPrompt = result.sanitized;
         optimizationNote = result.reasons.length > 0 ? `已为您优化：${result.reasons.join('；')}` : undefined;
-        const retryResponse = await imageClient.generate({ prompt: currentPrompt, size: "2K", watermark: false });
+        const retryResponse = await generateWithTimeout(currentPrompt);
         const helper = imageClient.getResponseHelper(retryResponse);
         if (helper.success) {
           imageUrls = helper.imageUrls;
@@ -417,7 +454,7 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     }
 
     if (success) {
-      res.json({ imageUrls, optimizationNote, style });
+      res.json({ imageUrls, optimizationNote, style, mode });
     } else {
       res.status(500).json({ error: "Image generation failed" });
     }
@@ -431,10 +468,13 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
 app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
   try {
     const { prompt, style = 'general', platform = 'general' } = req.body;
+    const mode = (req.headers['x-mode'] as string) || 'fast';
+    const timeout = TIMEOUT_CONFIG[mode as keyof typeof TIMEOUT_CONFIG]?.text || TIMEOUT_CONFIG.fast.text;
+    
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
     // 检查缓存
-    const cacheKey = `text:${prompt}:${style}:${platform}`;
+    const cacheKey = `text:${prompt}:${style}:${platform}:${mode}`;
     const cached = getCache<any>(cacheKey);
     if (cached) {
       return res.json({ ...cached, cached: true });
@@ -457,15 +497,26 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       { role: "user" as const, content: `想法主题：${finalPrompt}\n\n请生成文案内容。` },
     ];
 
-    const response = await llmClient.invoke(messages, {
-      model: TEXT_MODEL_V4,
-      temperature: styleConfig.temperature,
-    });
+    // 带超时的文案生成
+    const invokeWithTimeout = async (): Promise<any> => {
+      return Promise.race([
+        llmClient.invoke(messages, {
+          model: mode === 'fast' ? TEXT_MODEL : "doubao-pro-32k",
+          temperature: styleConfig.temperature,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Text generation timeout')), timeout)),
+      ]);
+    };
 
-    const result = { text: response.content, optimizationNote, style, platform };
+    const response = await invokeWithTimeout();
+
+    const result = { text: response.content, optimizationNote, style, platform, mode };
     setCache(cacheKey, result);
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Text generation timeout') {
+      return res.status(504).json({ error: '文案生成超时，请切换高质量模式' });
+    }
     console.error("Text generation error:", error);
     res.status(500).json({ error: "Text generation failed" });
   }
@@ -476,6 +527,8 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
   try {
     const { prompt, imageUrl, durationType = "free" } = req.body;
     const deviceId = (req.headers["x-device-id"] as string) || "default";
+    const mode = (req.headers['x-mode'] as string) || 'fast';
+    const timeout = TIMEOUT_CONFIG[mode as keyof typeof TIMEOUT_CONFIG]?.video || TIMEOUT_CONFIG.fast.video;
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
@@ -503,14 +556,22 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     }
     contentItems.push({ type: "text", text: finalPrompt });
 
-    const response = await videoClient.videoGeneration(contentItems, {
-      model: VIDEO_MODEL,
-      duration,
-      ratio: "9:16",
-      resolution: "720p",
-      watermark: false,
-      generateAudio: true,
-    });
+    // 带超时的视频生成
+    const generateVideoWithTimeout = async (): Promise<any> => {
+      return Promise.race([
+        videoClient.videoGeneration(contentItems, {
+          model: VIDEO_MODEL,
+          duration,
+          ratio: "9:16",
+          resolution: mode === 'fast' ? '480p' : '720p', // 极速模式降低分辨率加速
+          watermark: false,
+          generateAudio: true,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Video generation timeout')), timeout)),
+      ]);
+    };
+
+    const response = await generateVideoWithTimeout();
 
     if (response.videoUrl) {
       const remaining = getRemainingCounts(deviceId);
@@ -521,11 +582,15 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
         durationType,
         isFree: durationType === "free",
         remainingFreeEdits: remaining.remainingVideoEdits,
+        mode,
       });
     } else {
       res.status(500).json({ error: "Video generation failed" });
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Video generation timeout') {
+      return res.status(504).json({ error: '视频生成超时，请切换高质量模式' });
+    }
     console.error("Video generation error:", error);
     res.status(500).json({ error: "Video generation failed" });
   }

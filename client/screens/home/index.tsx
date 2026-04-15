@@ -40,6 +40,33 @@ const LIMITS = {
   texts: { perBatch: 1, maxPerDay: 10, chargePerText: 2 },
 };
 
+// ==================== 性能模式配置 ====================
+const PERFORMANCE_MODES = {
+  fast: {
+    id: 'fast',
+    name: '极速模式',
+    icon: 'bolt',
+    color: '#10B981',
+    description: '≤5秒图片 · ≤2秒文案 · ≤15秒视频 · ≤60秒三连',
+    times: { image: '≤5秒', text: '≤2秒', video: '≤15秒', all: '≤60秒' },
+  },
+  quality: {
+    id: 'quality',
+    name: '高质量模式',
+    icon: 'gem',
+    color: '#4F46E5',
+    description: '≤15秒图片 · ≤5秒文案 · ≤120秒视频',
+    times: { image: '≤15秒', text: '≤5秒', video: '≤120秒', all: '~120秒' },
+  },
+};
+
+// ==================== 竞品对比配置 ====================
+const COMPETITORS = {
+  image: { jimeng: '30秒', kilin: '-', lingxiang: '-' },
+  text: { jimeng: '-', kilin: '-', lingxiang: '-' },
+  video: { jimeng: '120秒', kilin: '120秒', lingxiang: '≤120秒' },
+};
+
 // 免费码选项
 const FREE_CODE_OPTIONS = [
   { type: '1_month', label: '1个月', days: 30 },
@@ -133,6 +160,11 @@ export default function HomeScreen() {
   const [hotTopics, setHotTopics] = useState<Array<{id: number; platform: string; title: string; heat: number}>>([]);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({ stage: 'idle', progress: 0, message: '' });
   const [showProgressModal, setShowProgressModal] = useState(false);
+  
+  // ==================== 性能模式状态 ====================
+  const [performanceMode, setPerformanceMode] = useState<'fast' | 'quality'>('fast');
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+  const [generationStartTime, setGenerationStartTime] = useState<number>(0);
 
   const getCurrentTemplates = () => TEMPLATES[selectedCategory as keyof typeof TEMPLATES] || TEMPLATES.scenery;
 
@@ -208,7 +240,7 @@ export default function HomeScreen() {
     return { allowed: true, reason: "" };
   };
 
-  // ==================== 优化：带进度反馈的生成 ====================
+  // ==================== 优化：并行带进度反馈的生成 ====================
   const handleGenerate = async () => {
     const check = canGenerate();
     if (!check.allowed) {
@@ -219,81 +251,109 @@ export default function HomeScreen() {
     setLoading(true);
     setError("");
     setShowProgressModal(true);
-    setGenerationProgress({ stage: 'image', progress: 10, message: '正在生成图片...' });
+    setGenerationStartTime(Date.now());
+    
+    const isFastMode = performanceMode === 'fast';
+    const modeConfig = PERFORMANCE_MODES[performanceMode];
 
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/all`, {
+      // 并行请求：图片 + 文案 + 视频
+      const parallelRequests = [
+        // 图片生成
+        fetch(`${BACKEND_BASE_URL}/api/v1/generate/images`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-device-id": deviceId, "x-mode": performanceMode },
+          body: JSON.stringify({ prompt: idea.trim(), style: selectedImageStyle }),
+        }),
+        // 文案生成
+        fetch(`${BACKEND_BASE_URL}/api/v1/generate/text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-device-id": deviceId, "x-mode": performanceMode },
+          body: JSON.stringify({ prompt: idea.trim(), style: selectedTextStyle }),
+        }),
+      ];
+
+      // 阶段1：并行获取图片和文案结果
+      setGenerationProgress({ stage: 'image', progress: 15, message: `正在并行生成图片(${modeConfig.times.image})和文案(${modeConfig.times.text})...` });
+
+      const [imageResponse, textResponse] = await Promise.all(parallelRequests);
+      const imageData = await imageResponse.json();
+      const textData = await textResponse.json();
+
+      // 更新进度
+      setGenerationProgress({ stage: 'text', progress: 40, message: '图片和文案生成完成，正在处理视频...' });
+
+      // 检查是否有图片结果
+      if (!imageData.imageUrls || imageData.imageUrls.length === 0) {
+        throw new Error('图片生成失败');
+      }
+
+      // 阶段2：视频生成（需要等图片完成后作为首帧）
+      setGenerationProgress({ stage: 'video', progress: 60, message: `正在生成视频(${modeConfig.times.video})...` });
+
+      const videoResponse = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/video`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-device-id": deviceId,
-        },
-        body: JSON.stringify({
-          prompt: idea.trim(),
-          durationType: selectedDuration,
-          textStyle: selectedTextStyle,
-          imageStyle: selectedImageStyle,
+        headers: { "Content-Type": "application/json", "x-device-id": deviceId, "x-mode": performanceMode },
+        body: JSON.stringify({ 
+          prompt: idea.trim(), 
+          imageUrl: imageData.imageUrls[0],
+          durationType: selectedDuration 
         }),
       });
+      
+      const videoData = await videoResponse.json();
 
-      setGenerationProgress({ stage: 'text', progress: 40, message: '正在生成文案...' });
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setGenerationProgress({ stage: 'video', progress: 70, message: '正在生成视频...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        setGenerationProgress({ stage: 'complete', progress: 100, message: '生成完成！' });
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setShowProgressModal(false);
-
-        // 保存历史
-        try {
-          const historyItem = {
-            id: `h_${Date.now()}`,
-            prompt: idea.trim(),
-            imageUrls: data.imageUrls || [],
-            text: (data.texts || [])[0] || "",
-            videoUrl: data.videoUrl || "",
-            createdAt: new Date().toISOString(),
-            isFavorite: false,
-          };
-          const stored = await SecureStore.getItemAsync("generationHistory");
-          const history = stored ? JSON.parse(stored) : [];
-          history.unshift(historyItem);
-          if (history.length > 100) history.pop();
-          await SecureStore.setItemAsync("generationHistory", JSON.stringify(history));
-        } catch (e) {
-          console.error("Save history error:", e);
-        }
-
-        setRemainingVideoEdits(data.remainingFreeEdits ?? remainingVideoEdits);
-        setRemainingImages(data.remainingImages ?? remainingImages);
-        setRemainingTexts(data.remainingTexts ?? remainingTexts);
-
-        router.push("/edit", {
-          idea: idea.trim(),
-          imageUrls: JSON.stringify(data.imageUrls || []),
-          texts: JSON.stringify(data.texts || []),
-          videoUrl: data.videoUrl || "",
-          lastFrameUrl: data.lastFrameUrl || "",
-          durationType: data.durationType || "free",
-          remainingFreeEdits: data.remainingFreeEdits ?? remainingVideoEdits,
-          remainingImages: data.remainingImages ?? remainingImages,
-          remainingTexts: data.remainingTexts ?? remainingTexts,
-        });
-      } else {
-        setShowProgressModal(false);
-        setError(data.message || data.error || "生成失败，请重试");
-        if (data.remainingImages !== undefined) setRemainingImages(data.remainingImages);
-        if (data.remainingTexts !== undefined) setRemainingTexts(data.remainingTexts);
-        if (data.remainingFreeEdits !== undefined) setRemainingVideoEdits(data.remainingFreeEdits);
-      }
-    } catch (err) {
+      // 计算实际耗时
+      const actualTime = Math.round((Date.now() - generationStartTime) / 1000);
+      
+      setGenerationProgress({ 
+        stage: 'complete', 
+        progress: 100, 
+        message: `生成完成！耗时${actualTime}秒` 
+      });
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setShowProgressModal(false);
-      setError("网络错误，请检查网络连接");
+
+      // 保存历史
+      try {
+        const historyItem = {
+          id: `h_${Date.now()}`,
+          prompt: idea.trim(),
+          imageUrls: imageData.imageUrls || [],
+          text: textData.text || "",
+          videoUrl: videoData.videoUrl || "",
+          createdAt: new Date().toISOString(),
+          isFavorite: false,
+          performanceMode,
+          generationTime: actualTime,
+        };
+        const stored = await SecureStore.getItemAsync("generationHistory");
+        const history = stored ? JSON.parse(stored) : [];
+        history.unshift(historyItem);
+        if (history.length > 100) history.pop();
+        await SecureStore.setItemAsync("generationHistory", JSON.stringify(history));
+      } catch (e) {
+        console.error("Save history error:", e);
+      }
+
+      setRemainingVideoEdits(videoData.remainingFreeEdits ?? remainingVideoEdits);
+      setRemainingImages(imageData.remaining ?? remainingImages);
+      setRemainingTexts(remainingTexts - 1);
+
+      router.push("/edit", {
+        idea: idea.trim(),
+        imageUrls: JSON.stringify(imageData.imageUrls || []),
+        texts: JSON.stringify([textData.text || ""]),
+        videoUrl: videoData.videoUrl || "",
+        lastFrameUrl: videoData.lastFrameUrl || "",
+        durationType: videoData.durationType || "free",
+        remainingFreeEdits: videoData.remainingFreeEdits ?? remainingVideoEdits,
+        remainingImages: imageData.remaining ?? remainingImages,
+        remainingTexts: remainingTexts - 1,
+      });
+    } catch (err: any) {
+      setShowProgressModal(false);
+      setError(err.message || "网络错误，请检查网络连接");
     } finally {
       setLoading(false);
     }
@@ -366,6 +426,130 @@ export default function HomeScreen() {
         </View>
       </View>
     </View>
+  );
+
+  // ==================== 新增：性能模式选择器 ====================
+  const PerformanceModeSelector = () => (
+    <View style={styles.performanceSection}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>生成模式</Text>
+        <TouchableOpacity onPress={() => setShowPerformanceModal(true)}>
+          <Text style={styles.moreBtn}>竞品对比</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.performanceGrid}>
+        {Object.values(PERFORMANCE_MODES).map((mode) => (
+          <TouchableOpacity
+            key={mode.id}
+            style={[
+              styles.performanceCard,
+              performanceMode === mode.id && { borderColor: mode.color, backgroundColor: mode.color + '10' }
+            ]}
+            onPress={() => setPerformanceMode(mode.id as 'fast' | 'quality')}
+          >
+            <View style={[styles.performanceIconContainer, { backgroundColor: mode.color + '20' }]}>
+              <FontAwesome6 name={mode.icon as any} size={20} color={mode.color} />
+            </View>
+            <Text style={[styles.performanceName, performanceMode === mode.id && { color: mode.color }]}>{mode.name}</Text>
+            <Text style={styles.performanceTime}>
+              <FontAwesome6 name="clock" size={10} color={COLORS.textSecondary} /> 
+              {' '}{mode.times.all}
+            </Text>
+            {performanceMode === mode.id && (
+              <View style={[styles.performanceBadge, { backgroundColor: mode.color }]}>
+                <FontAwesome6 name="check" size={10} color="#FFFFFF" />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  // ==================== 新增：竞品对比弹窗 ====================
+  const CompetitorModal = () => (
+    <Modal visible={showPerformanceModal} transparent animationType="slide" onRequestClose={() => setShowPerformanceModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>性能对比</Text>
+            <TouchableOpacity onPress={() => setShowPerformanceModal(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* 灵感山羊 */}
+            <Text style={styles.competitorTitle}>
+              <FontAwesome6 name="star" size={14} color={COLORS.primary} /> 灵感山羊
+            </Text>
+            <View style={styles.competitorCard}>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorLabel}>功能</Text>
+                <Text style={styles.competitorLabel}>极速模式</Text>
+                <Text style={styles.competitorLabel}>高质量模式</Text>
+              </View>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorFeature}>图片生成</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.image.lingxiang}</Text>
+                <Text style={styles.competitorValue}>-</Text>
+              </View>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorFeature}>文案生成</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.text.lingxiang}</Text>
+                <Text style={styles.competitorValue}>-</Text>
+              </View>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorFeature}>视频生成</Text>
+                <Text style={styles.competitorValue}>-</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.video.lingxiang}</Text>
+              </View>
+              <View style={[styles.competitorRow, styles.competitorHighlight]}>
+                <Text style={styles.competitorFeature}>一键三连</Text>
+                <Text style={[styles.competitorValue, styles.competitorBest]}>≤60秒</Text>
+                <Text style={styles.competitorValue}>-</Text>
+              </View>
+            </View>
+
+            {/* 竞品对比 */}
+            <Text style={styles.competitorTitle}>
+              <FontAwesome6 name="trophy" size={14} color="#F59E0B" /> 竞品对比
+            </Text>
+            <View style={styles.competitorCard}>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorLabel}>竞品</Text>
+                <Text style={styles.competitorLabel}>即梦</Text>
+                <Text style={styles.competitorLabel}>可灵</Text>
+              </View>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorFeature}>图片生成</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.image.jimeng}</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.image.kilin}</Text>
+              </View>
+              <View style={styles.competitorRow}>
+                <Text style={styles.competitorFeature}>视频生成</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.video.jimeng}</Text>
+                <Text style={styles.competitorValue}>{COMPETITORS.video.kilin}</Text>
+              </View>
+              <View style={[styles.competitorRow, styles.competitorHighlight]}>
+                <Text style={styles.competitorFeature}>一键三连</Text>
+                <Text style={styles.competitorValue}>-</Text>
+                <Text style={styles.competitorValue}>-</Text>
+              </View>
+            </View>
+
+            <View style={styles.competitorNote}>
+              <FontAwesome6 name="lightbulb" size={14} color={COLORS.primary} />
+              <Text style={styles.competitorNoteText}>灵感山羊一键三连功能为行业首创，竞品暂无此功能</Text>
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity style={styles.modalButton} onPress={() => setShowPerformanceModal(false)}>
+            <Text style={styles.modalButtonText}>知道了</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 
   // ==================== 新增：热点话题组件 ====================
@@ -473,6 +657,9 @@ export default function HomeScreen() {
           {/* 风格选择 */}
           <StyleSelector />
 
+          {/* 性能模式选择 */}
+          <PerformanceModeSelector />
+
           {/* 输入区域 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
             <Text style={styles.inputLabel}>你的创意想法</Text>
@@ -570,6 +757,9 @@ export default function HomeScreen() {
 
         {/* 进度弹窗 */}
         <ProgressModal />
+
+        {/* 竞品对比弹窗 */}
+        <CompetitorModal />
 
         {/* 风格选择弹窗 */}
         <Modal visible={showStyleModal} transparent animationType="slide" onRequestClose={() => setShowStyleModal(false)}>
@@ -732,6 +922,27 @@ const styles = StyleSheet.create({
   styleChipText: { fontSize: 13, color: COLORS.text },
   styleChipTextSelected: { fontWeight: "600" },
   styleChipSelected: { backgroundColor: "rgba(108, 99, 255, 0.12)", borderColor: COLORS.primary },
+  
+  // 性能模式选择
+  performanceSection: { backgroundColor: COLORS.cardBg, borderRadius: 24, padding: 20, marginBottom: 24, shadowColor: COLORS.shadowDark, shadowOffset: { width: 6, height: 6 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 5 },
+  performanceGrid: { flexDirection: "row", gap: 14 },
+  performanceCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 20, padding: 18, alignItems: "center", borderWidth: 2, borderColor: "transparent", shadowColor: COLORS.shadowDark, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
+  performanceIconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center", marginBottom: 12 },
+  performanceName: { fontSize: 14, fontWeight: "700", color: COLORS.text, marginBottom: 6 },
+  performanceTime: { fontSize: 11, color: COLORS.textSecondary },
+  performanceBadge: { position: "absolute", top: 8, right: 8, width: 18, height: 18, borderRadius: 9, justifyContent: "center", alignItems: "center" },
+  
+  // 竞品对比
+  competitorTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text, marginBottom: 12, marginTop: 20 },
+  competitorCard: { backgroundColor: COLORS.cardBg, borderRadius: 20, padding: 16, marginBottom: 16 },
+  competitorRow: { flexDirection: "row", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.05)" },
+  competitorLabel: { flex: 1, fontSize: 12, fontWeight: "600", color: COLORS.textSecondary, textAlign: "center" },
+  competitorFeature: { flex: 1, fontSize: 13, color: COLORS.text },
+  competitorValue: { flex: 1, fontSize: 13, color: COLORS.text, textAlign: "center" },
+  competitorHighlight: { backgroundColor: "rgba(108, 99, 255, 0.08)", borderRadius: 12, marginHorizontal: -8, paddingHorizontal: 8 },
+  competitorBest: { color: COLORS.primary, fontWeight: "700" },
+  competitorNote: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(108, 99, 255, 0.08)", padding: 14, borderRadius: 16, gap: 10, marginTop: 8 },
+  competitorNoteText: { flex: 1, fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
   
   // 输入区域 - 凹陷效果
   inputSection: { marginBottom: 24 },
