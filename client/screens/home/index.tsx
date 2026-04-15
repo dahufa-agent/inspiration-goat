@@ -668,10 +668,10 @@ export default function HomeScreen() {
 
           {/* 输入区域 - 创意想法 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
-            <Text style={styles.inputLabel}>你的创意想法</Text>
+            <Text style={styles.inputLabel}>输入你的创作内容</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="描述你想要创作的内容..."
+              placeholder="例如：海边日落、可爱猫咪、产品宣传、节日祝福..."
               placeholderTextColor="#9CA3AF"
               multiline
               value={idea}
