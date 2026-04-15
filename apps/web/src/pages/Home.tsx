@@ -76,7 +76,7 @@ const Home: React.FC = () => {
         </div>
       </header>
 
-      <main className="px-4 py-4 space-y-5 max-w-2xl mx-auto">
+      <main className="px-4 py-4 space-y-5 max-w-7xl mx-auto">
         <section>
           <h2 className="text-base font-bold text-gray-900 mb-2">你的创意想法</h2>
           <div className="relative">
