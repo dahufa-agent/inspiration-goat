@@ -666,6 +666,54 @@ export default function HomeScreen() {
           {/* 热点话题 */}
           <HotTopicsSection />
 
+          {/* 输入区域 - 创意想法 */}
+          <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
+            <Text style={styles.inputLabel}>你的创意想法</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="描述你想要创作的内容..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={idea}
+              onChangeText={setIdea}
+            />
+            {idea.length > 0 && (
+              <TouchableOpacity style={styles.clearBtn} onPress={() => setIdea("")}>
+                <Text style={styles.clearBtnText}>清除</Text>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
+
+          {/* 生成模式选择 */}
+          <PerformanceModeSelector />
+
+          {/* 一键生成全部按钮 */}
+          <TouchableOpacity
+            style={[styles.generateButton, (!generateCheck.allowed || loading) && styles.generateButtonDisabled]}
+            onPress={handleGenerate}
+            disabled={!generateCheck.allowed || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <FontAwesome6 name="wand-magic-sparkles" size={20} color="#FFFFFF" />
+                <Text style={styles.generateButtonText}>一键生成全部</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* 错误提示 */}
+          {error ? (
+            <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
+              <FontAwesome6 name="circle-exclamation" size={16} color={COLORS.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </Animated.View>
+          ) : null}
+
+          {/* 风格选择 */}
+          <StyleSelector />
+
           {/* 模板分类 */}
           <Animated.View entering={FadeInUp.delay(100).duration(500)} style={styles.templatesSection}>
             <View style={styles.sectionHeader}>
@@ -692,30 +740,6 @@ export default function HomeScreen() {
               ))}
             </View>
           </Animated.View>
-
-          {/* 输入区域 - 创意想法 */}
-          <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
-            <Text style={styles.inputLabel}>你的创意想法</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="描述你想要创作的内容..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              value={idea}
-              onChangeText={setIdea}
-            />
-            {idea.length > 0 && (
-              <TouchableOpacity style={styles.clearBtn} onPress={() => setIdea("")}>
-                <Text style={styles.clearBtnText}>清除</Text>
-              </TouchableOpacity>
-            )}
-          </Animated.View>
-
-          {/* 生成模式选择 */}
-          <PerformanceModeSelector />
-
-          {/* 风格选择 */}
-          <StyleSelector />
 
           {/* 视频时长选择 */}
           <Animated.View entering={FadeInUp.delay(300).duration(500)} style={styles.durationSection}>
@@ -748,30 +772,6 @@ export default function HomeScreen() {
               <Text style={styles.usageText}>视频 {remainingVideoEdits}/{VIDEO_DURATIONS.free.maxPerDay}</Text>
             </View>
           </Animated.View>
-
-          {/* 错误提示 */}
-          {error ? (
-            <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
-              <FontAwesome6 name="circle-exclamation" size={16} color={COLORS.error} />
-              <Text style={styles.errorText}>{error}</Text>
-            </Animated.View>
-          ) : null}
-
-          {/* 一键生成全部按钮 */}
-          <TouchableOpacity
-            style={[styles.generateButton, (!generateCheck.allowed || loading) && styles.generateButtonDisabled]}
-            onPress={handleGenerate}
-            disabled={!generateCheck.allowed || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <FontAwesome6 name="wand-magic-sparkles" size={20} color="#FFFFFF" />
-                <Text style={styles.generateButtonText}>一键生成全部</Text>
-              </>
-            )}
-          </TouchableOpacity>
 
           {/* VIP Banner */}
           {!isPermanentVip && (
