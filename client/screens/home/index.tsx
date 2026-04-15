@@ -650,7 +650,13 @@ export default function HomeScreen() {
                     style={styles.headerButton}
                     onPress={() => router.push("/auth")}
                   >
-                    <FontAwesome6 name="user" size={20} color={COLORS.primary} />
+                    <Text style={styles.headerButtonText}>注册</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.headerButton, styles.headerLoginButton]}
+                    onPress={() => router.push("/auth")}
+                  >
+                    <Text style={styles.headerLoginButtonText}>登录</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -921,9 +927,31 @@ const styles = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26 },
   greeting: { fontSize: 22, fontWeight: "800", color: COLORS.text },
   subtitle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.cardBg, justifyContent: "center", alignItems: "center", shadowColor: COLORS.shadowDark, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 4 },
-  vipBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEF3C7', justifyContent: "center", alignItems: "center" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerButton: {
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 19,
+    backgroundColor: COLORS.cardBg,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    borderTopColor: 'rgba(255,255,255,0.8)',
+  },
+  headerButtonText: { fontSize: 14, fontWeight: "600", color: COLORS.text },
+  headerLoginButton: {
+    backgroundColor: COLORS.primary,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderTopColor: 'rgba(255,255,255,0.5)',
+  },
+  headerLoginButtonText: { fontSize: 14, fontWeight: "700", color: COLORS.white },
+  vipBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEF3C7', justifyContent: "center", alignItems: "center", shadowColor: '#F59E0B', shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
   
   // 热点话题 - 柔和胶囊
   hotTopicsSection: { marginBottom: 24 },
