@@ -10,9 +10,11 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  useWindowDimensions,
 } from "react-native";
 import { Screen } from "@/components/Screen";
 import { useSafeRouter } from "@/hooks/useSafeRouter";
+import { FontAwesome6 } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
@@ -21,12 +23,37 @@ const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://loc
 const DEV_MODE = true;
 const DEV_FIXED_CODE = "123456";
 
+// 玻璃拟态风格配色
+const COLORS = {
+  primary: '#6366F1',       // 主色-靛蓝
+  primaryDark: '#4F46E5',   // 深主色
+  secondary: '#8B5CF6',     // 紫色
+  accent: '#EC4899',        // 粉色
+  success: '#10B981',       // 绿色
+  warning: '#F59E0B',       // 橙色
+  error: '#EF4444',          // 红色
+  background: '#0F172A',    // 深色背景
+  backgroundLight: '#1E293B', // 浅背景
+  cardBg: 'rgba(30, 41, 59, 0.8)', // 玻璃卡片
+  text: '#F8FAFC',          // 主文字
+  textSecondary: '#94A3B8', // 次要文字
+  textMuted: '#64748B',     // 弱化文字
+  border: 'rgba(148, 163, 184, 0.2)', // 边框
+  inputBg: 'rgba(15, 23, 42, 0.6)',   // 输入框背景
+  gradient1: '#6366F1',
+  gradient2: '#8B5CF6',
+  gradient3: '#EC4899',
+};
+
 export default function AuthScreen() {
   const router = useSafeRouter();
-  const [isLoginMode, setIsLoginMode] = useState(false); // 默认显示注册页面
+  const { width, height } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isWideScreen = width >= 768;
+  
+  const [isLoginMode, setIsLoginMode] = useState(true); // 默认显示登录页面
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [debugInfo, setDebugInfo] = useState("");
   
   // 登录表单
   const [loginUsername, setLoginUsername] = useState("");
@@ -42,51 +69,33 @@ export default function AuthScreen() {
   // 错误提示
   const [error, setError] = useState("");
 
-  // 记录调试信息
-  const addDebug = useCallback((msg: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDebugInfo(prev => `[${timestamp}] ${msg}\n${prev}`.slice(0, 500));
-    console.log(`[Auth] ${msg}`);
-  }, []);
-
   // 检查是否已登录
   useEffect(() => {
-    addDebug("组件挂载，检查登录状态");
-    
     const checkLogin = async () => {
       try {
         const userInfo = await SecureStore.getItemAsync("userInfo");
         if (userInfo) {
           const user = JSON.parse(userInfo);
-          addDebug(`找到用户信息: ${user.username}`);
           if (user.isVip || user.isPermanentVip) {
-            addDebug("用户已是VIP，跳转首页");
             router.replace("/");
           }
-        } else {
-          addDebug("未找到用户信息");
         }
-      } catch (err: any) {
-        addDebug(`检查登录错误: ${err.message}`);
+      } catch (err) {
         console.error("Check login error:", err);
       }
     };
     checkLogin();
-  }, [router, addDebug]);
+  }, [router]);
 
   // 发送验证码
   const handleSendCode = async () => {
-    addDebug(`发送验证码开始, phone=${phone}, length=${phone.length}`);
-    
     if (!phone || phone.length !== 11) {
       setError("请输入11位手机号");
-      addDebug("手机号长度不正确");
       return;
     }
     
     if (!/^1\d{10}$/.test(phone)) {
       setError("手机号格式不正确");
-      addDebug("手机号格式错误");
       return;
     }
     
@@ -94,46 +103,28 @@ export default function AuthScreen() {
     setError("");
     
     try {
-      const requestUrl = `${BACKEND_BASE_URL}/api/v1/auth/send-code`;
-      addDebug(`请求URL: ${requestUrl}`);
-      
-      const response = await fetch(requestUrl, {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/auth/send-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          purpose: "register",
-        }),
+        body: JSON.stringify({ phone, purpose: "register" }),
       });
       
       const data = await response.json();
-      addDebug(`响应状态: ${response.status}, data: ${JSON.stringify(data)}`);
       
       if (response.ok && data.success) {
         setCountdown(60);
         
-        // 开发模式直接显示验证码
         if (DEV_MODE && data.code) {
-          Alert.alert(
-            "【开发模式】验证码", 
-            `您的验证码是：${data.code}\n\n(生产环境请查收短信)`,
-            [{ text: "知道了" }]
-          );
+          Alert.alert("【开发模式】验证码", `您的验证码是：${data.code}`, [{ text: "知道了" }]);
         } else {
           Alert.alert("提示", "验证码已发送，请查收短信");
         }
       } else {
-        const errorMsg = data.error || "发送验证码失败";
-        setError(errorMsg);
-        addDebug(`发送失败: ${errorMsg}`);
-        Alert.alert("发送失败", errorMsg);
+        setError(data.error || "发送验证码失败");
+        Alert.alert("发送失败", data.error || "发送验证码失败");
       }
     } catch (err: any) {
-      console.error("[发送验证码] 网络错误:", err);
-      const errorMsg = "网络错误，请检查网络连接";
-      setError(errorMsg);
-      addDebug(`网络错误: ${err.message}`);
-      Alert.alert("网络错误", `无法连接到服务器\n\n${BACKEND_BASE_URL}\n\n${err.message}`);
+      setError("网络错误，请检查网络连接");
     } finally {
       setLoading(false);
     }
@@ -149,59 +140,46 @@ export default function AuthScreen() {
 
   // 切换到登录
   const switchToLogin = () => {
-    addDebug("切换到登录");
     setIsLoginMode(true);
     setError("");
-    setLoading(false);
   };
 
   // 切换到注册
   const switchToRegister = () => {
-    addDebug("切换到注册");
     setIsLoginMode(false);
     setError("");
-    setLoading(false);
   };
 
   // 注册
   const handleRegister = async () => {
-    addDebug(`注册开始, phone=${phone}, username=${username}`);
-    
     if (!phone || !username || !password) {
       setError("所有字段都不能为空");
-      addDebug("字段为空");
       return;
     }
     
     if (!/^1\d{10}$/.test(phone)) {
       setError("手机号格式不正确");
-      addDebug("手机号格式错误");
       return;
     }
     
     if (!/^\w{3,20}$/.test(username)) {
       setError("用户名需要3-20位字母、数字或下划线");
-      addDebug("用户名格式错误");
       return;
     }
     
     if (password.length < 6) {
       setError("密码至少6位");
-      addDebug("密码太短");
       return;
     }
     
     if (password !== confirmPassword) {
       setError("两次密码输入不一致");
-      addDebug("两次密码不一致");
       return;
     }
     
-    // 开发模式使用固定验证码
     const codeToUse = DEV_MODE ? DEV_FIXED_CODE : verifyCode;
     if (!DEV_MODE && !verifyCode) {
       setError("请输入验证码");
-      addDebug("验证码为空");
       return;
     }
     
@@ -212,16 +190,10 @@ export default function AuthScreen() {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          username,
-          password,
-          code: codeToUse,
-        }),
+        body: JSON.stringify({ phone, username, password, code: codeToUse }),
       });
       
       const data = await response.json();
-      addDebug(`注册响应: ${response.status}, ${JSON.stringify(data)}`);
       
       if (response.ok) {
         await SecureStore.setItemAsync("userInfo", JSON.stringify({
@@ -237,11 +209,9 @@ export default function AuthScreen() {
         ]);
       } else {
         setError(data.error || "注册失败");
-        addDebug(`注册失败: ${data.error}`);
       }
     } catch (err: any) {
       setError("网络错误，请重试");
-      addDebug(`注册网络错误: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -249,11 +219,8 @@ export default function AuthScreen() {
 
   // 登录
   const handleLogin = async () => {
-    addDebug(`登录开始, username=${loginUsername}`);
-    
     if (!loginUsername || !loginPassword) {
       setError("用户名和密码不能为空");
-      addDebug("用户名或密码为空");
       return;
     }
     
@@ -264,14 +231,10 @@ export default function AuthScreen() {
       const response = await fetch(`${BACKEND_BASE_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: loginUsername,
-          password: loginPassword,
-        }),
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
       });
       
       const data = await response.json();
-      addDebug(`登录响应: ${response.status}, success=${response.ok}`);
       
       if (response.ok) {
         await SecureStore.setItemAsync("userInfo", JSON.stringify({
@@ -288,43 +251,234 @@ export default function AuthScreen() {
         ]);
       } else {
         setError(data.error || "登录失败");
-        addDebug(`登录失败: ${data.error}`);
       }
     } catch (err: any) {
       setError("网络错误，请重试");
-      addDebug(`登录网络错误: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // 渲染登录表单
+  const renderLoginForm = () => (
+    <View style={styles.form}>
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>手机号 / 用户名</Text>
+        <View style={styles.inputWrapper}>
+          <FontAwesome6 name="user" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, styles.inputWithIcon]}
+            placeholder="请输入手机号或用户名"
+            placeholderTextColor={COLORS.textMuted}
+            value={loginUsername}
+            onChangeText={setLoginUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+      
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>密码</Text>
+        <View style={styles.inputWrapper}>
+          <FontAwesome6 name="lock" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, styles.inputWithIcon]}
+            placeholder="请输入密码"
+            placeholderTextColor={COLORS.textMuted}
+            value={loginPassword}
+            onChangeText={setLoginPassword}
+            secureTextEntry
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+      
+      <TouchableOpacity style={styles.forgotButton}>
+        <Text style={styles.forgotText}>忘记密码？</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
+        activeOpacity={0.8}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>登录</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  // 渲染注册表单
+  const renderRegisterForm = () => (
+    <View style={styles.form}>
+      {DEV_MODE && (
+        <View style={styles.devBanner}>
+          <FontAwesome6 name="code" size={14} color={COLORS.warning} />
+          <Text style={styles.devBannerText}>开发模式：验证码固定为 {DEV_FIXED_CODE}</Text>
+        </View>
+      )}
+      
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>手机号</Text>
+        <View style={styles.inputWrapper}>
+          <FontAwesome6 name="phone" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, styles.inputWithIcon]}
+            placeholder="请输入手机号"
+            placeholderTextColor={COLORS.textMuted}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            maxLength={11}
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+      
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>验证码</Text>
+        <View style={styles.codeInputRow}>
+          <View style={[styles.inputWrapper, styles.codeInputWrapper]}>
+            <FontAwesome6 name="shield-halved" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, styles.inputWithIcon]}
+              placeholder={DEV_MODE ? DEV_FIXED_CODE : "请输入验证码"}
+              placeholderTextColor={COLORS.textMuted}
+              value={verifyCode}
+              onChangeText={setVerifyCode}
+              keyboardType="number-pad"
+              maxLength={6}
+              editable={!DEV_MODE}
+              autoCorrect={false}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.sendCodeBtn, (countdown > 0 || loading) && styles.sendCodeBtnDisabled]}
+            onPress={handleSendCode}
+            disabled={countdown > 0 || loading}
+            activeOpacity={0.8}
+          >
+            {loading && countdown === 0 ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Text style={[styles.sendCodeText, countdown > 0 && styles.sendCodeTextActive]}>
+                {countdown > 0 ? `${countdown}s` : "获取验证码"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>用户名</Text>
+        <View style={styles.inputWrapper}>
+          <FontAwesome6 name="at" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, styles.inputWithIcon]}
+            placeholder="3-20位字母、数字或下划线"
+            placeholderTextColor={COLORS.textMuted}
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+      
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>密码</Text>
+        <View style={styles.inputWrapper}>
+          <FontAwesome6 name="lock" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, styles.inputWithIcon]}
+            placeholder="至少6位"
+            placeholderTextColor={COLORS.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+      
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>确认密码</Text>
+        <View style={styles.inputWrapper}>
+          <FontAwesome6 name="lock" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, styles.inputWithIcon]}
+            placeholder="再次输入密码"
+            placeholderTextColor={COLORS.textMuted}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+      
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleRegister}
+        disabled={loading}
+        activeOpacity={0.8}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>注册</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <Screen>
+    <Screen style={{ backgroundColor: COLORS.background }}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isWideScreen && styles.scrollContentWide
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoPlaceholder}>
-              <Text style={styles.logoText}>灵感</Text>
-            </View>
-            <Text style={styles.appName}>灵感山羊</Text>
-            <Text style={styles.appDesc}>一键生成创意内容</Text>
+          {/* 背景装饰 */}
+          <View style={styles.bgDecoration}>
+            <View style={[styles.gradientOrb, styles.orb1]} />
+            <View style={[styles.gradientOrb, styles.orb2]} />
+            <View style={[styles.gradientOrb, styles.orb3]} />
           </View>
 
-          {/* Tab Switcher - 修复：确保正确切换 */}
+          {/* Logo区域 */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoBadge}>
+              <FontAwesome6 name="wand-magic-sparkles" size={32} color="#FFFFFF" />
+            </View>
+            <Text style={styles.appName}>灵感山羊</Text>
+            <Text style={styles.appDesc}>一键生成文案、图片、视频</Text>
+          </View>
+
+          {/* Tab Switcher */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[styles.tab, isLoginMode && styles.tabActive]}
               onPress={switchToLogin}
               activeOpacity={0.7}
             >
+              <FontAwesome6 
+                name="right-to-bracket" 
+                size={16} 
+                color={isLoginMode ? COLORS.primary : COLORS.textMuted} 
+              />
               <Text style={[styles.tabText, isLoginMode && styles.tabTextActive]}>登录</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -332,176 +486,43 @@ export default function AuthScreen() {
               onPress={switchToRegister}
               activeOpacity={0.7}
             >
+              <FontAwesome6 
+                name="user-plus" 
+                size={16} 
+                color={!isLoginMode ? COLORS.primary : COLORS.textMuted} 
+              />
               <Text style={[styles.tabText, !isLoginMode && styles.tabTextActive]}>注册</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Error Message */}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {/* Debug Info (开发模式) */}
-          {__DEV__ && debugInfo ? (
-            <View style={styles.debugContainer}>
-              <Text style={styles.debugText}>{debugInfo}</Text>
+          {/* 错误提示 */}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <FontAwesome6 name="circle-exclamation" size={16} color={COLORS.error} />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
-          {/* 登录表单 - 修复：条件判断 */}
-          {isLoginMode ? (
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>手机号 / 用户名</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="请输入手机号或用户名"
-                  placeholderTextColor="#9CA3AF"
-                  value={loginUsername}
-                  onChangeText={setLoginUsername}
-                  autoCapitalize="none"
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>密码</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="请输入密码"
-                  placeholderTextColor="#9CA3AF"
-                  value={loginPassword}
-                  onChangeText={setLoginPassword}
-                  secureTextEntry
-                />
-              </View>
-              
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>登录</Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.forgotButton}>
-                <Text style={styles.forgotText}>忘记密码？</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            /* 注册表单 - 修复：条件判断 */
-            <View style={styles.form}>
-              {/* 开发模式提示 */}
-              {DEV_MODE && (
-                <View style={styles.devBanner}>
-                  <Text style={styles.devBannerText}>开发模式：验证码固定为 {DEV_FIXED_CODE}</Text>
-                </View>
-              )}
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>手机号</Text>
-                <View style={styles.phoneInputContainer}>
-                  <TextInput
-                    style={[styles.input, styles.phoneInput]}
-                    placeholder="请输入手机号"
-                    placeholderTextColor="#9CA3AF"
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                    maxLength={11}
-                  />
-                  <TouchableOpacity
-                    style={[styles.sendCodeBtn, (countdown > 0 || loading) && styles.sendCodeBtnDisabled]}
-                    onPress={handleSendCode}
-                    disabled={countdown > 0 || loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color="#4F46E5" />
-                    ) : (
-                      <Text style={styles.sendCodeText}>
-                        {countdown > 0 ? `${countdown}s` : "获取验证码"}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>验证码</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={DEV_MODE ? `开发模式：${DEV_FIXED_CODE}` : "请输入验证码"}
-                  placeholderTextColor="#9CA3AF"
-                  value={verifyCode}
-                  onChangeText={setVerifyCode}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  editable={!DEV_MODE}
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>用户名</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="3-20位字母、数字或下划线"
-                  placeholderTextColor="#9CA3AF"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>密码</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="至少6位"
-                  placeholderTextColor="#9CA3AF"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>确认密码</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="再次输入密码"
-                  placeholderTextColor="#9CA3AF"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                />
-              </View>
-              
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleRegister}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>注册</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* 表单区域 */}
+          {isLoginMode ? renderLoginForm() : renderRegisterForm()}
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>登录即表示同意</Text>
+          {/* 协议 */}
+          <View style={styles.agreement}>
+            <Text style={styles.agreementText}>登录即表示同意</Text>
             <TouchableOpacity>
               <Text style={styles.linkText}>《用户协议》</Text>
             </TouchableOpacity>
-            <Text style={styles.footerText}>和</Text>
+            <Text style={styles.agreementText}>和</Text>
             <TouchableOpacity>
               <Text style={styles.linkText}>《隐私政策》</Text>
             </TouchableOpacity>
           </View>
+
+          {/* 跳过提示 */}
+          <TouchableOpacity style={styles.skipButton} onPress={() => router.replace("/")}>
+            <Text style={styles.skipText}>游客模式</Text>
+            <FontAwesome6 name="arrow-right" size={14} color={COLORS.textMuted} />
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -511,193 +532,275 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 40,
   },
+  scrollContentWide: {
+    maxWidth: 440,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  // 背景装饰
+  bgDecoration: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  gradientOrb: {
+    position: 'absolute',
+    borderRadius: 999,
+    opacity: 0.15,
+  },
+  orb1: {
+    width: 300,
+    height: 300,
+    backgroundColor: COLORS.gradient1,
+    top: -100,
+    right: -100,
+  },
+  orb2: {
+    width: 200,
+    height: 200,
+    backgroundColor: COLORS.gradient2,
+    bottom: 100,
+    left: -80,
+  },
+  orb3: {
+    width: 150,
+    height: 150,
+    backgroundColor: COLORS.gradient3,
+    bottom: -50,
+    right: 50,
+  },
+  // Logo
   logoContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 36,
   },
-  logoPlaceholder: {
+  logoBadge: {
     width: 80,
     height: 80,
-    borderRadius: 20,
-    backgroundColor: "#4F46E5",
+    borderRadius: 24,
+    backgroundColor: COLORS.primary,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
-  },
-  logoText: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
   },
   appName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1F2937",
+    fontSize: 28,
+    fontWeight: "800",
+    color: COLORS.text,
     marginBottom: 4,
+    letterSpacing: 1,
   },
   appDesc: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    letterSpacing: 0.5,
   },
+  // Tab
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 4,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
+    padding: 6,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
   },
   tabActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: COLORS.backgroundLight,
   },
   tabText: {
     fontSize: 16,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontWeight: "600",
+    color: COLORS.textMuted,
   },
   tabTextActive: {
-    color: "#4F46E5",
-    fontWeight: "600",
+    color: COLORS.primary,
+  },
+  // 错误提示
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
   },
   errorText: {
-    color: "#EF4444",
+    color: COLORS.error,
     fontSize: 14,
-    textAlign: "center",
-    marginBottom: 16,
+    flex: 1,
   },
-  debugContainer: {
-    backgroundColor: "#1F2937",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  debugText: {
-    color: "#10B981",
-    fontSize: 10,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
+  // 表单
   form: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 24,
+    padding: 28,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   devBanner: {
-    backgroundColor: "#FEF3C7",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    gap: 10,
     borderWidth: 1,
-    borderColor: "#F59E0B",
+    borderColor: "rgba(245, 158, 11, 0.3)",
   },
   devBannerText: {
-    color: "#92400E",
-    fontSize: 12,
-    textAlign: "center",
+    color: COLORS.warning,
+    fontSize: 13,
+    fontWeight: "500",
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: 8,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+    letterSpacing: 0.3,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inputIcon: {
+    marginLeft: 16,
   },
   input: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    flex: 1,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     fontSize: 16,
-    color: "#1F2937",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    color: COLORS.text,
   },
-  phoneInputContainer: {
+  inputWithIcon: {
+    paddingLeft: 12,
+  },
+  codeInputRow: {
     flexDirection: "row",
     gap: 12,
   },
-  phoneInput: {
+  codeInputWrapper: {
     flex: 1,
   },
   sendCodeBtn: {
-    backgroundColor: "#EEF2FF",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 14,
+    paddingHorizontal: 18,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#4F46E5",
-    minWidth: 100,
-    height: 50,
+    borderColor: COLORS.primary,
   },
   sendCodeBtnDisabled: {
-    backgroundColor: "#F3F4F6",
-    borderColor: "#D1D5DB",
+    borderColor: COLORS.border,
+    opacity: 0.6,
   },
   sendCodeText: {
-    color: "#4F46E5",
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: "600",
   },
+  sendCodeTextActive: {
+    color: COLORS.textMuted,
+  },
+  forgotButton: {
+    alignSelf: "flex-end",
+    marginBottom: 24,
+    marginTop: -8,
+  },
+  forgotText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: "500",
+  },
   button: {
-    backgroundColor: "#4F46E5",
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 18,
     alignItems: "center",
-    marginTop: 8,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: {
-    backgroundColor: "#9CA3AF",
+    opacity: 0.6,
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
-  forgotButton: {
-    alignItems: "center",
-    marginTop: 16,
-  },
-  forgotText: {
-    color: "#4F46E5",
-    fontSize: 14,
-  },
-  footer: {
+  // 协议
+  agreement: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 32,
     flexWrap: "wrap",
+    gap: 4,
+    marginTop: 8,
   },
-  footerText: {
-    fontSize: 12,
-    color: "#9CA3AF",
+  agreementText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
   },
   linkText: {
-    fontSize: 12,
-    color: "#4F46E5",
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  // 跳过
+  skipButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+    gap: 8,
+    paddingVertical: 12,
+  },
+  skipText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
   },
 });

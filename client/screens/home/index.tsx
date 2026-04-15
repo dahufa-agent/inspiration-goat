@@ -611,16 +611,55 @@ export default function HomeScreen() {
           {/* Header */}
           <Animated.View entering={FadeInDown.duration(500)} style={styles.header}>
             <View style={styles.headerLeft}>
-              <Image source={{ uri: GOAT_TEACHER_AVATAR }} style={styles.avatar} />
+              <TouchableOpacity 
+                style={styles.avatarButton}
+                onPress={() => router.push("/auth")}
+                activeOpacity={0.8}
+              >
+                {userInfo ? (
+                  <Image source={{ uri: GOAT_TEACHER_AVATAR }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <FontAwesome6 name="user" size={24} color={COLORS.primary} />
+                  </View>
+                )}
+              </TouchableOpacity>
               <View>
-                <Text style={styles.greeting}>你好，创意家</Text>
-                <Text style={styles.subtitle}>今天想创作什么？</Text>
+                {userInfo ? (
+                  <>
+                    <Text style={styles.greeting}>你好，{userInfo.username}</Text>
+                    <Text style={styles.subtitle}>今天想创作什么？</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.greeting}>你好，创意家</Text>
+                    <Text style={styles.subtitle}>一键生成创意内容</Text>
+                  </>
+                )}
               </View>
             </View>
             <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.pointsBadge} onPress={() => router.push("/history")}>
-                <FontAwesome6 name="clock-rotate-left" size={20} color={COLORS.primary} />
-              </TouchableOpacity>
+              {userInfo ? (
+                <>
+                  <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/history")}>
+                    <FontAwesome6 name="clock-rotate-left" size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                  {isPermanentVip && (
+                    <View style={styles.vipBadge}>
+                      <FontAwesome6 name="crown" size={14} color="#F59E0B" />
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={styles.loginButton}
+                    onPress={() => router.push("/auth")}
+                  >
+                    <Text style={styles.loginButtonText}>登录</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </Animated.View>
 
@@ -883,12 +922,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { padding: 24, paddingBottom: 100 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
+  avatarButton: { borderRadius: 26 },
   avatar: { width: 52, height: 52, borderRadius: 26 },
+  avatarPlaceholder: { width: 52, height: 52, borderRadius: 26, backgroundColor: COLORS.cardBg, justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: COLORS.primary, borderStyle: 'dashed' },
   greeting: { fontSize: 22, fontWeight: "800", color: COLORS.text },
   subtitle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
-  headerRight: { flexDirection: "row", gap: 12 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.cardBg, justifyContent: "center", alignItems: "center", shadowColor: COLORS.shadowDark, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 4 },
   pointsBadge: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.cardBg, justifyContent: "center", alignItems: "center", shadowColor: COLORS.shadowDark, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 4 },
+  loginButton: { backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24 },
+  loginButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: "700" },
+  vipBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEF3C7', justifyContent: "center", alignItems: "center" },
   
   // 热点话题 - 柔和胶囊
   hotTopicsSection: { marginBottom: 24 },

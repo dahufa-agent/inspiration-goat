@@ -688,7 +688,7 @@ app.post("/api/v1/generate/texts", async (req: Request, res: Response) => {
         { role: "system" as const, content: systemPrompt },
         { role: "user" as const, content: `想法主题：${finalPrompt}\n\n请生成文案内容。` },
       ];
-      const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: styleConfig.temperature });
+      const response = await llmClient.invoke(messages, { model: TEXT_MODEL, temperature: styleConfig.temperature });
       if (response.content) {
         texts.push(response.content.trim());
         data.textCount += 1;
@@ -878,7 +878,7 @@ app.post("/api/v1/content/polish", async (req: Request, res: Response) => {
       { role: "user" as const, content: `原始文案：\n${content}\n\n请润色优化。` },
     ];
 
-    const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: styleConfig.temperature });
+    const response = await llmClient.invoke(messages, { model: TEXT_MODEL, temperature: styleConfig.temperature });
     if (response.content) {
       res.json({ polished: response.content.trim(), original: content, style: polishStyle || 'general' });
     } else {
@@ -941,7 +941,7 @@ app.post("/api/v1/content/extract-and-polish", async (req: Request, res: Respons
       { role: "system" as const, content: `你是一位资深文案编辑，擅长各种文风的文案润色和优化。${styleConfig.prompt}请直接输出润色后的文案内容，不要添加任何说明或注释。` },
       { role: "user" as const, content: `原始文案：\n${originalContent}\n\n请润色优化。` },
     ];
-    const llmResponse = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: styleConfig.temperature });
+    const llmResponse = await llmClient.invoke(messages, { model: TEXT_MODEL, temperature: styleConfig.temperature });
     const images = response.content.filter((item: any) => item.type === 'image').map((item: any) => ({ url: item.image?.display_url || item.image?.image_url }));
 
     res.json({ title: response.title || '', original: originalContent, polished: llmResponse.content?.trim() || '', images, sourceUrl: response.url || url, publishTime: response.publish_time, style: polishStyle || 'general' });
@@ -996,7 +996,7 @@ app.post("/api/v1/generate/text-variants", async (req: Request, res: Response) =
       { role: "user" as const, content: `想法主题：${finalPrompt}` },
     ];
 
-    const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: 0.9 });
+    const response = await llmClient.invoke(messages, { model: TEXT_MODEL, temperature: 0.9 });
     
     // 解析变体
     const content = response.content || '';
@@ -1030,7 +1030,7 @@ app.post("/api/v1/recommend", async (req: Request, res: Response) => {
       { role: "user" as const, content: `主题：${topic}\n\n请推荐创作方向` },
     ];
 
-    const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: 0.8 });
+    const response = await llmClient.invoke(messages, { model: TEXT_MODEL, temperature: 0.8 });
     
     // 尝试解析JSON
     let recommendations = [];
