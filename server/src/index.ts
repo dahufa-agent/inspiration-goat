@@ -35,19 +35,19 @@ const IMAGE_MODEL = "seedance-3-0";  // 可选: seedance-3-0, seedance-2-0-pro, 
 const VIDEO_MODEL = "kling-v1-6";  // 可选: kling-v1-6, kling-v1-5, kling-v1-standard, kling-v1-pro
 
 // ==================== 性能优化配置 ====================
-// 超时配置（毫秒）
+// 超时配置（毫秒）- 视频生成是异步任务，实际时间可能更长
 const TIMEOUT_CONFIG = {
   fast: {
-    image: 8000,      // 极速模式图片 ≤5秒
-    text: 3000,      // 极速模式文案 ≤2秒
-    video: 20000,    // 极速模式视频 ≤15秒
-    all: 65000,      // 极速模式三连 ≤60秒
+    image: 60000,      // 极速模式图片
+    text: 30000,      // 极速模式文案
+    video: 300000,    // 极速模式视频（5分钟，考虑异步任务）
+    all: 360000,      // 极速模式三连（6分钟）
   },
   quality: {
-    image: 20000,    // 高质量模式图片 ≤15秒
-    text: 8000,      // 高质量模式文案 ≤5秒
-    video: 130000,   // 高质量模式视频 ≤120秒
-    all: 130000,     // 高质量模式总时间
+    image: 120000,    // 高质量模式图片
+    text: 60000,      // 高质量模式文案
+    video: 600000,   // 高质量模式视频（10分钟）
+    all: 660000,      // 高质量模式总时间（11分钟）
   },
 };
 
@@ -501,7 +501,6 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
     const invokeWithTimeout = async (): Promise<any> => {
       return Promise.race([
         llmClient.invoke(messages, {
-          model: mode === 'fast' ? TEXT_MODEL : "doubao-pro-32k",
           temperature: styleConfig.temperature,
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Text generation timeout')), timeout)),
@@ -560,7 +559,6 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     const generateVideoWithTimeout = async (): Promise<any> => {
       return Promise.race([
         videoClient.videoGeneration(contentItems, {
-          model: VIDEO_MODEL,
           duration,
           ratio: "9:16",
           resolution: mode === 'fast' ? '480p' : '720p', // 极速模式降低分辨率加速
@@ -788,7 +786,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       { role: "system" as const, content: systemPrompt },
       { role: "user" as const, content: `想法主题：${finalPrompt}\n\n请生成文案内容。` },
     ];
-    const textResponse = await llmClient.invoke(textMessages, { model: TEXT_MODEL_V4, temperature: txtStyleConfig.temperature });
+    const textResponse = await llmClient.invoke(textMessages, { temperature: txtStyleConfig.temperature });
     const texts = textResponse.content ? [textResponse.content.trim()] : [];
     if (texts.length > 0) data.textCount += 1;
 
@@ -798,7 +796,7 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
     if (imageUrls.length > 0) {
       const videoResponse = await videoClient.videoGeneration(
         [{ type: "image_url", image_url: { url: imageUrls[0] }, role: "first_frame" }, { type: "text", text: finalPrompt }],
-        { model: VIDEO_MODEL, duration, ratio: "9:16", resolution: "720p", watermark: false, generateAudio: true }
+        { duration, ratio: "9:16", resolution: "720p", watermark: false, generateAudio: true }
       );
       videoUrl = videoResponse.videoUrl;
       lastFrameUrl = videoResponse.lastFrameUrl;
