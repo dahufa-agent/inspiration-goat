@@ -1212,7 +1212,11 @@ app.post("/api/v1/auth/send-code", async (req: Request, res: Response) => {
     await client.from('verification_codes').update({ is_used: true }).eq('phone', phone).eq('purpose', purpose);
     await client.from('verification_codes').insert({ phone, code, purpose, expires_at: expiresAt.toISOString() });
     
-    res.json({ success: true, message: "验证码已发送", code });
+    // TODO: 集成真实短信服务（阿里云/腾讯云）
+    // res.json({ success: true, message: "验证码已发送" });
+    
+    // 临时方案：生产环境也返回验证码（仅用于测试）
+    res.json({ success: true, message: "验证码已发送（测试模式）", code });
   } catch (error: any) {
     console.error("[发送验证码] 错误:", error);
     res.status(500).json({ error: "发送验证码失败" });
