@@ -1265,14 +1265,24 @@ app.post("/api/v1/auth/register", async (req: Request, res: Response) => {
 
 app.post("/api/v1/auth/login", async (req: Request, res: Response) => {
   try {
-    const { phone, password } = req.body;
-    if (!phone || !password) return res.status(400).json({ error: "手机号和密码不能为空" });
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "用户名和密码不能为空" });
 
     const client = getSupabaseClient();
     const hashedPassword = hashPassword(password);
-    const { data: user, error } = await client.from('users').select('*').eq('phone', phone).eq('password', hashedPassword).single();
     
-    if (error || !user) return res.status(401).json({ error: "手机号或密码错误" });
+    // 支持手机号或用户名登录
+    const isPhone = /^1\d{10}$/.test(username);
+    let query = client.from('users').select('*').eq('password', hashedPassword);
+    if (isPhone) {
+      query = query.eq('phone', username);
+    } else {
+      query = query.eq('username', username);
+    }
+    
+    const { data: user, error } = await query.single();
+    
+    if (error || !user) return res.status(401).json({ error: "用户名或密码错误" });
 
     const isPermanentVip = user.phone === PERMANENT_VIP_PHONE;
     const isVip = isPermanentVip || (user.is_vip && new Date(user.vip_end_date) > new Date());

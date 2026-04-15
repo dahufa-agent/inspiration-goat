@@ -250,7 +250,7 @@ export default function AuthScreen() {
           { text: "开始创作", onPress: () => router.replace("/") }
         ]);
       } else {
-        setError(data.error || "登录失败");
+        setError(data.error || "用户名或密码错误");
       }
     } catch (err: any) {
       setError("网络错误，请重试");
