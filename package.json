@@ -1,9 +1,6 @@
 {
-  "name": "expo-express-monorepo",
+  "name": "inspiration-goat",
   "private": true,
-  "workspaces": [
-    "server"
-  ],
   "version": "0.0.1",
   "scripts": {
     "dev": "bash .cozeproj/scripts/dev_run.sh",
@@ -15,16 +12,7 @@
   },
   "dependencies": {},
   "devDependencies": {},
-  "packageManager": "pnpm@9.0.0",
   "engines": {
-    "pnpm": ">=9.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "esbuild": "0.27.2"
-    },
-    "patchedDependencies": {
-      "expo@54.0.33": "patches/expo@54.0.33.patch"
-    }
+    "node": ">=18"
   }
 }
