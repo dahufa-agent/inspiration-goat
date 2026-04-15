@@ -687,13 +687,7 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          {/* 风格选择 */}
-          <StyleSelector />
-
-          {/* 性能模式选择 */}
-          <PerformanceModeSelector />
-
-          {/* 输入区域 */}
+          {/* 输入区域 - 创意想法 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
             <Text style={styles.inputLabel}>你的创意想法</Text>
             <TextInput
@@ -710,6 +704,12 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
           </Animated.View>
+
+          {/* 生成模式选择 */}
+          <PerformanceModeSelector />
+
+          {/* 风格选择 */}
+          <StyleSelector />
 
           {/* 视频时长选择 */}
           <Animated.View entering={FadeInUp.delay(300).duration(500)} style={styles.durationSection}>
@@ -751,7 +751,7 @@ export default function HomeScreen() {
             </Animated.View>
           ) : null}
 
-          {/* 生成按钮 */}
+          {/* 一键生成全部按钮 */}
           <TouchableOpacity
             style={[styles.generateButton, (!generateCheck.allowed || loading) && styles.generateButtonDisabled]}
             onPress={handleGenerate}
