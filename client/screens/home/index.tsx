@@ -636,27 +636,27 @@ export default function HomeScreen() {
               {userInfo ? (
                 <>
                   <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/history")}>
-                    <FontAwesome6 name="clock-rotate-left" size={20} color={COLORS.primary} />
+                    <FontAwesome6 name="clock-rotate-left" size={18} color={COLORS.primary} />
                   </TouchableOpacity>
                   {isPermanentVip && (
                     <View style={styles.vipBadge}>
-                      <FontAwesome6 name="crown" size={14} color="#F59E0B" />
+                      <FontAwesome6 name="crown" size={12} color="#F59E0B" />
                     </View>
                   )}
                 </>
               ) : (
                 <>
                   <TouchableOpacity 
-                    style={styles.headerButton}
+                    style={styles.headerRegisterBtn}
                     onPress={() => router.push("/auth")}
                   >
-                    <Text style={styles.headerButtonText}>注册</Text>
+                    <Text style={styles.headerRegisterBtnText}>注册</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={[styles.headerButton, styles.headerLoginButton]}
+                    style={styles.headerLoginBtn}
                     onPress={() => router.push("/auth")}
                   >
-                    <Text style={styles.headerLoginButtonText}>登录</Text>
+                    <Text style={styles.headerLoginBtnText}>登录</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -927,11 +927,11 @@ const styles = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26 },
   greeting: { fontSize: 22, fontWeight: "800", color: COLORS.text },
   subtitle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerButton: {
-    height: 38,
-    paddingHorizontal: 14,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.cardBg,
     justifyContent: "center",
     alignItems: "center",
@@ -940,18 +940,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 4,
     elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
-    borderTopColor: 'rgba(255,255,255,0.8)',
   },
-  headerButtonText: { fontSize: 14, fontWeight: "600", color: COLORS.text },
-  headerLoginButton: {
+  headerRegisterBtn: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: COLORS.cardBg,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.8)',
+    borderTopColor: 'rgba(255,255,255,1)',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  headerRegisterBtnText: { fontSize: 14, fontWeight: "600", color: COLORS.text },
+  headerLoginBtn: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
     backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.3)',
     borderTopColor: 'rgba(255,255,255,0.5)',
+    borderBottomColor: 'rgba(0,0,0,0.15)',
   },
-  headerLoginButtonText: { fontSize: 14, fontWeight: "700", color: COLORS.white },
-  vipBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEF3C7', justifyContent: "center", alignItems: "center", shadowColor: '#F59E0B', shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  headerLoginBtnText: { fontSize: 14, fontWeight: "700", color: COLORS.white },
+  vipBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FEF3C7', justifyContent: "center", alignItems: "center", shadowColor: '#F59E0B', shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
   
   // 热点话题 - 柔和胶囊
   hotTopicsSection: { marginBottom: 24 },
