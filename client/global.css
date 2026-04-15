@@ -24,115 +24,137 @@
 @layer theme {
   :root {
     @variant light {
-      /* Base Colors */
-      --background: #fafafa;
-      --foreground: var(--eclipse);
+      /* Base Colors - Soft Card UI Palette */
+      --background: #F0F0F3;
+      --foreground: #2D3436;
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
-      --surface: var(--white);
+      --surface: #F0F0F3;
       --surface-foreground: var(--foreground);
 
       /* Overlay: Used for floating/overlay components (dialogs, popovers, modals, menus) */
-      --overlay: var(--white);
+      --overlay: #FFFFFF;
       --overlay-foreground: var(--foreground);
 
-      --muted: oklch(0.5517 0.0138 285.94);
+      --muted: #636E72;
 
-      --default: oklch(94% 0.001 286.375);
-      --default-foreground: var(--eclipse);
+      --default: #F0F0F3;
+      --default-foreground: var(--foreground);
 
-      --accent: oklch(0.6204 0.195 253.83);
+      /* Soft Card UI Primary Colors */
+      --color-primary: #6C63FF;
+      --color-primary-light: #896BFF;
+      --color-secondary: #FF6584;
+      --color-success: #00B894;
+      --color-warning: #FDCB6E;
+      --color-error: #FF6B6B;
+
+      /* Soft Card UI Shadows */
+      --shadow-light: #FFFFFF;
+      --shadow-dark: #D1D9E6;
+
+      /* Accent */
+      --accent: #6C63FF;
       --accent-foreground: var(--snow);
 
-      /* Form Fields */
-      --field-background: var(--white);
-      --field-foreground: oklch(0.2103 0.0059 285.89);
-      --field-placeholder: var(--muted);
-      --field-border: transparent; /* no border by default on form fields */
+      /* Form Fields - Sunken Style */
+      --field-background: #E8E8EB;
+      --field-foreground: var(--foreground);
+      --field-placeholder: #B2BEC3;
+      --field-border: transparent;
 
       /* Status Colors */
-      --success: oklch(0.7329 0.1935 150.81);
-      --success-foreground: var(--eclipse);
+      --success: #00B894;
+      --success-foreground: var(--snow);
 
-      --warning: oklch(0.7819 0.1585 72.33);
-      --warning-foreground: var(--eclipse);
+      --warning: #FDCB6E;
+      --warning-foreground: var(--foreground);
 
-      --danger: oklch(0.6532 0.2328 25.74);
+      --danger: #FF6B6B;
       --danger-foreground: var(--snow);
 
       /* Component Colors */
       --segment: var(--white);
-      --segment-foreground: var(--eclipse);
+      --segment-foreground: var(--foreground);
 
       /* Misc Colors */
-      --border: oklch(90% 0.004 286.32);
+      --border: rgba(255, 255, 255, 0.6);
       --separator: oklch(74% 0.004 286.32);
       --focus: var(--accent);
       --link: var(--foreground);
 
-      /* Shadows */
+      /* Soft Card UI Shadows - Dual Layer Neumorphism */
       --surface-shadow:
-        0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.06),
-        0 0 1px 0 rgba(0, 0, 0, 0.06);
+        6px 6px 12px #D1D9E6, -6px -6px 12px #FFFFFF;
       --overlay-shadow:
-        0 2px 8px 0 rgba(0, 0, 0, 0.04), 0 -6px 12px 0 rgba(0, 0, 0, 0.02),
-        0 14px 28px 0 rgba(0, 0, 0, 0.06);
+        0 4px 12px rgba(108, 99, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05);
       --field-shadow:
-        0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.06),
-        0 0 1px 0 rgba(0, 0, 0, 0.06);
+        inset 2px 2px 4px #D1D9E6, inset -2px -2px 4px #FFFFFF;
     }
 
     @variant dark {
       /* Base Colors */
-      --background: #09090b;
-      --foreground: var(--snow);
+      --background: #1a1a2e;
+      --foreground: #F0F0F3;
 
-      /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
-      --surface: oklch(0.2103 0.0059 285.89);
+      /* Surface */
+      --surface: #16213e;
       --surface-foreground: var(--foreground);
 
-      /* Overlay: Used for floating/overlay components (dialogs, popovers, modals, menus) - lighter for contrast */
-      --overlay: oklch(0.2103 0.0059 285.89);
+      /* Overlay */
+      --overlay: #0f3460;
       --overlay-foreground: var(--foreground);
 
-      --muted: oklch(70.5% 0.015 286.067);
+      --muted: #a0a0a0;
 
-      --default: oklch(27.4% 0.006 286.033);
-      --default-foreground: var(--snow);
+      --default: #16213e;
+      --default-foreground: var(--foreground);
 
-      --accent: oklch(0.6204 0.195 253.83);
+      /* Dark Mode Primary */
+      --color-primary: #6C63FF;
+      --color-primary-light: #897BFF;
+      --color-secondary: #FF6584;
+      --color-success: #00B894;
+      --color-warning: #FDCB6E;
+      --color-error: #FF6B6B;
+
+      /* Soft Card UI Shadows - Dark Mode */
+      --shadow-light: rgba(255, 255, 255, 0.08);
+      --shadow-dark: rgba(0, 0, 0, 0.4);
+
+      --accent: #6C63FF;
       --accent-foreground: var(--snow);
 
-      /* Form Field Defaults - Colors (only the ones that are different from light theme) */
-      --field-background: oklch(0.2103 0.0059 285.89);
+      /* Form Fields - Dark Mode Sunken */
+      --field-background: #1a1a2e;
       --field-foreground: var(--foreground);
-      --field-placeholder: var(--muted);
-      --field-border: transparent; /* no border by default on form fields */
+      --field-placeholder: #707070;
+      --field-border: transparent;
 
       /* Status Colors */
-      --success: oklch(0.7329 0.1935 150.81);
-      --success-foreground: var(--eclipse);
+      --success: #00B894;
+      --success-foreground: var(--snow);
 
-      --warning: oklch(0.8203 0.1388 76.34);
-      --warning-foreground: var(--eclipse);
+      --warning: #FDCB6E;
+      --warning-foreground: var(--foreground);
 
-      --danger: oklch(0.594 0.1967 24.63);
+      --danger: #FF6B6B;
       --danger-foreground: var(--snow);
 
       /* Component Colors */
-      --segment: oklch(0.3964 0.01 285.93);
+      --segment: #16213e;
       --segment-foreground: var(--foreground);
 
       /* Misc Colors */
-      --border: oklch(28% 0.006 286.033);
-      --separator: oklch(40% 0.006 286.033);
+      --border: rgba(255, 255, 255, 0.1);
+      --separator: rgba(255, 255, 255, 0.1);
       --focus: var(--accent);
       --link: var(--foreground);
 
-      /* Shadows */
-      --surface-shadow: 0 0 0 0 transparent inset; /* No shadow on dark mode */
-      --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.2) inset;
-      --field-shadow: 0 0 0 0 transparent inset; /* Transparent shadow to allow ring utilities to work */
+      /* Dark Mode Shadows */
+      --surface-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      --field-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.3);
     }
   }
 }
