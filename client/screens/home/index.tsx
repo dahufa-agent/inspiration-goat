@@ -666,23 +666,6 @@ export default function HomeScreen() {
           {/* 热点话题 */}
           <HotTopicsSection />
 
-          {/* 对比全网竞品 - 醒目入口 */}
-          <TouchableOpacity style={styles.compareBanner} onPress={() => setShowPerformanceModal(true)}>
-            <View style={styles.compareBannerLeft}>
-              <View style={styles.compareIconContainer}>
-                <FontAwesome6 name="trophy" size={20} color="#F59E0B" />
-              </View>
-              <View>
-                <Text style={styles.compareBannerTitle}>对比全网竞品</Text>
-                <Text style={styles.compareBannerSubtitle}>一键三连 · 行业首创</Text>
-              </View>
-            </View>
-            <View style={styles.compareBannerRight}>
-              <Text style={styles.compareBannerText}>查看详情</Text>
-              <FontAwesome6 name="chevron-right" size={14} color="#6C63FF" />
-            </View>
-          </TouchableOpacity>
-
           {/* 输入区域 - 创意想法 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
             <Text style={styles.inputLabel}>你的创意想法</Text>
@@ -809,6 +792,23 @@ export default function HomeScreen() {
               <Text style={styles.permanentVipText}>永久会员 · 无限创作</Text>
             </View>
           )}
+
+          {/* 对比全网竞品 - 醒目入口 */}
+          <TouchableOpacity style={styles.compareBanner} onPress={() => setShowPerformanceModal(true)}>
+            <View style={styles.compareBannerLeft}>
+              <View style={styles.compareIconContainer}>
+                <FontAwesome6 name="trophy" size={20} color="#F59E0B" />
+              </View>
+              <View>
+                <Text style={styles.compareBannerTitle}>对比全网竞品</Text>
+                <Text style={styles.compareBannerSubtitle}>一键三连 · 行业首创</Text>
+              </View>
+            </View>
+            <View style={styles.compareBannerRight}>
+              <Text style={styles.compareBannerText}>查看详情</Text>
+              <FontAwesome6 name="chevron-right" size={14} color="#6C63FF" />
+            </View>
+          </TouchableOpacity>
         </ScrollView>
 
         {/* 进度弹窗 */}
