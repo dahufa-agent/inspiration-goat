@@ -217,7 +217,8 @@ console.log("\u2705 Starting server...");
 console.log("\u2705 Process cwd:", process.cwd());
 console.log("\u2705 PORT from env:", process.env.PORT);
 console.log("\u2705 NODE_ENV:", process.env.NODE_ENV);
-var VIDEO_MODEL = "doubao-seedance-1-5-pro-251215";
+var TEXT_MODEL_V4 = "deepseek-v4-251201";
+var VIDEO_MODEL = "seedance-2-0-pro";
 var CACHE_TTL = 5 * 60 * 1e3;
 var PROMPT_CACHE_SIZE = 1e3;
 var promptCache = /* @__PURE__ */ new Map();
@@ -517,7 +518,7 @@ app.post("/api/v1/generate/text", async (req, res) => {
 \u8BF7\u751F\u6210\u6587\u6848\u5185\u5BB9\u3002` }
     ];
     const response = await llmClient.invoke(messages, {
-      model: "deepseek-v3-2-251201",
+      model: TEXT_MODEL_V4,
       temperature: styleConfig.temperature
     });
     const result = { text: response.content, optimizationNote, style, platform };
@@ -652,7 +653,7 @@ app.post("/api/v1/generate/texts", async (req, res) => {
 
 \u8BF7\u751F\u6210\u6587\u6848\u5185\u5BB9\u3002` }
       ];
-      const response = await llmClient.invoke(messages, { model: "deepseek-v3-2-251201", temperature: styleConfig.temperature });
+      const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: styleConfig.temperature });
       if (response.content) {
         texts.push(response.content.trim());
         data.textCount += 1;
@@ -736,7 +737,7 @@ app.post("/api/v1/generate/all", async (req, res) => {
 
 \u8BF7\u751F\u6210\u6587\u6848\u5185\u5BB9\u3002` }
     ];
-    const textResponse = await llmClient.invoke(textMessages, { model: "deepseek-v3-2-251201", temperature: txtStyleConfig.temperature });
+    const textResponse = await llmClient.invoke(textMessages, { model: TEXT_MODEL_V4, temperature: txtStyleConfig.temperature });
     const texts = textResponse.content ? [textResponse.content.trim()] : [];
     if (texts.length > 0) data.textCount += 1;
     let videoUrl = null;
@@ -824,7 +825,7 @@ ${content}
 
 \u8BF7\u6DA6\u8272\u4F18\u5316\u3002` }
     ];
-    const response = await llmClient.invoke(messages, { model: "deepseek-v3-2-251201", temperature: styleConfig.temperature });
+    const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: styleConfig.temperature });
     if (response.content) {
       res.json({ polished: response.content.trim(), original: content, style: polishStyle || "general" });
     } else {
@@ -881,7 +882,7 @@ ${originalContent}
 
 \u8BF7\u6DA6\u8272\u4F18\u5316\u3002` }
     ];
-    const llmResponse = await llmClient.invoke(messages, { model: "deepseek-v3-2-251201", temperature: styleConfig.temperature });
+    const llmResponse = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: styleConfig.temperature });
     const images = response.content.filter((item) => item.type === "image").map((item) => ({ url: item.image?.display_url || item.image?.image_url }));
     res.json({ title: response.title || "", original: originalContent, polished: llmResponse.content?.trim() || "", images, sourceUrl: response.url || url, publishTime: response.publish_time, style: polishStyle || "general" });
   } catch (error) {
@@ -928,7 +929,7 @@ app.post("/api/v1/generate/text-variants", async (req, res) => {
       { role: "system", content: systemPrompt },
       { role: "user", content: `\u60F3\u6CD5\u4E3B\u9898\uFF1A${finalPrompt}` }
     ];
-    const response = await llmClient.invoke(messages, { model: "deepseek-v3-2-251201", temperature: 0.9 });
+    const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: 0.9 });
     const content = response.content || "";
     const variants = content.split(/\[变体\d+\]/).filter((v) => v.trim());
     res.json({
@@ -955,7 +956,7 @@ app.post("/api/v1/recommend", async (req, res) => {
 
 \u8BF7\u63A8\u8350\u521B\u4F5C\u65B9\u5411` }
     ];
-    const response = await llmClient.invoke(messages, { model: "deepseek-v3-2-251201", temperature: 0.8 });
+    const response = await llmClient.invoke(messages, { model: TEXT_MODEL_V4, temperature: 0.8 });
     let recommendations = [];
     try {
       const jsonMatch = response.content?.match(/\[[\s\S]*\]/);
