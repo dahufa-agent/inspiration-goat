@@ -666,6 +666,23 @@ export default function HomeScreen() {
           {/* 热点话题 */}
           <HotTopicsSection />
 
+          {/* 对比全网竞品 - 醒目入口 */}
+          <TouchableOpacity style={styles.compareBanner} onPress={() => setShowPerformanceModal(true)}>
+            <View style={styles.compareBannerLeft}>
+              <View style={styles.compareIconContainer}>
+                <FontAwesome6 name="trophy" size={20} color="#F59E0B" />
+              </View>
+              <View>
+                <Text style={styles.compareBannerTitle}>对比全网竞品</Text>
+                <Text style={styles.compareBannerSubtitle}>一键三连 · 行业首创</Text>
+              </View>
+            </View>
+            <View style={styles.compareBannerRight}>
+              <Text style={styles.compareBannerText}>查看详情</Text>
+              <FontAwesome6 name="chevron-right" size={14} color="#6C63FF" />
+            </View>
+          </TouchableOpacity>
+
           {/* 输入区域 - 创意想法 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
             <Text style={styles.inputLabel}>你的创意想法</Text>
@@ -985,10 +1002,48 @@ const styles = StyleSheet.create({
   vipBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FEF3C7', justifyContent: "center", alignItems: "center", shadowColor: '#F59E0B', shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
   
   // 热点话题 - 柔和胶囊
-  hotTopicsSection: { marginBottom: 24 },
+  hotTopicsSection: { marginBottom: 16 },
   hotTopicChip: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.cardBg, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, marginRight: 10, gap: 6, shadowColor: COLORS.shadowDark, shadowOffset: { width: 3, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 3 },
   hotTopicPlatform: { fontSize: 12 },
   hotTopicTitle: { fontSize: 13, color: COLORS.text, maxWidth: 100 },
+
+  // 对比全网竞品 - 醒目卡片
+  compareBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 16,
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.8)',
+    borderTopColor: 'rgba(255,255,255,1)',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  compareBannerLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
+  compareIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(253, 203, 110, 0.15)',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  compareBannerTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+  compareBannerSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  compareBannerRight: { flexDirection: "row", alignItems: "center", gap: 4 },
+  compareBannerText: { fontSize: 14, color: COLORS.primary, fontWeight: "600" },
   
   // 模板
   templatesSection: { marginBottom: 24 },
