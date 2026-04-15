@@ -647,16 +647,16 @@ export default function HomeScreen() {
               ) : (
                 <>
                   <TouchableOpacity 
-                    style={styles.headerRegisterBtn}
-                    onPress={() => router.push("/auth")}
-                  >
-                    <Text style={styles.headerRegisterBtnText}>注册</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
                     style={styles.headerLoginBtn}
                     onPress={() => router.push("/auth")}
                   >
                     <Text style={styles.headerLoginBtnText}>登录</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.headerRegisterBtn}
+                    onPress={() => router.push("/auth")}
+                  >
+                    <Text style={styles.headerRegisterBtnText}>注册</Text>
                   </TouchableOpacity>
                 </>
               )}
