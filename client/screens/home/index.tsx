@@ -645,7 +645,7 @@ export default function HomeScreen() {
                   )}
                 </>
               ) : (
-                <>
+                <View style={styles.headerAuthContainer}>
                   <TouchableOpacity 
                     style={styles.headerLoginBtn}
                     onPress={() => router.push("/auth")}
@@ -658,7 +658,7 @@ export default function HomeScreen() {
                   >
                     <Text style={styles.headerRegisterBtnText}>注册</Text>
                   </TouchableOpacity>
-                </>
+                </View>
               )}
             </View>
           </Animated.View>
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26 },
   greeting: { fontSize: 22, fontWeight: "800", color: COLORS.text },
   subtitle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerRight: { alignItems: "flex-end" },
   headerButton: {
     width: 40,
     height: 40,
@@ -940,6 +940,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 4,
     elevation: 3,
+  },
+  headerAuthContainer: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 6,
   },
   headerRegisterBtn: {
     height: 36,
