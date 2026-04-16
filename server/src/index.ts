@@ -1,6 +1,6 @@
 import express from "express";
 import type { Request, Response } from "express";
-const path = require("path");
+import path from "path";
 import cors from "cors";
 import compression from "compression";
 import {
