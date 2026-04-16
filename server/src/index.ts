@@ -104,7 +104,6 @@ app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // 响应时间追踪中间件
-app.use(express.static(path.join(__dirname, "../../public")));
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
   res.on('finish', () => {
