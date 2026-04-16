@@ -1,8 +1,10 @@
 import express from "express";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import type { Request, Response } from "express";
 import path from "path";
-import cors from "cors";
-import compression from "compression";
 import {
   ImageGenerationClient,
   VideoGenerationClient,
