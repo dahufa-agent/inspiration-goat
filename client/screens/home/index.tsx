@@ -93,6 +93,162 @@ const IMAGE_STYLES = [
   { id: 'fantasy', name: '奇幻风格', keywords: 'fantasy art, magical' },
 ];
 
+// ==================== 新增：行业场景模板中心 ====================
+const SCENE_TEMPLATES = [
+  {
+    id: 'birthday',
+    name: '生日祝福',
+    icon: 'cake-candles',
+    color: '#FF6B6B',
+    category: 'celebration',
+    prompt: '温馨生日场景，蛋糕蜡烛，欢乐氛围',
+    textStyle: 'xiaohongshu',
+    description: '适合发朋友圈祝福'
+  },
+  {
+    id: 'festival',
+    name: '节日营销',
+    icon: 'gift',
+    color: '#FF9F43',
+    category: 'marketing',
+    prompt: '节日氛围营销素材，喜庆热闘',
+    textStyle: 'douyin',
+    description: '春节/中秋/圣诞等节日'
+  },
+  {
+    id: 'product',
+    name: '产品展示',
+    icon: 'shopping-bag',
+    color: '#4ECDC4',
+    category: 'ecommerce',
+    prompt: '精致产品展示，质感光影，专业摄影',
+    textStyle: 'gzh',
+    description: '电商主图/详情页'
+  },
+  {
+    id: 'travel',
+    name: '旅行分享',
+    icon: 'plane',
+    color: '#45B7D1',
+    category: 'lifestyle',
+    prompt: '绝美风景打卡地，明信片风格',
+    textStyle: 'xiaohongshu',
+    description: '小红书旅行攻略'
+  },
+  {
+    id: 'food',
+    name: '美食打卡',
+    icon: 'utensils',
+    color: '#F8B739',
+    category: 'food',
+    prompt: '美食特写，食欲满满，精致摆盘',
+    textStyle: 'xiaohongshu',
+    description: '探店打卡/美食推荐'
+  },
+  {
+    id: 'pet',
+    name: '萌宠时刻',
+    icon: 'paw',
+    color: '#A55EEA',
+    category: 'lifestyle',
+    prompt: '可爱宠物，治愈系，萌态万千',
+    textStyle: 'douyin',
+    description: '宠物日常分享'
+  },
+  {
+    id: 'fashion',
+    name: '时尚穿搭',
+    icon: 'shirt',
+    color: '#E84393',
+    category: 'lifestyle',
+    prompt: '时尚穿搭街拍，高级感模特',
+    textStyle: 'xiaohongshu',
+    description: '服装搭配/时尚博主'
+  },
+  {
+    id: 'work',
+    name: '职场商务',
+    icon: 'briefcase',
+    color: '#2D3436',
+    category: 'business',
+    prompt: '商务办公场景，专业高效',
+    textStyle: 'zhihu',
+    description: 'PPT配图/商务素材'
+  },
+  {
+    id: 'quote',
+    name: '语录金句',
+    icon: 'quote-left',
+    color: '#6C5CE7',
+    category: 'inspiration',
+    prompt: '励志文案配图，简约大气，文字感强',
+    textStyle: 'general',
+    description: '朋友圈文案/社交媒体'
+  },
+  {
+    id: 'nature',
+    name: '自然风光',
+    icon: 'leaf',
+    color: '#00B894',
+    category: 'scenery',
+    prompt: '自然风光摄影，大片质感',
+    textStyle: 'xiaohongshu',
+    description: '壁纸/风景素材'
+  },
+  {
+    id: 'portrait',
+    name: '人像写真',
+    icon: 'user',
+    color: '#FD79A8',
+    category: 'portrait',
+    prompt: '人像摄影，质感光影，电影感',
+    textStyle: 'xiaohongshu',
+    description: '写真/证件照风格'
+  },
+  {
+    id: 'art',
+    name: '艺术创意',
+    icon: 'palette',
+    color: '#E17055',
+    category: 'art',
+    prompt: '艺术插画风格，创意独特',
+    textStyle: 'general',
+    description: '创意海报/艺术创作'
+  },
+];
+
+// ==================== 新增：新手引导配置 ====================
+const ONBOARDING_STEPS = [
+  {
+    id: 'step1',
+    title: '欢迎使用灵感山羊',
+    description: '一键生成图片、文案、视频，让创作变得简单高效',
+    icon: 'wand-magic-sparkles',
+    color: '#6366F1',
+  },
+  {
+    id: 'step2',
+    title: '输入你的创意',
+    description: '用一句话描述你的想法，或选择一个模板开始创作',
+    icon: 'lightbulb',
+    color: '#F59E0B',
+  },
+  {
+    id: 'step3',
+    title: '一键生成全部',
+    description: '图片、文案、视频同步生成，最快5秒出图',
+    icon: 'bolt',
+    color: '#10B981',
+  },
+  {
+    id: 'step4',
+    title: '编辑与分享',
+    description: '选择喜欢的风格，一键保存或分享到社交平台',
+    icon: 'share-nodes',
+    color: '#EC4899',
+  },
+];
+
 // 模板数据
 const TEMPLATES = {
   scenery: ["海边日落晚霞", "森林迷雾小路", "城市璀璨夜景", "星空银河漫天", "瀑布彩虹飞流", "雪山日出金山", "草原骏马奔腾", "沙漠驼铃声声"],
@@ -166,6 +322,13 @@ export default function HomeScreen() {
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [generationStartTime, setGenerationStartTime] = useState<number>(0);
 
+  // ==================== 新增：新手引导状态 ====================
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+
+  // ==================== 新增：场景模板弹窗状态 ====================
+  const [showSceneModal, setShowSceneModal] = useState(false);
+
   const getCurrentTemplates = () => TEMPLATES[selectedCategory as keyof typeof TEMPLATES] || TEMPLATES.scenery;
 
   // ==================== 新增：加载热点话题 ====================
@@ -215,6 +378,13 @@ export default function HomeScreen() {
           await SecureStore.setItemAsync("deviceId", id);
         }
         setDeviceId(id);
+        
+        // 检查是否需要显示新手引导
+        const hasSeenOnboarding = await SecureStore.getItemAsync("hasSeenOnboarding");
+        if (!hasSeenOnboarding) {
+          setShowOnboarding(true);
+        }
+        
         await loadUserInfo();
         await loadHotTopics();
         
@@ -231,6 +401,30 @@ export default function HomeScreen() {
     };
     getDeviceId();
   }, [loadUserInfo, loadHotTopics]);
+
+  // ==================== 新增：新手引导下一步 ====================
+  const handleOnboardingNext = async () => {
+    if (onboardingStep < ONBOARDING_STEPS.length - 1) {
+      setOnboardingStep(onboardingStep + 1);
+    } else {
+      // 引导结束，标记已看过
+      await SecureStore.setItemAsync("hasSeenOnboarding", "true");
+      setShowOnboarding(false);
+    }
+  };
+
+  // ==================== 新增：跳过新手引导 ====================
+  const handleSkipOnboarding = async () => {
+    await SecureStore.setItemAsync("hasSeenOnboarding", "true");
+    setShowOnboarding(false);
+  };
+
+  // ==================== 新增：使用场景模板 ====================
+  const handleUseSceneTemplate = (template: typeof SCENE_TEMPLATES[0]) => {
+    setIdea(template.prompt);
+    setSelectedTextStyle(template.textStyle);
+    setShowSceneModal(false);
+  };
 
   const canGenerate = () => {
     if (!idea.trim()) return { allowed: false, reason: "请输入你的创意想法" };
@@ -602,11 +796,11 @@ export default function HomeScreen() {
     // 根据阶段显示不同图标
     const getStageIcon = () => {
       switch (generationProgress.stage) {
-        case 'image': return '🖼️';
-        case 'text': return '✍️';
-        case 'video': return '🎬';
-        case 'complete': return '✅';
-        default: return '✨';
+        case 'image': return 'image';
+        case 'text': return 'pen';
+        case 'video': return 'video';
+        case 'complete': return 'check';
+        default: return 'sparkles';
       }
     };
     
@@ -614,7 +808,7 @@ export default function HomeScreen() {
       <Modal visible={showProgressModal} transparent animationType="fade">
         <View style={styles.progressOverlay}>
           <View style={styles.progressCard}>
-            <Text style={styles.progressStageIcon}>{getStageIcon()}</Text>
+            <FontAwesome6 name={getStageIcon() as any} size={48} color={COLORS.primary} style={styles.progressStageIcon} />
             <Text style={styles.progressTitle}>
               {generationProgress.stage === 'complete' ? '创作完成！' : '正在创作中...'}
             </Text>
@@ -626,7 +820,7 @@ export default function HomeScreen() {
             
             {generationProgress.stage === 'complete' && (
               <View style={styles.progressSuccessHint}>
-                <FontAwesome6 name="check-circle" size={16} color="#10B981" />
+                <FontAwesome6 name="check" size={16} color="#10B981" />
                 <Text style={styles.progressSuccessText}>准备跳转到编辑页面...</Text>
               </View>
             )}
@@ -635,6 +829,91 @@ export default function HomeScreen() {
       </Modal>
     );
   };
+
+  // ==================== 新增：新手引导弹窗 ====================
+  const OnboardingModal = () => {
+    const currentStep = ONBOARDING_STEPS[onboardingStep];
+    
+    return (
+      <Modal visible={showOnboarding} transparent animationType="fade">
+        <View style={styles.onboardingOverlay}>
+          <View style={styles.onboardingCard}>
+            {/* 步骤指示器 */}
+            <View style={styles.onboardingDots}>
+              {ONBOARDING_STEPS.map((_, idx) => (
+                <View
+                  key={idx}
+                  style={[styles.onboardingDot, idx === onboardingStep && styles.onboardingDotActive]}
+                />
+              ))}
+            </View>
+
+            {/* 图标 */}
+            <View style={[styles.onboardingIconContainer, { backgroundColor: currentStep.color + '20' }]}>
+              <FontAwesome6 name={currentStep.icon as any} size={48} color={currentStep.color} />
+            </View>
+
+            {/* 内容 */}
+            <Text style={styles.onboardingTitle}>{currentStep.title}</Text>
+            <Text style={styles.onboardingDescription}>{currentStep.description}</Text>
+
+            {/* 按钮 */}
+            <View style={styles.onboardingButtons}>
+              <TouchableOpacity style={styles.onboardingSkipBtn} onPress={handleSkipOnboarding}>
+                <Text style={styles.onboardingSkipText}>跳过</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.onboardingNextBtn, { backgroundColor: currentStep.color }]}
+                onPress={handleOnboardingNext}
+              >
+                <Text style={styles.onboardingNextText}>
+                  {onboardingStep < ONBOARDING_STEPS.length - 1 ? '下一步' : '开始创作'}
+                </Text>
+                <FontAwesome6 name={onboardingStep < ONBOARDING_STEPS.length - 1 ? 'arrow-right' : 'wand-magic-sparkles'} size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // ==================== 新增：场景模板弹窗 ====================
+  const SceneTemplateModal = () => (
+    <Modal visible={showSceneModal} transparent animationType="slide" onRequestClose={() => setShowSceneModal(false)}>
+      <View style={styles.sceneModalOverlay}>
+        <View style={styles.sceneModalContent}>
+          {/* Header */}
+          <View style={styles.sceneModalHeader}>
+            <Text style={styles.sceneModalTitle}>场景模板中心</Text>
+            <TouchableOpacity onPress={() => setShowSceneModal(false)}>
+              <FontAwesome6 name="xmark" size={20} color={COLORS.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* 模板网格 */}
+          <ScrollView style={styles.sceneTemplateList} showsVerticalScrollIndicator={false}>
+            <View style={styles.sceneTemplateGrid}>
+              {SCENE_TEMPLATES.map((template) => (
+                <TouchableOpacity
+                  key={template.id}
+                  style={styles.sceneTemplateCard}
+                  onPress={() => handleUseSceneTemplate(template)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.sceneTemplateIcon, { backgroundColor: template.color + '20' }]}>
+                    <FontAwesome6 name={template.icon as any} size={24} color={template.color} />
+                  </View>
+                  <Text style={styles.sceneTemplateName}>{template.name}</Text>
+                  <Text style={styles.sceneTemplateDesc} numberOfLines={1}>{template.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const generateCheck = canGenerate();
 
@@ -700,9 +979,33 @@ export default function HomeScreen() {
           {/* 热点话题 */}
           <HotTopicsSection />
 
+          {/* 场景模板入口 */}
+          <Animated.View entering={FadeInUp.delay(100).duration(500)}>
+            <TouchableOpacity style={styles.sceneTemplateEntry} onPress={() => setShowSceneModal(true)}>
+              <View style={styles.sceneTemplateEntryLeft}>
+                <View style={styles.sceneTemplateIconBg}>
+                  <FontAwesome6 name="layer-group" size={18} color={COLORS.primary} />
+                </View>
+                <View>
+                  <Text style={styles.sceneTemplateEntryTitle}>场景模板中心</Text>
+                  <Text style={styles.sceneTemplateEntryDesc}>12+精选场景一键使用</Text>
+                </View>
+              </View>
+              <View style={styles.sceneTemplateEntryRight}>
+                <Text style={styles.sceneTemplateEntryAction}>立即使用</Text>
+                <FontAwesome6 name="chevron-right" size={14} color={COLORS.primary} />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+
           {/* 输入区域 - 创意想法 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
-            <Text style={styles.inputLabel}>你的创意想法</Text>
+            <View style={styles.inputHeader}>
+              <Text style={styles.inputLabel}>你的创意想法</Text>
+              <TouchableOpacity onPress={() => setShowSceneModal(true)}>
+                <Text style={styles.inputHint}>不知道写什么？试试模板</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.textInput}
               placeholder="例如：海边日落、可爱猫咪、产品宣传、节日祝福..."
@@ -942,6 +1245,12 @@ export default function HomeScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* 新手引导弹窗 */}
+        <OnboardingModal />
+
+        {/* 场景模板弹窗 */}
+        <SceneTemplateModal />
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -1130,15 +1439,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 2,
     borderColor: "transparent",
-    shadowColor: COLORS.shadowDark,
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.8)',
-    borderTopColor: 'rgba(255,255,255,1)',
-    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   performanceIconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center", marginBottom: 12 },
   performanceName: { fontSize: 14, fontWeight: "700", color: COLORS.text, marginBottom: 6 },
@@ -1156,7 +1456,37 @@ const styles = StyleSheet.create({
   competitorBest: { color: COLORS.primary, fontWeight: "700" },
   competitorNote: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(108, 99, 255, 0.08)", padding: 14, borderRadius: 16, gap: 10, marginTop: 8 },
   competitorNoteText: { flex: 1, fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
-  
+
+  // ==================== 新增：场景模板入口样式 ====================
+  sceneTemplateEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.cardBg,
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.6)",
+    borderTopColor: "rgba(255,255,255,0.8)",
+    borderBottomColor: "rgba(0,0,0,0.1)",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sceneTemplateEntryLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
+  sceneTemplateIconBg: { width: 44, height: 44, borderRadius: 14, backgroundColor: "rgba(108, 99, 255, 0.12)", justifyContent: "center", alignItems: "center" },
+  sceneTemplateEntryTitle: { fontSize: 15, fontWeight: "700", color: COLORS.text },
+  sceneTemplateEntryDesc: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  sceneTemplateEntryRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sceneTemplateEntryAction: { fontSize: 13, color: COLORS.primary, fontWeight: "600" },
+
+  // ==================== 新增：输入区域样式 ====================
+  inputHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  inputHint: { fontSize: 13, color: COLORS.primary, fontWeight: "500" },
+
   // 输入区域 - 凹陷效果
   inputSection: { marginBottom: 24 },
   inputLabel: { fontSize: 16, fontWeight: "700", color: COLORS.text, marginBottom: 12 },
@@ -1190,16 +1520,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: 'rgba(255,255,255,0.6)',
+    borderTopColor: 'rgba(255,255,255,0.8)',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
     shadowColor: COLORS.shadowDark,
     shadowOffset: { width: 4, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 4,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.6)',
-    borderTopColor: 'rgba(255,255,255,0.8)',
-    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   durationCardActive: { borderColor: COLORS.primary, backgroundColor: "rgba(108, 99, 255, 0.08)" },
   durationBadge: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, marginBottom: 10 },
@@ -1288,7 +1616,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.8)',
     borderTopColor: 'rgba(255,255,255,1)',
   },
-  progressStageIcon: { fontSize: 48, marginBottom: 16 },
+  progressStageIcon: { marginBottom: 16 },
   progressTitle: { fontSize: 22, fontWeight: "800", color: COLORS.text, marginTop: 16, marginBottom: 12 },
   progressMessage: { fontSize: 15, color: COLORS.textSecondary, marginBottom: 20, textAlign: "center", lineHeight: 22 },
   progressBar: { width: "100%", height: 12, backgroundColor: COLORS.pressed, borderRadius: 6, marginBottom: 12, overflow: 'hidden' },
@@ -1347,4 +1675,60 @@ const styles = StyleSheet.create({
   checkmark: { color: COLORS.white, fontSize: 14, fontWeight: "700" },
   giftToggle: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
   giftToggleText: { fontSize: 14, color: COLORS.text },
+
+  // ==================== 新增：新手引导弹窗样式 ====================
+  onboardingOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
+  onboardingCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 32, 
+    padding: 40, 
+    width: "88%", 
+    alignItems: "center",
+    shadowColor: COLORS.shadowDark, 
+    shadowOffset: { width: 10, height: 10 }, 
+    shadowOpacity: 0.4, 
+    shadowRadius: 20, 
+    elevation: 15,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.8)",
+    borderTopColor: "rgba(255,255,255,1)",
+  },
+  onboardingDots: { flexDirection: "row", marginBottom: 32, gap: 8 },
+  onboardingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.pressed },
+  onboardingDotActive: { backgroundColor: COLORS.primary, width: 24 },
+  onboardingIconContainer: { width: 100, height: 100, borderRadius: 50, justifyContent: "center", alignItems: "center", marginBottom: 28 },
+  onboardingTitle: { fontSize: 24, fontWeight: "800", color: COLORS.text, marginBottom: 16, textAlign: "center" },
+  onboardingDescription: { fontSize: 16, color: COLORS.textSecondary, textAlign: "center", lineHeight: 24, marginBottom: 36 },
+  onboardingButtons: { flexDirection: "row", alignItems: "center", gap: 16 },
+  onboardingSkipBtn: { paddingVertical: 14, paddingHorizontal: 24 },
+  onboardingSkipText: { fontSize: 15, color: COLORS.placeholder, fontWeight: "500" },
+  onboardingNextBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 9999 },
+  onboardingNextText: { fontSize: 15, color: COLORS.white, fontWeight: "700" },
+
+  // ==================== 新增：场景模板弹窗样式 ====================
+  sceneModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sceneModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 44, maxHeight: "85%" },
+  sceneModalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  sceneModalTitle: { fontSize: 20, fontWeight: "700", color: COLORS.text },
+  sceneTemplateList: { maxHeight: 500 },
+  sceneTemplateGrid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  sceneTemplateCard: { 
+    width: "30%", 
+    backgroundColor: COLORS.cardBg, 
+    padding: 16, 
+    borderRadius: 18, 
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.6)",
+    borderTopColor: "rgba(255,255,255,0.8)",
+    borderBottomColor: "rgba(0,0,0,0.1)",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  sceneTemplateIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: "center", alignItems: "center", marginBottom: 10 },
+  sceneTemplateName: { fontSize: 14, fontWeight: "700", color: COLORS.text, marginBottom: 4, textAlign: "center" },
+  sceneTemplateDesc: { fontSize: 11, color: COLORS.textSecondary, textAlign: "center" },
 });
