@@ -27,12 +27,38 @@ const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://loc
 // 山羊老师头像
 const GOAT_TEACHER_AVATAR = "https://coze-coding-project.tos.coze.site/coze_storage_7627778343278215204/image/generate_image_b6078ad5-ea30-4a35-b64f-be3d8e2a6ce0.jpeg?sign=1807522848-177fac84ec-0-e563565f1f5d6087dc714c42d6cfa0a9202ff2202029a59ecee87677f22dd55c";
 
-// 视频时长选项
+// ==================== 升级：视频时长选项（支持更长时长，对标全网最强）====================
 const DURATION_OPTIONS = [
   { type: "free", duration: 5, label: "5秒", price: "免费", description: "每日10次", color: "#10B981" },
   { type: "paid5", duration: 10, label: "10秒", price: "10积分", description: "每增加5秒+10积分", color: "#F59E0B" },
   { type: "paid10", duration: 15, label: "15秒", price: "20积分", description: "每增加10秒+20积分", color: "#F59E0B" },
   { type: "paid15", duration: 20, label: "20秒", price: "30积分", description: "每增加15秒+30积分", color: "#EF4444" },
+  { type: "paid20", duration: 30, label: "30秒", price: "50积分", description: "长视频/微电影", color: "#8B5CF6" },
+];
+
+// ==================== 新增：视频运镜控制（对标可灵Kling大师运镜）====================
+const CAMERA_CONTROLS = [
+  { id: 'auto', name: '自动运镜', icon: 'wand-magic-sparkles', description: 'AI智能选择最佳运镜', color: '#6C63FF' },
+  { id: 'zoom_in', name: '推进镜头', icon: 'magnifying-glass-plus', description: '由远及近，突出主体', color: '#10B981' },
+  { id: 'zoom_out', name: '拉远镜头', icon: 'magnifying-glass-minus', description: '由近及远，展示全貌', color: '#F59E0B' },
+  { id: 'pan_left', name: '向左平移', icon: 'arrow-left', description: '从右向左移动视角', color: '#3B82F6' },
+  { id: 'pan_right', name: '向右平移', icon: 'arrow-right', description: '从左向右移动视角', color: '#EC4899' },
+  { id: 'tilt_up', name: '向上摇镜', icon: 'arrow-up', description: '从下向上展示', color: '#14B8A6' },
+  { id: 'tilt_down', name: '向下摇镜', icon: 'arrow-down', description: '从上向下展示', color: '#F97316' },
+  { id: 'dolly', name: '移动镜头', icon: 'car-side', description: '跟随主体移动', color: '#8B5CF6' },
+  { id: 'orbit', name: '环绕运镜', icon: 'rotate', description: '360度环绕主体', color: '#EF4444' },
+  { id: 'static', name: '固定镜头', icon: 'video', description: '镜头固定，稳定画面', color: '#64748B' },
+];
+
+// ==================== 新增：视频风格预设（对标Runway/Sora）====================
+const VIDEO_STYLES = [
+  { id: 'auto', name: '自动风格', icon: 'wand-magic-sparkles', description: 'AI匹配最佳风格', color: '#6C63FF' },
+  { id: 'cinematic', name: '电影感', icon: 'film', description: '好莱坞电影质感', color: '#10B981' },
+  { id: 'vivid', name: '生动鲜活', icon: 'sparkles', description: '色彩饱和，活力满满', color: '#F59E0B' },
+  { id: 'realistic', name: '写实记录', icon: 'camera', description: '纪录片风格', color: '#3B82F6' },
+  { id: 'anime', name: '动漫风格', icon: 'face-smile', description: '二次元动画风', color: '#EC4899' },
+  { id: 'slow_mo', name: '慢动作', icon: 'clock', description: '戏剧性慢镜头', color: '#14B8A6' },
+  { id: 'timelapse', name: '延时摄影', icon: 'forward-fast', description: '时间压缩效果', color: '#F97316' },
 ];
 
 // 每日限制配置
@@ -61,14 +87,21 @@ const PERFORMANCE_MODES = {
   },
 };
 
-// ==================== 新增：图片分辨率选择配置（对标全网最强）====================
+// ==================== 升级：图片分辨率选择（支持4K，对标全网最强）====================
 const IMAGE_RESOLUTIONS = [
+  // 1K分辨率（免费）
   { id: 'square_1k', name: '1K方图', size: '1024×1024', aspect: '1:1', price: '免费', description: '小红书/朋友圈' },
   { id: 'landscape_1k', name: '1K横图', size: '1024×768', aspect: '4:3', price: '免费', description: '微博/公众号' },
   { id: 'portrait_1k', name: '1K竖图', size: '768×1024', aspect: '3:4', price: '免费', description: '抖音/小红书' },
   { id: 'wide_1k', name: '1K宽图', size: '1024×576', aspect: '16:9', price: '免费', description: 'B站/视频封面' },
+  // 2K分辨率（5积分）
   { id: 'square_2k', name: '2K方图', size: '2048×2048', aspect: '1:1', price: '5积分', description: '高清打印/壁纸' },
   { id: 'portrait_2k', name: '2K竖图', size: '1536×2048', aspect: '3:4', price: '5积分', description: '手机壁纸' },
+  { id: 'landscape_2k', name: '2K横图', size: '2048×1536', aspect: '4:3', price: '5积分', description: '高清海报' },
+  // 4K分辨率（15积分，对标Midjourney/DALL-E最高画质）
+  { id: 'square_4k', name: '4K方图', size: '4096×4096', aspect: '1:1', price: '15积分', description: '专业级画质/打印' },
+  { id: 'portrait_4k', name: '4K竖图', size: '3072×4096', aspect: '3:4', price: '15积分', description: '超高清壁纸' },
+  { id: 'wide_4k', name: '4K宽图', size: '4096×2304', aspect: '16:9', price: '15积分', description: '电影级画质' },
 ];
 
 // ==================== 新增：文案批量生成配置 ====================
@@ -350,6 +383,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("free");
+  const [selectedCamera, setSelectedCamera] = useState("auto"); // 新增：视频运镜控制
+  const [selectedVideoStyle, setSelectedVideoStyle] = useState("auto"); // 新增：视频风格
   const [remainingVideoEdits, setRemainingVideoEdits] = useState(10);
   const [remainingImages, setRemainingImages] = useState(20);
   const [remainingTexts, setRemainingTexts] = useState(10);
@@ -572,7 +607,7 @@ export default function HomeScreen() {
         throw new Error('图片生成失败');
       }
 
-      // 阶段2：视频生成（需要等图片完成后作为首帧）
+      // 阶段2：视频生成（需要等图片完成后作为首帧，包含运镜控制和视频风格）
       setGenerationProgress({ stage: 'video', progress: 60, message: `正在生成视频(${modeConfig.times.video})...` });
 
       const videoResponse = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/video`, {
@@ -581,7 +616,9 @@ export default function HomeScreen() {
         body: JSON.stringify({ 
           prompt: idea.trim(), 
           imageUrl: imageData.imageUrls[0],
-          durationType: selectedDuration 
+          durationType: selectedDuration,
+          camera: selectedCamera,  // 新增：运镜控制
+          videoStyle: selectedVideoStyle  // 新增：视频风格
         }),
       });
       
@@ -1363,6 +1400,51 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
+          {/* 新增：视频运镜控制（对标可灵Kling大师运镜） */}
+          <Animated.View entering={FadeInUp.delay(350).duration(500)} style={styles.cameraSection}>
+            <Text style={styles.sectionTitle}>
+              <FontAwesome6 name="camera" size={16} color={COLORS.primary} /> 运镜控制
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cameraScroll}>
+              {CAMERA_CONTROLS.map((camera) => (
+                <TouchableOpacity 
+                  key={camera.id} 
+                  style={[
+                    styles.cameraCard, 
+                    selectedCamera === camera.id && { borderColor: camera.color, backgroundColor: camera.color + '10' }
+                  ]} 
+                  onPress={() => setSelectedCamera(camera.id)}
+                >
+                  <FontAwesome6 name={camera.icon as any} size={20} color={selectedCamera === camera.id ? camera.color : COLORS.textSecondary} />
+                  <Text style={[styles.cameraName, selectedCamera === camera.id && { color: camera.color }]}>{camera.name}</Text>
+                  <Text style={styles.cameraDesc}>{camera.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+
+          {/* 新增：视频风格选择（对标Runway/Sora） */}
+          <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.videoStyleSection}>
+            <Text style={styles.sectionTitle}>
+              <FontAwesome6 name="palette" size={16} color={COLORS.primary} /> 视频风格
+            </Text>
+            <View style={styles.videoStyleGrid}>
+              {VIDEO_STYLES.map((style) => (
+                <TouchableOpacity 
+                  key={style.id} 
+                  style={[
+                    styles.videoStyleCard, 
+                    selectedVideoStyle === style.id && { borderColor: style.color, backgroundColor: style.color + '10' }
+                  ]} 
+                  onPress={() => setSelectedVideoStyle(style.id)}
+                >
+                  <FontAwesome6 name={style.icon as any} size={18} color={selectedVideoStyle === style.id ? style.color : COLORS.textSecondary} />
+                  <Text style={[styles.videoStyleName, selectedVideoStyle === style.id && { color: style.color }]}>{style.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+
           {/* 剩余次数 */}
           <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.usageSection}>
             <View style={styles.usageItem}>
@@ -1898,6 +1980,47 @@ const styles = StyleSheet.create({
   durationBadgeText: { fontSize: 15, fontWeight: "700" },
   durationPrice: { fontSize: 15, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
   durationDesc: { fontSize: 12, color: COLORS.textSecondary },
+  
+  // 新增：运镜控制样式（对标可灵Kling）
+  cameraSection: { marginBottom: 24 },
+  cameraScroll: { marginTop: 12 },
+  cameraCard: {
+    backgroundColor: COLORS.cardBg,
+    padding: 14,
+    borderRadius: 16,
+    marginRight: 12,
+    width: 100,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cameraName: { fontSize: 12, fontWeight: "600", color: COLORS.text, marginTop: 8, marginBottom: 4 },
+  cameraDesc: { fontSize: 10, color: COLORS.textSecondary, textAlign: "center" },
+  
+  // 新增：视频风格样式（对标Runway/Sora）
+  videoStyleSection: { marginBottom: 24 },
+  videoStyleGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
+  videoStyleCard: {
+    backgroundColor: COLORS.cardBg,
+    padding: 12,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 2,
+    borderColor: "transparent",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  videoStyleName: { fontSize: 13, fontWeight: "600", color: COLORS.text },
   
   // 剩余次数 - 柔和卡片
   usageSection: { flexDirection: "row", justifyContent: "space-around", backgroundColor: COLORS.cardBg, padding: 18, borderRadius: 24, marginBottom: 24, shadowColor: COLORS.shadowDark, shadowOffset: { width: 6, height: 6 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 5 },

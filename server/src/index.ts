@@ -624,10 +624,10 @@ ${styleConfig.prompt}
   }
 });
 
-// ==================== 优化：生成视频 ====================
+// ==================== 优化：生成视频（支持运镜控制+视频风格，对标可灵/Sora）====================
 app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
   try {
-    const { prompt, imageUrl, durationType = "free" } = req.body;
+    const { prompt, imageUrl, durationType = "free", camera = "auto", videoStyle = "auto" } = req.body;
     const deviceId = (req.headers["x-device-id"] as string) || "default";
     const mode = (req.headers['x-mode'] as string) || 'fast';
     const timeout = TIMEOUT_CONFIG[mode as keyof typeof TIMEOUT_CONFIG]?.video || TIMEOUT_CONFIG.fast.video;
@@ -658,10 +658,52 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     }
     contentItems.push({ type: "text", text: finalPrompt });
 
+    // 运镜控制映射（对标可灵Kling大师运镜）
+    const CAMERA_PROMPT_MAP: Record<string, string> = {
+      'auto': '', // 自动运镜不添加额外提示
+      'zoom_in': 'Slow zoom in, moving closer to the subject',
+      'zoom_out': 'Slow zoom out, pulling back to reveal the full scene',
+      'pan_left': 'Camera pans smoothly from right to left',
+      'pan_right': 'Camera pans smoothly from left to right',
+      'tilt_up': 'Camera tilts upward, looking up',
+      'tilt_down': 'Camera tilts downward, looking down',
+      'dolly': 'Dolly shot, camera tracks alongside the subject',
+      'orbit': 'Orbital shot, camera circles around the subject',
+      'static': 'Static shot, camera remains steady without movement',
+    };
+    
+    // 视频风格提示词映射（对标Runway/Sora）
+    const VIDEO_STYLE_PROMPT_MAP: Record<string, string> = {
+      'auto': '',
+      'cinematic': 'cinematic, film grain, anamorphic lens, movie quality',
+      'vivid': 'vibrant colors, high saturation, vivid and lively',
+      'realistic': 'documentary style, realistic, authentic',
+      'anime': 'anime style, cartoon, illustrated',
+      'slow_mo': 'slow motion, dramatic effect',
+      'timelapse': 'time-lapse, accelerated motion',
+    };
+
+    // 构建增强提示词
+    let enhancedPrompt = finalPrompt;
+    if (camera !== 'auto' && CAMERA_PROMPT_MAP[camera]) {
+      enhancedPrompt = `${finalPrompt}. ${CAMERA_PROMPT_MAP[camera]}`;
+    }
+    if (videoStyle !== 'auto' && VIDEO_STYLE_PROMPT_MAP[videoStyle]) {
+      enhancedPrompt = `${enhancedPrompt}. ${VIDEO_STYLE_PROMPT_MAP[videoStyle]}`;
+    }
+
+    // 更新contentItems中的提示词
+    const enhancedContentItems = contentItems.map(item => {
+      if (item.type === "text") {
+        return { ...item, text: enhancedPrompt };
+      }
+      return item;
+    });
+
     // 带超时的视频生成
     const generateVideoWithTimeout = async (): Promise<any> => {
       return Promise.race([
-        videoClient.videoGeneration(contentItems, {
+        videoClient.videoGeneration(enhancedContentItems, {
           duration,
           ratio: "9:16",
           resolution: mode === 'fast' ? '480p' : '720p', // 极速模式降低分辨率加速
@@ -681,6 +723,8 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
         lastFrameUrl: response.lastFrameUrl,
         duration,
         durationType,
+        camera,
+        videoStyle,
         isFree: durationType === "free",
         remainingFreeEdits: remaining.remainingVideoEdits,
         mode,
@@ -717,16 +761,22 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
     const styleConfig = IMAGE_STYLES[style as keyof typeof IMAGE_STYLES] || IMAGE_STYLES.realistic;
     const styledPrompt = `${prompt}, ${styleConfig.keywords}`;
 
-    // 分辨率映射（支持前端传来的分辨率参数）
+    // 分辨率映射（支持前端传来的分辨率参数，对标全网最强：1K/2K/4K）
     const RESOLUTION_MAP: Record<string, string> = {
+      // 1K分辨率（免费）
       'square_1k': '1K',
       'landscape_1k': '1K',
       'portrait_1k': '1K',
       'wide_1k': '1K',
+      // 2K分辨率（5积分）
       'square_2k': '2K',
       'portrait_2k': '2K',
       'landscape_2k': '2K',
       'wide_2k': '2K',
+      // 4K分辨率（15积分，对标Midjourney/DALL-E最高画质）
+      'square_4k': '4K',
+      'portrait_4k': '4K',
+      'wide_4k': '4K',
     };
     const resolutionSize = RESOLUTION_MAP[resolution] || '2K';
 
