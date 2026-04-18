@@ -546,12 +546,31 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
     // 智能Prompt扩展 - 精准理解用户意图（保留原始创意）
     const expandedPrompt = expandPrompt(currentPrompt);
     
-    // 核心：使用原始prompt作为基础（精准保留）
-    let finalImagePrompt = expandedPrompt.analysis.rawPrompt;
+    // 检测是否是融合场景
+    const isFusionPrompt = expandedPrompt.analysis.fusionIntent.isFusion;
     
-    // 仅在质量层面添加增强描述
-    if (expandedPrompt.enhancements.length > 0) {
-      finalImagePrompt = `${finalImagePrompt}，${expandedPrompt.enhancements.join('，')}`;
+    // 核心：构建符合意图的图片Prompt
+    let finalImagePrompt: string;
+    
+    if (isFusionPrompt) {
+      // 融合场景 - 明确构建"创造融合体"Prompt
+      const fusion = expandedPrompt.analysis.fusionIntent;
+      // 构建清晰的融合指令Prompt
+      finalImagePrompt = `创造一个全新的融合生物物种：${fusion.newSpeciesName || '融合萌宠'}。
+融合元素：${fusion.fusionElements.join('和')}。
+要求：
+1. 这是一个有机融合的单一生物，不是多个生物
+2. 外貌特征必须同时体现所有融合元素
+3. 整体风格：${expandedPrompt.enhancements.join('，')}，${fusion.fusionElements.join('，')}特征融合。
+4. 可爱萌宠风格，正面视角，干净背景`;
+    } else {
+      // 普通场景 - 使用原始prompt作为基础（精准保留）
+      finalImagePrompt = expandedPrompt.analysis.rawPrompt;
+      
+      // 仅在质量层面添加增强描述
+      if (expandedPrompt.enhancements.length > 0) {
+        finalImagePrompt = `${finalImagePrompt}，${expandedPrompt.enhancements.join('，')}`;
+      }
     }
     
     // 添加质量描述
@@ -2582,7 +2601,7 @@ function analyzeFusionIntent(userInput: string): FusionIntent {
     fusionDescription: '',
   };
 
-  const fusionKeywords = ['结合', '融合', '创造', '合成', '混搭', '杂交', '新物种', '新角色'];
+  const fusionKeywords = ['结合', '融合', '创造', '合成', '混搭', '杂交', '新物种', '新角色', '和', '与', '跟'];
   
   for (const kw of fusionKeywords) {
     if (userInput.includes(kw)) {
@@ -2594,7 +2613,7 @@ function analyzeFusionIntent(userInput: string): FusionIntent {
 
   if (!result.isFusion) return result;
 
-  // 提取融合元素：特朗普形象和老鹰形象
+  // 提取融合元素：xxx形象
   const elementPattern = /([^\s和与跟以及,，。]+形象)/g;
   let match;
   while ((match = elementPattern.exec(userInput)) !== null) {
@@ -2604,21 +2623,33 @@ function analyzeFusionIntent(userInput: string): FusionIntent {
     }
   }
 
-  // 提取动物名
-  const animalPattern = /([猫狗兔鼠鸟鱼龟蛇蜥蜴龙凤凰鹰老虎狮子熊猫兔]+)/g;
-  while ((match = animalPattern.exec(userInput)) !== null) {
-    if (!result.fusionElements.includes(match[1])) {
-      result.fusionElements.push(match[1]);
+  // 提取"X和Y"或"X与Y"格式的融合元素（排除和/与/跟本身）
+  // 匹配"猫和独角兽"、"老虎与狮子"等常见组合
+  const animalList = '猫|狗|兔|鼠|鸟|鱼|龟|蛇|蜥蜴|龙|凤凰|鹰|老虎|狮子|熊猫|独角兽|狐狸|狼|鹿|豹|鲸|海豚|蝴蝶|蜜蜂|蚂蚁|考拉|树懒|浣熊|水獭|羊驼|羊|牛|马|猪|象|河马|犀牛|斑马|长颈鹿|企鹅|猫头鹰|鹦鹉|鹤|孔雀|天鹅';
+  const andPattern = new RegExp(`(${animalList})\\s*(和|与|跟)\\s*(${animalList})`, 'g');
+  while ((match = andPattern.exec(userInput)) !== null) {
+    const left = match[1].trim();
+    const right = match[3].trim();
+    if (!result.fusionElements.includes(left)) result.fusionElements.push(left);
+    if (!result.fusionElements.includes(right)) result.fusionElements.push(right);
+  }
+
+  // 提取常见动物名（扩展列表）
+  const animals = ['猫', '狗', '兔', '鼠', '鸟', '鱼', '龟', '蛇', '蜥蜴', '龙', '凤凰', '鹰', '老虎', '狮子', '熊猫', '独角兽', '狐狸', '狼', '鹿', '豹', '鲸', '海豚', '蝴蝶', '蜜蜂', '蚂蚁', '熊猫', '考拉', '树懒', '浣熊', '水獭', '羊驼', '羊', '牛', '马', '猪', '象', '河马', '犀牛', '斑马', '长颈鹿', '企鹅', '猫头鹰', '鹦鹉', '鹤', '孔雀', '天鹅'];
+  for (const animal of animals) {
+    if (userInput.includes(animal) && !result.fusionElements.includes(animal)) {
+      result.fusionElements.push(animal);
     }
   }
 
-  // 提取新物种名称
+  // 提取新物种名称（稀字相关）
   const newWordPattern = /([A-Z][a-z]+稀[A-Z][a-z]+|[^\s]{2,4}稀[^\s]{2,4})/;
   const newWordMatch = userInput.match(newWordPattern);
   if (newWordMatch && newWordMatch[1].includes('稀')) {
     result.newSpeciesName = newWordMatch[1];
   }
 
+  // 确保至少有两个融合元素
   if (result.fusionElements.length >= 2) {
     result.fusionDescription = `将${result.fusionElements.join('和')}融合为一个全新个体`;
   }
