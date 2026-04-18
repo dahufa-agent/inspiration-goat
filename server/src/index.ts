@@ -543,16 +543,31 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
       optimizationNote = `已为您优化：${sanitizeResult.reasons.join('；')}`;
     }
     
-    // 智能Prompt扩展 - 精准理解用户意图
+    // 智能Prompt扩展 - 精准理解用户意图（保留原始创意）
     const expandedPrompt = expandPrompt(currentPrompt);
+    
+    // 核心：使用原始prompt作为基础（精准保留）
+    let finalImagePrompt = expandedPrompt.analysis.rawPrompt;
+    
+    // 仅在质量层面添加增强描述
     if (expandedPrompt.enhancements.length > 0) {
-      currentPrompt = expandedPrompt.expanded;
-      const enhancementNote = `已智能扩展：${expandedPrompt.enhancements.join('、')}`;
+      finalImagePrompt = `${finalImagePrompt}，${expandedPrompt.enhancements.join('，')}`;
+    }
+    
+    // 添加质量描述
+    const qualityTerms = ['专业摄影作品', '高清画质', '细节丰富', '构图精美', '色调和谐'];
+    const randomQuality = qualityTerms[Math.floor(Math.random() * qualityTerms.length)];
+    if (!finalImagePrompt.includes(randomQuality)) {
+      finalImagePrompt = `${finalImagePrompt}，${randomQuality}`;
+    }
+    
+    if (expandedPrompt.enhancements.length > 0) {
+      const enhancementNote = `已智能增强：${expandedPrompt.enhancements.join('、')}`;
       optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
     }
     
     // 应用图片风格关键词
-    const styledPrompt = `${currentPrompt}, ${styleConfig.keywords}`;
+    const styledPrompt = `${finalImagePrompt}, ${styleConfig.keywords}`;
 
     let success = false;
     let imageUrls: string[] = [];
@@ -644,10 +659,22 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
     
     // 智能Prompt扩展 - 精准理解用户意图
     const expandedPrompt = expandPrompt(finalPrompt);
+    
+    // 核心：使用原始prompt作为基础（精准保留）
+    finalPrompt = expandedPrompt.analysis.rawPrompt;
+    
+    // 仅在质量层面添加增强描述
     if (expandedPrompt.enhancements.length > 0) {
-      finalPrompt = expandedPrompt.expanded;
-      const enhancementNote = `已智能扩展：${expandedPrompt.enhancements.join('、')}`;
+      finalPrompt = `${finalPrompt}，${expandedPrompt.enhancements.join('，')}`;
+      const enhancementNote = `已智能增强：${expandedPrompt.enhancements.join('、')}`;
       optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
+    }
+    
+    // 添加质量描述
+    const qualityTerms = ['专业摄影作品', '高清画质', '细节丰富', '构图精美', '色调和谐'];
+    const randomQuality = qualityTerms[Math.floor(Math.random() * qualityTerms.length)];
+    if (!finalPrompt.includes(randomQuality)) {
+      finalPrompt = `${finalPrompt}，${randomQuality}`;
     }
 
     // SEO优化处理
@@ -658,29 +685,51 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       seoInstruction = '\n\n请同时优化：1)标题（吸引点击）2)描述（包含关键词）3)正文（有价值内容）';
     }
 
-    // 优化：更精准的System Prompt（支持批量和SEO）
+    // 优化：更精准的System Prompt（支持批量和SEO）- 精准理解版
     let systemPrompt: string;
     if (batchCount > 1) {
-      // 批量生成模式
+      // 批量生成模式 - 精准理解
       systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法批量创作多个不同角度的精准文案。
-核心原则：
-1. 批量创作：为同一条想法生成${batchCount}个不同角度/风格的文案版本
-2. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
-3. 差异性：每个版本要有明显差异，适合A/B测试或备选${seoInstruction}
 
-${styleConfig.prompt}
+【核心原则 - 精准理解】
+1. 精准保留：严格保留用户输入的每一个关键词、实体、情感，不做任何修改或曲解
+2. 批量创作：为同一条想法生成${batchCount}个不同角度/风格的文案版本
+3. 理解升华：深入理解用户的核心诉求，提炼升华而非改变原意
+4. 差异性：每个版本要有明显差异，适合A/B测试或备选
+
+【绝对禁止】
+- 禁止修改用户的原始创意关键词
+- 禁止擅自添加用户未提及的元素
+- 禁止将用户的想法"翻译"成其他意思
+- 禁止改变用户指定的场景、人物、物品
+
+【用户约束必须遵守】
+如果用户有"不能有XX"、"必须是XX"、"只要XX"等约束，必须严格遵守
+
+${styleConfig.prompt}${seoInstruction}
 
 请直接输出${batchCount}个版本的文案，用【版本1】【版本2】...分隔，不需要解释。`;
     } else {
-      // 单条生成模式
+      // 单条生成模式 - 精准理解
       systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法创作精准、有感染力的文案。
-核心原则：
-1. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
-2. 场景化表达：结合具体场景和情绪，让文案有画面感
-3. 平台适配：根据平台特性调整文案风格和长度
-4. 行动引导：引导用户互动或产生共鸣${seoInstruction}
 
-${styleConfig.prompt}
+【核心原则 - 精准理解】
+1. 精准保留：严格保留用户输入的每一个关键词、实体、情感，不做任何修改或曲解
+2. 理解升华：深入理解用户的核心诉求，提炼升华而非改变原意
+3. 场景化表达：结合具体场景和情绪，让文案有画面感
+4. 平台适配：根据平台特性调整文案风格和长度
+5. 行动引导：引导用户互动或产生共鸣
+
+【绝对禁止】
+- 禁止修改用户的原始创意关键词
+- 禁止擅自添加用户未提及的元素
+- 禁止将用户的想法"翻译"成其他意思
+- 禁止改变用户指定的场景、人物、物品
+
+【用户约束必须遵守】
+如果用户有"不能有XX"、"必须是XX"、"只要XX"等约束，必须严格遵守
+
+${styleConfig.prompt}${seoInstruction}
 
 请直接输出文案内容，不需要解释，不要加任何编号或前缀。`;
     }
@@ -751,9 +800,20 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
-    const contentCheck = await isContentAllowed(prompt);
+    // 智能Prompt扩展 - 精准理解用户意图
+    const expandedPrompt = expandPrompt(prompt);
+    
+    // 核心：使用原始prompt作为基础（精准保留）
+    let finalVideoPrompt = expandedPrompt.analysis.rawPrompt;
+    
+    // 仅在质量层面添加增强描述
+    if (expandedPrompt.enhancements.length > 0) {
+      finalVideoPrompt = `${finalVideoPrompt}，${expandedPrompt.enhancements.join('，')}`;
+    }
+    
+    const contentCheck = await isContentAllowed(finalVideoPrompt);
     if (!contentCheck.allowed) return res.status(400).json({ error: contentCheck.reason });
-    const finalPrompt = contentCheck.sanitizedPrompt || prompt;
+    const sanitizedPrompt = contentCheck.sanitizedPrompt || finalVideoPrompt;
 
     const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
     const duration = durationConfig.duration;
@@ -773,8 +833,10 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     if (imageUrl) {
       contentItems.push({ type: "image_url", image_url: { url: imageUrl }, role: "first_frame" });
     }
-    contentItems.push({ type: "text", text: finalPrompt });
-
+    
+    // 精准视频Prompt：保留用户原始创意 + 运镜控制 + 视频风格
+    let enhancedPrompt = sanitizedPrompt;
+    
     // 运镜控制映射（对标可灵Kling大师运镜）
     const CAMERA_PROMPT_MAP: Record<string, string> = {
       'auto': '', // 自动运镜不添加额外提示
@@ -800,10 +862,9 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
       'timelapse': 'time-lapse, accelerated motion',
     };
 
-    // 构建增强提示词
-    let enhancedPrompt = finalPrompt;
+    // 构建增强提示词：用户创意优先 + 运镜 + 风格
     if (camera !== 'auto' && CAMERA_PROMPT_MAP[camera]) {
-      enhancedPrompt = `${finalPrompt}. ${CAMERA_PROMPT_MAP[camera]}`;
+      enhancedPrompt = `${sanitizedPrompt}. ${CAMERA_PROMPT_MAP[camera]}`;
     }
     if (videoStyle !== 'auto' && VIDEO_STYLE_PROMPT_MAP[videoStyle]) {
       enhancedPrompt = `${enhancedPrompt}. ${VIDEO_STYLE_PROMPT_MAP[videoStyle]}`;
@@ -1088,14 +1149,29 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       // 图片生成失败不影响后续
     }
     
-    // 优化：更精准的文案System Prompt
+    // 优化：更精准的文案System Prompt - 思维链精准理解版
     const textSystemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法创作精准、有感染力的文案。
 
-核心原则：
-1. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
-2. 场景化表达：结合具体场景和情绪，让文案有画面感
-3. 平台适配：根据平台特性调整文案风格和长度
-4. 行动引导：引导用户互动或产生共鸣
+【思维链推理 - 请严格按此步骤创作】
+第一步：精准识别
+- 列出用户输入中的所有关键词
+- 识别用户指定的场景、人物、物品、情感
+- 确认用户是否有特殊约束（如：不能有XX、必须是XX）
+
+第二步：严格保留
+- 将第一步识别的所有元素作为创作基础
+- 不修改、不删除、不添加任何原始元素
+
+第三步：升华创作
+- 在保留原始元素的基础上进行升华
+- 添加与用户创意相符的修辞和表达
+- 确保风格与用户指定的氛围一致
+
+【绝对禁止】
+- 禁止修改用户的原始创意关键词
+- 禁止擅自添加用户未提及的元素
+- 禁止将用户的想法"翻译"成其他意思
+- 禁止改变用户指定的场景、人物、物品
 
 ${txtStyleConfig.prompt}
 
@@ -2431,7 +2507,9 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`📝 性能优化: 缓存系统已启用, 任务队列已就绪`);
 });
 
-// ==================== 智能Prompt扩展系统 ====================
+// ==================== 智能Prompt扩展系统 - 精准理解版 ====================
+
+// 核心原则：精准理解用户意图，不曲解、不添加、不修改用户的原始创意
 
 // 场景关键词映射表
 const SCENE_KEYWORDS: { [key: string]: { keywords: string[]; description: string } } = {
@@ -2493,67 +2571,148 @@ const STYLE_ENHANCERS: { [key: string]: { positive: string[]; negative: string[]
   }
 };
 
-// 智能Prompt扩展函数
-function expandPrompt(userInput: string): { expanded: string; scene: string; style: string; enhancements: string[] } {
-  let expanded = userInput;
-  const enhancements: string[] = [];
-  let detectedScene = '';
-  let detectedStyle = '';
+// ==================== 精准意图解析系统 ====================
+// 核心目标：精准理解用户原始创意，保持原意不变
 
-  // 1. 场景识别与关键词扩展
+interface IntentAnalysis {
+  // 原始输入（不做任何修改）
+  original: string;
+  // 识别出的核心实体（人、事、物、场景）
+  coreEntities: string[];
+  // 识别出的动作/状态
+  actions: string[];
+  // 识别出的情感/氛围
+  emotions: string[];
+  // 识别出的约束条件（如：不能有XX、必须是XX）
+  constraints: string[];
+  // 原始prompt（用于生成，保持原样）
+  rawPrompt: string;
+  // 扩展增强描述（仅用于质量提升，不改变核心创意）
+  enhancements: string[];
+  // 检测到的场景
+  scene: string;
+}
+
+/**
+ * 精准意图解析函数
+ * 核心原则：
+ * 1. 保留用户原始输入的所有信息
+ * 2. 识别并记录核心实体，不修改
+ * 3. 仅在视觉/文案质量层面做增强
+ * 4. 不允许改变用户的创意方向
+ */
+function analyzeIntent(userInput: string): IntentAnalysis {
+  const analysis: IntentAnalysis = {
+    original: userInput,
+    coreEntities: [],
+    actions: [],
+    emotions: [],
+    constraints: [],
+    rawPrompt: userInput, // 核心：原始prompt直接作为生成依据
+    enhancements: [],
+    scene: '',
+  };
+
+  // 1. 场景识别（用于选择增强方向，不改变原始输入）
   for (const [scene, config] of Object.entries(SCENE_KEYWORDS)) {
     for (const keyword of config.keywords) {
       if (userInput.includes(keyword)) {
-        detectedScene = config.description;
-        // 添加场景相关的质量描述词
-        const sceneEnhancers = ['高品质', '精美', '专业摄影', '高清', '细腻'];
-        const randomEnhancer = sceneEnhancers[Math.floor(Math.random() * sceneEnhancers.length)];
-        if (!expanded.includes(randomEnhancer)) {
-          enhancements.push(randomEnhancer);
-        }
+        analysis.scene = config.description;
         break;
       }
     }
-    if (detectedScene) break;
+    if (analysis.scene) break;
   }
 
-  // 2. 时间/光线描述增强
+  // 2. 核心实体识别（保留，不修改）
+  const entityPatterns = [
+    // 人物
+    { pattern: /[帅哥美女少男少女男士女士老爷少奶奶爷小姐宝宝孩子]/g, type: 'person' },
+    // 动物
+    { pattern: /[猫狗兔鼠鸟鱼龟蛇蜥蜴龙凤凰]/g, type: 'animal' },
+    // 物体
+    { pattern: /[花树草山河海云月日星阳光雨雪风]/g, type: 'object' },
+    // 场景
+    { pattern: /[海边沙滩森林草原山川河流湖泊大海星空]/g, type: 'scene' },
+  ];
+  
+  for (const { pattern, type } of entityPatterns) {
+    const matches = userInput.match(pattern);
+    if (matches) {
+      analysis.coreEntities.push(...matches);
+    }
+  }
+
+  // 3. 情感/氛围识别（保留）
+  const emotionWords = ['治愈', '温暖', '浪漫', '梦幻', '唯美', '高级', '可爱', '清新', '文艺', '冷淡'];
+  for (const emotion of emotionWords) {
+    if (userInput.includes(emotion)) {
+      analysis.emotions.push(emotion);
+    }
+  }
+
+  // 4. 约束条件识别（必须保留）
+  const constraintPatterns = [
+    /不能有([^，,。]+)/g,
+    /必须是([^，,。]+)/g,
+    /不要([^，,。]+)/g,
+    /只要([^，,。]+)/g,
+    /禁止([^，,。]+)/g,
+    /只能([^，,。]+)/g,
+  ];
+  
+  for (const pattern of constraintPatterns) {
+    let match;
+    while ((match = pattern.exec(userInput)) !== null) {
+      analysis.constraints.push(match[0]);
+    }
+  }
+
+  // 5. 动作/状态识别
+  const actionWords = ['奔跑', '飞翔', '站立', '坐', '躺', '拥抱', '微笑', '凝视', '思考', '沉睡', '跳跃'];
+  for (const action of actionWords) {
+    if (userInput.includes(action)) {
+      analysis.actions.push(action);
+    }
+  }
+
+  // 6. 精准增强（仅视觉质量层面，不改变核心创意）
+  // 时间/光线增强
   const timePatterns = [
     { pattern: /日出|晨|早晨/, addition: '清晨柔和的光线' },
     { pattern: /日落|黄昏|傍晚/, addition: '夕阳温暖的余晖' },
     { pattern: /夜景|晚上|夜晚/, addition: '城市璀璨灯光' },
-    { pattern: /星空|银河|夜晚/, addition: '满天繁星' },
+    { pattern: /星空|银河/, addition: '满天繁星' },
     { pattern: /阴天|雨天|雨天/, addition: '柔和散射光' },
   ];
   
   for (const { pattern, addition } of timePatterns) {
-    if (pattern.test(userInput) && !expanded.includes(addition)) {
-      enhancements.push(addition);
-      break;
+    if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
+      analysis.enhancements.push(addition);
     }
   }
 
-  // 3. 色彩描述增强
+  // 色彩增强
   const colorPatterns = [
-    { pattern: /蓝色|蓝天|大海/, colors: ['蔚蓝', '天蓝色', '海天一色'] },
-    { pattern: /绿色|森林|草原/, colors: ['翠绿', '清新自然', '生机勃勃'] },
-    { pattern: /粉色|樱花|浪漫/, colors: ['粉嫩', '少女心', '梦幻粉'] },
-    { pattern: /金色|日落|夕阳/, colors: ['金色光芒', '温暖金色调', '灿烂金黄'] },
-    { pattern: /白色|雪|纯净/, colors: ['纯净洁白', '素雅清新', '简洁干净'] },
+    { pattern: /蓝色|蓝天|大海/, colors: ['蔚蓝', '天蓝色'] },
+    { pattern: /绿色|森林|草原/, colors: ['翠绿', '清新自然'] },
+    { pattern: /粉色|樱花|浪漫/, colors: ['粉嫩', '少女心'] },
+    { pattern: /金色|日落|夕阳/, colors: ['金色光芒', '温暖金色调'] },
+    { pattern: /白色|雪|纯净/, colors: ['纯净洁白', '素雅清新'] },
   ];
   
   for (const { pattern, colors } of colorPatterns) {
     if (pattern.test(userInput)) {
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      if (!expanded.includes(randomColor)) {
-        enhancements.push(randomColor);
+      if (!analysis.enhancements.includes(randomColor)) {
+        analysis.enhancements.push(randomColor);
       }
       break;
     }
   }
 
-  // 4. 情绪/氛围描述增强
-  const emotionPatterns = [
+  // 情绪增强
+  const emotionEnhancements = [
     { pattern: /治愈|温暖|温馨/, addition: '温馨治愈的氛围' },
     { pattern: /文艺|小清新|简约/, addition: '文艺清新的气质' },
     { pattern: /梦幻|浪漫|唯美/, addition: '梦幻唯美的意境' },
@@ -2561,19 +2720,40 @@ function expandPrompt(userInput: string): { expanded: string; scene: string; sty
     { pattern: /可爱|萌|软萌/, addition: '可爱软萌的感觉' },
   ];
   
-  for (const { pattern, addition } of emotionPatterns) {
-    if (pattern.test(userInput) && !expanded.includes(addition)) {
-      enhancements.push(addition);
-      break;
+  for (const { pattern, addition } of emotionEnhancements) {
+    if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
+      analysis.enhancements.push(addition);
     }
   }
 
-  // 5. 构建扩展后的Prompt
-  if (enhancements.length > 0) {
-    expanded = `${userInput}，${enhancements.join('，')}`;
+  return analysis;
+}
+
+/**
+ * 智能Prompt扩展函数 - 精准版
+ * 核心原则：
+ * 1. rawPrompt作为生成依据，完全保留原始创意
+ * 2. enhancements仅用于质量提升
+ * 3. 不对原始输入做任何语义修改
+ */
+function expandPrompt(userInput: string): { 
+  expanded: string; 
+  scene: string; 
+  enhancements: string[];
+  analysis: IntentAnalysis;
+} {
+  // 精准意图分析
+  const analysis = analyzeIntent(userInput);
+  
+  // 核心：使用原始输入作为生成基础（不改变）
+  let expanded = analysis.rawPrompt;
+  
+  // 仅在质量层面添加增强描述
+  if (analysis.enhancements.length > 0) {
+    expanded = `${analysis.rawPrompt}，${analysis.enhancements.join('，')}`;
   }
 
-  // 6. 添加通用质量描述
+  // 添加通用质量描述（不改变创意方向）
   const qualityTerms = ['专业摄影作品', '高清画质', '细节丰富', '构图精美', '色调和谐'];
   const randomQuality = qualityTerms[Math.floor(Math.random() * qualityTerms.length)];
   if (!expanded.includes(randomQuality)) {
@@ -2582,9 +2762,9 @@ function expandPrompt(userInput: string): { expanded: string; scene: string; sty
 
   return {
     expanded,
-    scene: detectedScene,
-    style: detectedStyle,
-    enhancements
+    scene: analysis.scene,
+    enhancements: analysis.enhancements,
+    analysis,
   };
 }
 
