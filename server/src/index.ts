@@ -685,9 +685,36 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       seoInstruction = '\n\n请同时优化：1)标题（吸引点击）2)描述（包含关键词）3)正文（有价值内容）';
     }
 
-    // 优化：更精准的System Prompt（支持批量和SEO）- 精准理解版
+    // 优化：更精准的System Prompt（支持批量和SEO + 创意融合场景）- 精准理解版
     let systemPrompt: string;
-    if (batchCount > 1) {
+    
+    // 检测是否是融合场景
+    const isFusionPrompt = expandedPrompt.analysis.fusionIntent.isFusion;
+    
+    if (isFusionPrompt) {
+      // 融合场景模式 - 强化理解
+      const fusion = expandedPrompt.analysis.fusionIntent;
+      systemPrompt = `你是一位资深创意文案师，擅长创作"融合创意"类内容。
+
+【核心任务 - 创意融合】
+用户想要创造一个融合多个元素的新物种，这是核心任务。
+融合元素：${fusion.fusionElements.join('、')}
+${fusion.newSpeciesName ? `新物种名称：${fusion.newSpeciesName}` : ''}
+
+【创作要求】
+1. 精准理解：严格按照用户给出的融合元素进行创作
+2. 有机融合：创造一个融合体，而不是简单罗列各个元素
+3. 新物种描述：描述这个新物种的外貌、性格、能力等
+4. 保持可爱：确保新物种萌萌哒、可爱
+
+【绝对禁止】
+- 禁止将融合元素分别展示（如：一只是XX，一只是XX）
+- 禁止分别描述各个元素
+- 禁止添加用户未提及的元素
+- 禁止改变新物种的核心特征
+
+请基于这个融合创意，创作一段介绍这个新物种的文案。`;
+    } else if (batchCount > 1) {
       // 批量生成模式 - 精准理解
       systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法批量创作多个不同角度的精准文案。
 
@@ -734,9 +761,27 @@ ${styleConfig.prompt}${seoInstruction}
 请直接输出文案内容，不需要解释，不要加任何编号或前缀。`;
     }
 
+    // 根据场景类型选择用户提示词
+    let userPrompt: string;
+    if (isFusionPrompt) {
+      const fusion = expandedPrompt.analysis.fusionIntent;
+      userPrompt = `用户创意：${finalPrompt}
+
+融合元素：${fusion.fusionElements.join('、')}
+${fusion.newSpeciesName ? `新物种名称：${fusion.newSpeciesName}` : ''}
+
+请基于这个融合创意，创作一段介绍这个新物种的文案。要求：
+1. 描述这个新物种的外貌特征（融合了各个元素）
+2. 描述它的性格特点
+3. 有趣且富有想象力
+4. 保持可爱萌萌的风格`;
+    } else {
+      userPrompt = `用户想法：${finalPrompt}\n\n${batchCount > 1 ? `请生成${batchCount}个不同角度的文案版本。` : '请基于这个想法，生成一段精准有感染力的文案。'}`;
+    }
+
     const messages: Message[] = [
       { role: "system" as const, content: systemPrompt },
-      { role: "user" as const, content: `用户想法：${finalPrompt}\n\n${batchCount > 1 ? `请生成${batchCount}个不同角度的文案版本。` : '请基于这个想法，生成一段精准有感染力的文案。'}` },
+      { role: "user" as const, content: userPrompt },
     ];
 
     // 带超时的文案生成
@@ -2507,11 +2552,81 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`📝 性能优化: 缓存系统已启用, 任务队列已就绪`);
 });
 
+
 // ==================== 智能Prompt扩展系统 - 精准理解版 ====================
 
 // 核心原则：精准理解用户意图，不曲解、不添加、不修改用户的原始创意
 
-// 场景关键词映射表
+// ==================== 创意融合识别系统 ====================
+// 专门处理"结合A和B创造新物种"等创意融合类prompt
+
+interface FusionIntent {
+  isFusion: boolean;
+  fusionKeyword: string;
+  fusionElements: string[];
+  newSpeciesName: string;
+  fusionDescription: string;
+}
+
+/**
+ * 精准识别创意融合意图
+ * 例如："创作结合特朗普形象和老鹰形象的特拉稀萌宠"
+ * 识别出：需要融合"特朗普形象"和"老鹰形象"来创造一个叫"特拉稀萌宠"的新物种
+ */
+function analyzeFusionIntent(userInput: string): FusionIntent {
+  const result: FusionIntent = {
+    isFusion: false,
+    fusionKeyword: '',
+    fusionElements: [],
+    newSpeciesName: '',
+    fusionDescription: '',
+  };
+
+  const fusionKeywords = ['结合', '融合', '创造', '合成', '混搭', '杂交', '新物种', '新角色'];
+  
+  for (const kw of fusionKeywords) {
+    if (userInput.includes(kw)) {
+      result.isFusion = true;
+      result.fusionKeyword = kw;
+      break;
+    }
+  }
+
+  if (!result.isFusion) return result;
+
+  // 提取融合元素：特朗普形象和老鹰形象
+  const elementPattern = /([^\s和与跟以及,，。]+形象)/g;
+  let match;
+  while ((match = elementPattern.exec(userInput)) !== null) {
+    const element = match[1].replace('形象', '').trim();
+    if (!result.fusionElements.includes(element) && element.length > 1) {
+      result.fusionElements.push(element);
+    }
+  }
+
+  // 提取动物名
+  const animalPattern = /([猫狗兔鼠鸟鱼龟蛇蜥蜴龙凤凰鹰老虎狮子熊猫兔]+)/g;
+  while ((match = animalPattern.exec(userInput)) !== null) {
+    if (!result.fusionElements.includes(match[1])) {
+      result.fusionElements.push(match[1]);
+    }
+  }
+
+  // 提取新物种名称
+  const newWordPattern = /([A-Z][a-z]+稀[A-Z][a-z]+|[^\s]{2,4}稀[^\s]{2,4})/;
+  const newWordMatch = userInput.match(newWordPattern);
+  if (newWordMatch && newWordMatch[1].includes('稀')) {
+    result.newSpeciesName = newWordMatch[1];
+  }
+
+  if (result.fusionElements.length >= 2) {
+    result.fusionDescription = `将${result.fusionElements.join('和')}融合为一个全新个体`;
+  }
+
+  return result;
+}
+
+// ==================== 场景关键词映射表
 const SCENE_KEYWORDS: { [key: string]: { keywords: string[]; description: string } } = {
   scenery: {
     keywords: ['海边', '日落', '日出', '森林', '草原', '山川', '河流', '湖泊', '大海', '沙滩', '星空', '银河', '云海', '瀑布', '雪山', '沙漠', '古镇', '城市夜景', '樱花', '枫叶', '竹林'],
@@ -2526,81 +2641,40 @@ const SCENE_KEYWORDS: { [key: string]: { keywords: string[]; description: string
     description: '美食'
   },
   animal: {
-    keywords: ['猫咪', '狗狗', '宠物', '动物', '猫咪', '柴犬', '柯基', '金毛', '哈士奇', '布偶猫', '橘猫', '仓鼠', '兔子', '鸟类', '小动物', '萌宠', '猫狗', '爬宠', '水族', '宠物'],
+    keywords: ['猫咪', '狗狗', '宠物', '动物', '柴犬', '柯基', '金毛', '哈士奇', '布偶猫', '橘猫', '仓鼠', '兔子', '鸟类', '小动物', '萌宠', '爬宠', '水族'],
     description: '萌宠'
   },
   product: {
-    keywords: ['产品', '商品', '电商', '广告', '展示', '模特', '包装', '设计', '创意', '品牌', '店铺', '橱窗', '陈列', '道具', '配饰', '服装', '鞋包', '首饰', '美妆', '护肤'],
+    keywords: ['产品', '商品', '电商', '广告', '展示', '模特', '包装', '设计', '创意', '品牌', '店铺', '橱窗', '陈列'],
     description: '产品'
   },
   festival: {
-    keywords: ['春节', '中秋', '端午', '圣诞', '新年', '情人节', '万圣节', '感恩节', '元宵', '重阳', '七夕', '母亲节', '父亲节', '生日', '周年', '纪念日', '节日', '假期', '派对', '聚会'],
+    keywords: ['春节', '中秋', '端午', '圣诞', '新年', '情人节', '万圣节', '感恩节', '元宵', '重阳', '七夕', '母亲节', '父亲节', '生日'],
     description: '节日'
   },
   lifestyle: {
-    keywords: ['生活', '日常', '家居', '装饰', '收纳', '绿植', '书房', '卧室', '客厅', '厨房', '阳台', '花园', '露营', '旅行', '健身', '瑜伽', '阅读', '音乐', '咖啡时光', '下午茶'],
+    keywords: ['生活', '日常', '家居', '装饰', '收纳', '绿植', '书房', '卧室', '客厅', '厨房', '阳台', '花园', '露营', '旅行', '健身', '瑜伽', '阅读'],
     description: '生活'
   },
   emotion: {
-    keywords: ['心情', '情感', '治愈', '温暖', '文艺', '小清新', '浪漫', '梦幻', '唯美', '复古', 'ins风', '简约', '冷淡', '高级感', '氛围感', '情绪', '文案', '语录', '感悟', '故事'],
+    keywords: ['心情', '情感', '治愈', '温暖', '文艺', '小清新', '浪漫', '梦幻', '唯美', '复古', 'ins风', '简约', '冷淡', '高级感', '氛围感'],
     description: '情感'
   }
 };
 
-// 风格增强词缀
-const STYLE_ENHANCERS: { [key: string]: { positive: string[]; negative: string[] } } = {
-  xiaohongshu: {
-    positive: ['高级感', '氛围感', '精致', 'ins风', '法式', '北欧', '日系', '韩系'],
-    negative: ['模糊', '杂乱', '俗气', '土味']
-  },
-  douyin: {
-    positive: ['视觉冲击', '震撼', '大片感', '电影感', '爆款', '出圈', '高颜值'],
-    negative: ['平淡', '无聊', '普通']
-  },
-  gzh: {
-    positive: ['深度', '专业', '有见地', '有观点', '逻辑清晰', '有深度'],
-    negative: ['浅薄', '流水账', '空洞']
-  },
-  zhihu: {
-    positive: ['专业', '有据可查', '数据支撑', '分析透彻', '客观', '理性'],
-    negative: ['主观', '情绪化', '没有依据']
-  },
-  general: {
-    positive: ['精炼', '有力', '有感染力', '重点突出', '易记'],
-    negative: ['冗长', '废话', '跑题']
-  }
-};
-
 // ==================== 精准意图解析系统 ====================
-// 核心目标：精准理解用户原始创意，保持原意不变
-
 interface IntentAnalysis {
-  // 原始输入（不做任何修改）
   original: string;
-  // 识别出的核心实体（人、事、物、场景）
   coreEntities: string[];
-  // 识别出的动作/状态
   actions: string[];
-  // 识别出的情感/氛围
   emotions: string[];
-  // 识别出的约束条件（如：不能有XX、必须是XX）
   constraints: string[];
-  // 原始prompt（用于生成，保持原样）
   rawPrompt: string;
-  // 扩展增强描述（仅用于质量提升，不改变核心创意）
   enhancements: string[];
-  // 检测到的场景
   scene: string;
+  fusionIntent: FusionIntent;
 }
 
-/**
- * 精准意图解析函数
- * 核心原则：
- * 1. 保留用户原始输入的所有信息
- * 2. 识别并记录核心实体，不修改
- * 3. 仅在视觉/文案质量层面做增强
- * 4. 不允许改变用户的创意方向
- */
 function analyzeIntent(userInput: string): IntentAnalysis {
   const analysis: IntentAnalysis = {
     original: userInput,
@@ -2608,59 +2682,48 @@ function analyzeIntent(userInput: string): IntentAnalysis {
     actions: [],
     emotions: [],
     constraints: [],
-    rawPrompt: userInput, // 核心：原始prompt直接作为生成依据
+    rawPrompt: userInput,
     enhancements: [],
     scene: '',
+    fusionIntent: { isFusion: false, fusionKeyword: '', fusionElements: [], newSpeciesName: '', fusionDescription: '' },
   };
 
-  // 1. 场景识别（用于选择增强方向，不改变原始输入）
-  for (const [scene, config] of Object.entries(SCENE_KEYWORDS)) {
-    for (const keyword of config.keywords) {
-      if (userInput.includes(keyword)) {
-        analysis.scene = config.description;
-        break;
-      }
-    }
-    if (analysis.scene) break;
-  }
-
-  // 2. 核心实体识别（保留，不修改）
-  const entityPatterns = [
-    // 人物
-    { pattern: /[帅哥美女少男少女男士女士老爷少奶奶爷小姐宝宝孩子]/g, type: 'person' },
-    // 动物
-    { pattern: /[猫狗兔鼠鸟鱼龟蛇蜥蜴龙凤凰]/g, type: 'animal' },
-    // 物体
-    { pattern: /[花树草山河海云月日星阳光雨雪风]/g, type: 'object' },
-    // 场景
-    { pattern: /[海边沙滩森林草原山川河流湖泊大海星空]/g, type: 'scene' },
-  ];
+  // 优先识别创意融合意图（最高优先级）
+  analysis.fusionIntent = analyzeFusionIntent(userInput);
   
-  for (const { pattern, type } of entityPatterns) {
-    const matches = userInput.match(pattern);
-    if (matches) {
-      analysis.coreEntities.push(...matches);
+  if (analysis.fusionIntent.isFusion) {
+    analysis.scene = '萌宠';
+    analysis.enhancements.push('可爱', '软萌', '卡通风格');
+  } else {
+    for (const [scene, config] of Object.entries(SCENE_KEYWORDS)) {
+      for (const keyword of config.keywords) {
+        if (userInput.includes(keyword)) {
+          analysis.scene = config.description;
+          break;
+        }
+      }
+      if (analysis.scene) break;
     }
   }
 
-  // 3. 情感/氛围识别（保留）
+  // 核心实体识别
+  const entityPatterns = [
+    { pattern: /[帅哥美女少男少女男士女士老爷少奶奶爷小姐宝宝孩子特朗普拜登奥巴马]+/g, type: 'person' },
+    { pattern: /[猫狗兔鼠鸟鱼龟蛇蜥蜴龙凤凰鹰老虎狮子熊猫兔猫咪狗狗]+/g, type: 'animal' },
+  ];
+  for (const { pattern } of entityPatterns) {
+    const matches = userInput.match(pattern);
+    if (matches) analysis.coreEntities.push(...matches);
+  }
+
+  // 情感识别
   const emotionWords = ['治愈', '温暖', '浪漫', '梦幻', '唯美', '高级', '可爱', '清新', '文艺', '冷淡'];
   for (const emotion of emotionWords) {
-    if (userInput.includes(emotion)) {
-      analysis.emotions.push(emotion);
-    }
+    if (userInput.includes(emotion)) analysis.emotions.push(emotion);
   }
 
-  // 4. 约束条件识别（必须保留）
-  const constraintPatterns = [
-    /不能有([^，,。]+)/g,
-    /必须是([^，,。]+)/g,
-    /不要([^，,。]+)/g,
-    /只要([^，,。]+)/g,
-    /禁止([^，,。]+)/g,
-    /只能([^，,。]+)/g,
-  ];
-  
+  // 约束条件识别
+  const constraintPatterns = [/不能有([^，,。]+)/g, /必须是([^，,。]+)/g, /不要([^，,。]+)/g];
   for (const pattern of constraintPatterns) {
     let match;
     while ((match = pattern.exec(userInput)) !== null) {
@@ -2668,61 +2731,17 @@ function analyzeIntent(userInput: string): IntentAnalysis {
     }
   }
 
-  // 5. 动作/状态识别
-  const actionWords = ['奔跑', '飞翔', '站立', '坐', '躺', '拥抱', '微笑', '凝视', '思考', '沉睡', '跳跃'];
-  for (const action of actionWords) {
-    if (userInput.includes(action)) {
-      analysis.actions.push(action);
-    }
-  }
-
-  // 6. 精准增强（仅视觉质量层面，不改变核心创意）
-  // 时间/光线增强
-  const timePatterns = [
-    { pattern: /日出|晨|早晨/, addition: '清晨柔和的光线' },
-    { pattern: /日落|黄昏|傍晚/, addition: '夕阳温暖的余晖' },
-    { pattern: /夜景|晚上|夜晚/, addition: '城市璀璨灯光' },
-    { pattern: /星空|银河/, addition: '满天繁星' },
-    { pattern: /阴天|雨天|雨天/, addition: '柔和散射光' },
-  ];
-  
-  for (const { pattern, addition } of timePatterns) {
-    if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
-      analysis.enhancements.push(addition);
-    }
-  }
-
-  // 色彩增强
-  const colorPatterns = [
-    { pattern: /蓝色|蓝天|大海/, colors: ['蔚蓝', '天蓝色'] },
-    { pattern: /绿色|森林|草原/, colors: ['翠绿', '清新自然'] },
-    { pattern: /粉色|樱花|浪漫/, colors: ['粉嫩', '少女心'] },
-    { pattern: /金色|日落|夕阳/, colors: ['金色光芒', '温暖金色调'] },
-    { pattern: /白色|雪|纯净/, colors: ['纯净洁白', '素雅清新'] },
-  ];
-  
-  for (const { pattern, colors } of colorPatterns) {
-    if (pattern.test(userInput)) {
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      if (!analysis.enhancements.includes(randomColor)) {
-        analysis.enhancements.push(randomColor);
+  // 精准增强（非融合场景）
+  if (!analysis.fusionIntent.isFusion) {
+    const emotionEnhancements = [
+      { pattern: /治愈|温暖|温馨/, addition: '温馨治愈的氛围' },
+      { pattern: /可爱|萌|软萌/, addition: '可爱软萌的感觉' },
+      { pattern: /梦幻|浪漫|唯美/, addition: '梦幻唯美的意境' },
+    ];
+    for (const { pattern, addition } of emotionEnhancements) {
+      if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
+        analysis.enhancements.push(addition);
       }
-      break;
-    }
-  }
-
-  // 情绪增强
-  const emotionEnhancements = [
-    { pattern: /治愈|温暖|温馨/, addition: '温馨治愈的氛围' },
-    { pattern: /文艺|小清新|简约/, addition: '文艺清新的气质' },
-    { pattern: /梦幻|浪漫|唯美/, addition: '梦幻唯美的意境' },
-    { pattern: /高级|质感|轻奢/, addition: '高级有质感的画面' },
-    { pattern: /可爱|萌|软萌/, addition: '可爱软萌的感觉' },
-  ];
-  
-  for (const { pattern, addition } of emotionEnhancements) {
-    if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
-      analysis.enhancements.push(addition);
     }
   }
 
@@ -2730,30 +2749,43 @@ function analyzeIntent(userInput: string): IntentAnalysis {
 }
 
 /**
- * 智能Prompt扩展函数 - 精准版
- * 核心原则：
- * 1. rawPrompt作为生成依据，完全保留原始创意
- * 2. enhancements仅用于质量提升
- * 3. 不对原始输入做任何语义修改
+ * 构建融合专属Prompt
+ * 专门处理"结合A和B创造新物种"类型的创意
  */
+function buildFusionPrompt(analysis: IntentAnalysis): string {
+  if (!analysis.fusionIntent.isFusion) return analysis.rawPrompt;
+
+  const fusion = analysis.fusionIntent;
+  if (fusion.fusionElements.length < 2) return analysis.rawPrompt;
+
+  let fusionPrompt = `创造一个融合${fusion.fusionElements.join('和')}特征的全新物种`;
+  
+  if (fusion.newSpeciesName) {
+    fusionPrompt += `，名为"${fusion.newSpeciesName}"`;
+  }
+  
+  fusionPrompt += `。这个新物种要同时具有${fusion.fusionElements.join('和')}的核心特征，是有机融合而非简单叠加。`;
+  fusionPrompt += `原始创意：${analysis.original}。`;
+
+  return fusionPrompt;
+}
+
 function expandPrompt(userInput: string): { 
   expanded: string; 
   scene: string; 
   enhancements: string[];
   analysis: IntentAnalysis;
 } {
-  // 精准意图分析
   const analysis = analyzeIntent(userInput);
   
-  // 核心：使用原始输入作为生成基础（不改变）
   let expanded = analysis.rawPrompt;
   
-  // 仅在质量层面添加增强描述
-  if (analysis.enhancements.length > 0) {
+  if (analysis.fusionIntent.isFusion) {
+    expanded = buildFusionPrompt(analysis);
+  } else if (analysis.enhancements.length > 0) {
     expanded = `${analysis.rawPrompt}，${analysis.enhancements.join('，')}`;
   }
 
-  // 添加通用质量描述（不改变创意方向）
   const qualityTerms = ['专业摄影作品', '高清画质', '细节丰富', '构图精美', '色调和谐'];
   const randomQuality = qualityTerms[Math.floor(Math.random() * qualityTerms.length)];
   if (!expanded.includes(randomQuality)) {
@@ -2768,21 +2800,7 @@ function expandPrompt(userInput: string): {
   };
 }
 
-// 获取场景对应的文案风格
-function getSceneTextStyle(scene: string): string {
-  const sceneToStyle: { [key: string]: string } = {
-    '人像': 'xiaohongshu',
-    '美食': 'douyin',
-    '风景': 'general',
-    '萌宠': 'xiaohongshu',
-    '产品': 'douyin',
-    '节日': 'xiaohongshu',
-    '生活': 'general',
-    '情感': 'general',
-  };
-  return sceneToStyle[scene] || 'general';
-}
-
+// 敏感词过滤函数
 // ==================== 敏感词过滤函数 ====================
 function sanitizeImagePrompt(prompt: string): { sanitized: string; reasons: string[] } {
   let sanitized = prompt;
