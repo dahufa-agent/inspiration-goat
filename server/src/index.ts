@@ -5,6 +5,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import type { Request, Response } from "express";
 import path from "path";
+import cors from "cors";
+import compression from "compression";
 import {
   ImageGenerationClient,
   VideoGenerationClient,
@@ -495,17 +497,17 @@ app.post("/api/v1/generate/image", async (req: Request, res: Response) => {
   }
 });
 
-// ==================== 优化：生成文案（支持多平台风格 + 智能Prompt扩展） ====================
+// ==================== 优化：生成文案（支持多平台风格 + 批量生成 + SEO优化）====================
 app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
   try {
-    const { prompt, style = 'general', platform = 'general' } = req.body;
+    const { prompt, style = 'general', platform = 'general', batchCount = 1, seoOption = 'none' } = req.body;
     const mode = (req.headers['x-mode'] as string) || 'fast';
     const timeout = mode === 'fast' ? 15000 : 30000; // 优化：大幅缩短超时
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
-    // 检查缓存
-    const cacheKey = `text:${prompt}:${style}:${platform}:${mode}`;
+    // 检查缓存（包含批量和SEO参数）
+    const cacheKey = `text:${prompt}:${style}:${platform}:${mode}:${batchCount}:${seoOption}`;
     const cached = getCache<any>(cacheKey);
     if (cached) {
       return res.json({ ...cached, cached: true });
@@ -531,22 +533,44 @@ app.post("/api/v1/generate/text", async (req: Request, res: Response) => {
       optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
     }
 
-    // 优化：更精准的System Prompt
-    const systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法创作精准、有感染力的文案。
+    // SEO优化处理
+    let seoInstruction = '';
+    if (seoOption === 'keywords') {
+      seoInstruction = '\n\n请在文案中自然融入SEO关键词，提升搜索引擎排名。';
+    } else if (seoOption === 'full_seo') {
+      seoInstruction = '\n\n请同时优化：1)标题（吸引点击）2)描述（包含关键词）3)正文（有价值内容）';
+    }
 
+    // 优化：更精准的System Prompt（支持批量和SEO）
+    let systemPrompt: string;
+    if (batchCount > 1) {
+      // 批量生成模式
+      systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法批量创作多个不同角度的精准文案。
+核心原则：
+1. 批量创作：为同一条想法生成${batchCount}个不同角度/风格的文案版本
+2. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
+3. 差异性：每个版本要有明显差异，适合A/B测试或备选${seoInstruction}
+
+${styleConfig.prompt}
+
+请直接输出${batchCount}个版本的文案，用【版本1】【版本2】...分隔，不需要解释。`;
+    } else {
+      // 单条生成模式
+      systemPrompt = `你是一位资深创意文案师，擅长根据用户的简短想法创作精准、有感染力的文案。
 核心原则：
 1. 精准理解：深入理解用户的核心诉求，不是简单复述，而是提炼升华
 2. 场景化表达：结合具体场景和情绪，让文案有画面感
 3. 平台适配：根据平台特性调整文案风格和长度
-4. 行动引导：引导用户互动或产生共鸣
+4. 行动引导：引导用户互动或产生共鸣${seoInstruction}
 
 ${styleConfig.prompt}
 
 请直接输出文案内容，不需要解释，不要加任何编号或前缀。`;
+    }
 
     const messages: Message[] = [
       { role: "system" as const, content: systemPrompt },
-      { role: "user" as const, content: `用户想法：${finalPrompt}\n\n请基于这个想法，生成一段精准有感染力的文案。` },
+      { role: "user" as const, content: `用户想法：${finalPrompt}\n\n${batchCount > 1 ? `请生成${batchCount}个不同角度的文案版本。` : '请基于这个想法，生成一段精准有感染力的文案。'}` },
     ];
 
     // 带超时的文案生成
@@ -561,12 +585,32 @@ ${styleConfig.prompt}
 
     const response = await invokeWithTimeout();
 
+    // 批量生成时解析多版本
+    let texts: string[] = [];
+    if (batchCount > 1 && response.content) {
+      // 解析批量生成的文案
+      const regex = /【版本(\d+)】[\s\n]*(.*?)(?=【版本\d+】|$)/gs;
+      let match;
+      while ((match = regex.exec(response.content)) !== null) {
+        texts.push(match[2].trim());
+      }
+      if (texts.length === 0) {
+        // 如果解析失败，按段落分割
+        texts = response.content.split(/\n\n+/).filter((t: string) => t.trim().length > 10);
+      }
+    } else {
+      texts = [response.content];
+    }
+
     const result = { 
-      text: response.content, 
+      texts,
+      text: texts[0] || response.content, // 兼容旧版
       optimizationNote, 
       style, 
       platform, 
       mode,
+      batchCount,
+      seoOption,
       promptAnalysis: expandedPrompt // 返回Prompt分析结果
     };
     setCache(cacheKey, result);
@@ -653,10 +697,10 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
   }
 });
 
-// ==================== 优化：批量生成图片 ====================
+// ==================== 优化：批量生成图片（支持分辨率选择）====================
 app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
   try {
-    const { prompt, style = 'realistic' } = req.body;
+    const { prompt, style = 'realistic', resolution = 'square_2k' } = req.body;
     const deviceId = (req.headers["x-device-id"] as string) || "default";
     
     if (!prompt) return res.status(400).json({ error: "prompt is required" });
@@ -673,6 +717,19 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
     const styleConfig = IMAGE_STYLES[style as keyof typeof IMAGE_STYLES] || IMAGE_STYLES.realistic;
     const styledPrompt = `${prompt}, ${styleConfig.keywords}`;
 
+    // 分辨率映射（支持前端传来的分辨率参数）
+    const RESOLUTION_MAP: Record<string, string> = {
+      'square_1k': '1K',
+      'landscape_1k': '1K',
+      'portrait_1k': '1K',
+      'wide_1k': '1K',
+      'square_2k': '2K',
+      'portrait_2k': '2K',
+      'landscape_2k': '2K',
+      'wide_2k': '2K',
+    };
+    const resolutionSize = RESOLUTION_MAP[resolution] || '2K';
+
     const customHeaders = HeaderUtils.extractForwardHeaders(req.headers as Record<string, string>);
     const config = new Config();
     const imgClient = new ImageGenerationClient(config, customHeaders);
@@ -681,7 +738,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
     let optimizationNote: string | undefined;
 
     try {
-      const requests = Array(count).fill(null).map(() => ({ prompt: currentPrompt, size: "2K", watermark: false }));
+      const requests = Array(count).fill(null).map(() => ({ prompt: currentPrompt, size: resolutionSize, watermark: false }));
       await imgClient.batchGenerate(requests);
     } catch (error: any) {
       const isSensitiveError = error?.response?.error?.code === 'InputTextSensitiveContentDetected';
@@ -694,7 +751,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       }
     }
 
-    const requests = Array(count).fill(null).map(() => ({ prompt: currentPrompt, size: "2K", watermark: false }));
+    const requests = Array(count).fill(null).map(() => ({ prompt: currentPrompt, size: resolutionSize, watermark: false }));
     const responses = await imgClient.batchGenerate(requests);
 
     const imageUrls: string[] = [];
@@ -706,7 +763,7 @@ app.post("/api/v1/generate/images", async (req: Request, res: Response) => {
       }
     });
 
-    res.json({ imageUrls, totalGenerated: imageUrls.length, perBatch: DAILY_LIMITS.images.perBatch, remaining: DAILY_LIMITS.images.maxPerDay - data.imageCount, maxPerDay: DAILY_LIMITS.images.maxPerDay, optimizationNote, style });
+    res.json({ imageUrls, totalGenerated: imageUrls.length, perBatch: DAILY_LIMITS.images.perBatch, remaining: DAILY_LIMITS.images.maxPerDay - data.imageCount, maxPerDay: DAILY_LIMITS.images.maxPerDay, optimizationNote, style, resolution: resolutionSize });
   } catch (error) {
     console.error("Image batch generation error:", error);
     res.status(500).json({ error: "Image generation failed" });

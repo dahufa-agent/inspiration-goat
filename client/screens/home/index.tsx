@@ -7,6 +7,7 @@ import {
   TouchableWithoutFeedback,
   StyleSheet,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ActivityIndicator,
   ScrollView,
@@ -60,6 +61,30 @@ const PERFORMANCE_MODES = {
   },
 };
 
+// ==================== 新增：图片分辨率选择配置（对标全网最强）====================
+const IMAGE_RESOLUTIONS = [
+  { id: 'square_1k', name: '1K方图', size: '1024×1024', aspect: '1:1', price: '免费', description: '小红书/朋友圈' },
+  { id: 'landscape_1k', name: '1K横图', size: '1024×768', aspect: '4:3', price: '免费', description: '微博/公众号' },
+  { id: 'portrait_1k', name: '1K竖图', size: '768×1024', aspect: '3:4', price: '免费', description: '抖音/小红书' },
+  { id: 'wide_1k', name: '1K宽图', size: '1024×576', aspect: '16:9', price: '免费', description: 'B站/视频封面' },
+  { id: 'square_2k', name: '2K方图', size: '2048×2048', aspect: '1:1', price: '5积分', description: '高清打印/壁纸' },
+  { id: 'portrait_2k', name: '2K竖图', size: '1536×2048', aspect: '3:4', price: '5积分', description: '手机壁纸' },
+];
+
+// ==================== 新增：文案批量生成配置 ====================
+const TEXT_BATCH_OPTIONS = [
+  { id: 1, name: '生成1条', count: 1, price: '免费' },
+  { id: 3, name: '批量3条', count: 3, price: '5积分' },
+  { id: 5, name: '批量5条', count: 5, price: '10积分' },
+];
+
+// ==================== 新增：文案SEO优化配置 ====================
+const SEO_OPTIONS = [
+  { id: 'none', name: '不优化', desc: '保持原样' },
+  { id: 'keywords', name: '关键词优化', desc: '自动植入SEO关键词' },
+  { id: 'full_seo', name: '全SEO优化', desc: '关键词+标题+描述' },
+];
+
 // ==================== 竞品对比配置 ====================
 const COMPETITORS = {
   image: { jimeng: '30秒', kilin: '-', lingxiang: '-' },
@@ -76,21 +101,55 @@ const FREE_CODE_OPTIONS = [
 ];
 
 // ==================== 新增：风格预设配置 ====================
+// ==================== 升级文案风格（12+平台适配，对标全网最强）====================
 const TEXT_STYLES = [
-  { id: 'xiaohongshu', name: '小红书', icon: 'book', color: '#FF2442' },
-  { id: 'douyin', name: '抖音', icon: 'music', color: '#000000' },
-  { id: 'gzh', name: '公众号', icon: 'envelope', color: '#4F46E5' },
-  { id: 'zhihu', name: '知乎', icon: 'comment', color: '#0084FF' },
-  { id: 'general', name: '通用', icon: 'star', color: '#10B981' },
+  // 社交媒体类
+  { id: 'xiaohongshu', name: '小红书', icon: 'book', color: '#FF2442', platform: '种草/分享', chars: '500-1000' },
+  { id: 'douyin', name: '抖音', icon: 'music', color: '#000000', platform: '短视频文案', chars: '100-300' },
+  { id: 'kuaishou', name: '快手', icon: 'video', color: '#FF4906', platform: '短视频文案', chars: '100-300' },
+  { id: 'bilibili', name: 'B站', icon: 'play-circle', color: '#00A1D6', platform: '视频简介', chars: '200-500' },
+  // 内容平台类
+  { id: 'weibo', name: '微博', icon: 'newspaper', color: '#E6162D', platform: '热搜/话题', chars: '140-500' },
+  { id: 'gzh', name: '公众号', icon: 'envelope', color: '#4F46E5', platform: '深度内容', chars: '1000-3000' },
+  { id: 'zhihu', name: '知乎', icon: 'comment', color: '#0084FF', platform: '问答/长文', chars: '500-2000' },
+  { id: 'toutiao', name: '头条', icon: 'newspaper-o', color: '#F85959', platform: '资讯/热点', chars: '500-1500' },
+  // 商业类
+  { id: 'ecommerce', name: '电商详情', icon: 'shopping-cart', color: '#FF6B00', platform: '产品描述', chars: '300-800' },
+  { id: 'advertising', name: '广告文案', icon: 'bullhorn', color: '#FFD700', platform: '营销推广', chars: '50-200' },
+  { id: 'resume', name: '简历优化', icon: 'briefcase', color: '#2D3436', platform: '求职应聘', chars: '200-500' },
+  // 通用类
+  { id: 'general', name: '通用文案', icon: 'star', color: '#10B981', platform: '通用场景', chars: '200-1000' },
 ];
 
+// ==================== 升级图片风格（20+种风格，对标Midjourney/DALL-E）====================
 const IMAGE_STYLES = [
-  { id: 'realistic', name: '写实摄影', keywords: 'photorealistic, high detail' },
-  { id: 'illustration', name: '商业插画', keywords: 'digital illustration, vector art' },
-  { id: 'anime', name: '动漫风格', keywords: 'anime style, vibrant colors' },
-  { id: 'oil_painting', name: '油画质感', keywords: 'oil painting style, impressionist' },
-  { id: 'cyberpunk', name: '赛博朋克', keywords: 'cyberpunk, neon lights' },
-  { id: 'fantasy', name: '奇幻风格', keywords: 'fantasy art, magical' },
+  // 摄影类
+  { id: 'photorealistic', name: '写实摄影', keywords: 'photorealistic, high detail, 8K', category: 'photo', quality: '专业' },
+  { id: 'portrait_photo', name: '人像摄影', keywords: 'professional portrait photography, studio lighting', category: 'photo', quality: '专业' },
+  { id: 'landscape', name: '风景摄影', keywords: 'landscape photography, golden hour, breathtaking', category: 'photo', quality: '专业' },
+  { id: 'street', name: '街拍纪实', keywords: 'street photography, documentary style', category: 'photo', quality: '专业' },
+  { id: 'macro', name: '微距摄影', keywords: 'macro photography, extreme detail', category: 'photo', quality: '专业' },
+  // 插画类
+  { id: 'digital_art', name: '商业插画', keywords: 'digital illustration, vector art, clean lines', category: 'illustration', quality: '商业' },
+  { id: 'flat_design', name: '扁平插画', keywords: 'flat design illustration, modern style', category: 'illustration', quality: '商业' },
+  { id: 'isometric', name: '2.5D插画', keywords: 'isometric illustration, 3D effect', category: 'illustration', quality: '商业' },
+  // 艺术类
+  { id: 'anime', name: '动漫风格', keywords: 'anime style, vibrant colors, Studio Ghibli inspired', category: 'anime', quality: '艺术' },
+  { id: 'manga', name: '日漫风格', keywords: 'manga style, black and white, comic', category: 'anime', quality: '艺术' },
+  { id: 'watercolor', name: '水彩画', keywords: 'watercolor painting, soft colors', category: 'art', quality: '艺术' },
+  { id: 'oil_painting', name: '油画质感', keywords: 'oil painting style, impressionist, masterpiece', category: 'art', quality: '艺术' },
+  { id: 'chinese_painting', name: '国风水墨', keywords: 'Chinese ink painting, traditional style, elegant', category: 'art', quality: '艺术' },
+  { id: 'ukiyoe', name: '浮世绘', keywords: 'ukiyo-e style, Japanese traditional art', category: 'art', quality: '艺术' },
+  // 创意类
+  { id: 'cyberpunk', name: '赛博朋克', keywords: 'cyberpunk, neon lights, futuristic city', category: 'creative', quality: '创意' },
+  { id: 'vaporwave', name: '蒸汽波', keywords: 'vaporwave aesthetic, retrofuturism', category: 'creative', quality: '创意' },
+  { id: 'fantasy', name: '奇幻风格', keywords: 'fantasy art, magical, epic', category: 'creative', quality: '创意' },
+  { id: 'steampunk', name: '蒸汽朋克', keywords: 'steampunk, Victorian era, mechanical', category: 'creative', quality: '创意' },
+  // 高级类
+  { id: '3d_render', name: '3D渲染', keywords: '3D render, octane render, cinema 4D style', category: '3d', quality: '高级' },
+  { id: 'product_shot', name: '产品主图', keywords: 'product photography, e-commerce, white background', category: 'commercial', quality: '商业' },
+  { id: 'logo_design', name: 'Logo设计', keywords: 'logo design, minimal, vector', category: 'commercial', quality: '商业' },
+  { id: 'poster_art', name: '海报艺术', keywords: 'movie poster style, dramatic lighting', category: 'commercial', quality: '商业' },
 ];
 
 // ==================== 新增：行业场景模板中心 ====================
@@ -312,6 +371,16 @@ export default function HomeScreen() {
   // ==================== 新增：风格选择状态 ====================
   const [selectedTextStyle, setSelectedTextStyle] = useState("general");
   const [selectedImageStyle, setSelectedImageStyle] = useState("realistic");
+  // 新增：图片分辨率选择
+  const [selectedResolution, setSelectedResolution] = useState("square_1k");
+  // 新增：文案批量生成选项
+  const [selectedBatchCount, setSelectedBatchCount] = useState(1);
+  // 新增：SEO优化选项
+  const [selectedSeoOption, setSelectedSeoOption] = useState("none");
+  // 新增：显示分辨率选择弹窗
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showSeoModal, setShowSeoModal] = useState(false);
   const [showStyleModal, setShowStyleModal] = useState(false);
   const [hotTopics, setHotTopics] = useState<Array<{id: number; platform: string; title: string; heat: number}>>([]);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({ stage: 'idle', progress: 0, message: '' });
@@ -453,17 +522,26 @@ export default function HomeScreen() {
     try {
       // 并行请求：图片 + 文案 + 视频
       const parallelRequests = [
-        // 图片生成
+        // 图片生成（新增分辨率参数）
         fetch(`${BACKEND_BASE_URL}/api/v1/generate/images`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-device-id": deviceId, "x-mode": performanceMode },
-          body: JSON.stringify({ prompt: idea.trim(), style: selectedImageStyle }),
+          body: JSON.stringify({ 
+            prompt: idea.trim(), 
+            style: selectedImageStyle,
+            resolution: selectedResolution  // 新增：分辨率参数
+          }),
         }),
-        // 文案生成
+        // 文案生成（新增批量和SEO参数）
         fetch(`${BACKEND_BASE_URL}/api/v1/generate/text`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-device-id": deviceId, "x-mode": performanceMode },
-          body: JSON.stringify({ prompt: idea.trim(), style: selectedTextStyle }),
+          body: JSON.stringify({ 
+            prompt: idea.trim(), 
+            style: selectedTextStyle,
+            batchCount: selectedBatchCount,  // 新增：批量生成数量
+            seoOption: selectedSeoOption      // 新增：SEO优化选项
+          }),
         }),
       ];
 
@@ -614,6 +692,28 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
         </View>
+        <View style={styles.styleRow}>
+          <Text style={styles.styleLabel}>批量生成：</Text>
+          <TouchableOpacity 
+            style={styles.optionSelector}
+            onPress={() => setShowBatchModal(true)}
+          >
+            <Text style={styles.optionText}>
+              {TEXT_BATCH_OPTIONS.find(b => b.count === selectedBatchCount)?.name || '生成1条'}
+            </Text>
+            <FontAwesome6 name="chevron-down" size={14} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+          <Text style={styles.styleLabel}>  SEO优化：</Text>
+          <TouchableOpacity 
+            style={styles.optionSelector}
+            onPress={() => setShowSeoModal(true)}
+          >
+            <Text style={styles.optionText}>
+              {SEO_OPTIONS.find(s => s.id === selectedSeoOption)?.name || '不优化'}
+            </Text>
+            <FontAwesome6 name="chevron-down" size={14} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.styleRow}>
         <Text style={styles.styleLabel}>图片风格：</Text>
@@ -631,7 +731,176 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       </View>
+      {/* 新增：图片分辨率选择入口 */}
+      <View style={styles.styleRow}>
+        <Text style={styles.styleLabel}>图片分辨率：</Text>
+        <TouchableOpacity 
+          style={styles.resolutionSelector}
+          onPress={() => setShowResolutionModal(true)}
+        >
+          <Text style={styles.resolutionText}>
+            {IMAGE_RESOLUTIONS.find(r => r.id === selectedResolution)?.name || '1K方图'}
+          </Text>
+          <Text style={styles.resolutionSize}>
+            {IMAGE_RESOLUTIONS.find(r => r.id === selectedResolution)?.size}
+          </Text>
+          <FontAwesome6 name="chevron-down" size={14} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
     </View>
+  );
+
+  // ==================== 新增：图片分辨率选择弹窗 ====================
+  const ResolutionModal = () => {
+    const getCurrentResolution = () => IMAGE_RESOLUTIONS.find(r => r.id === selectedResolution) || IMAGE_RESOLUTIONS[0];
+    
+    return (
+      <Modal visible={showResolutionModal} transparent animationType="slide" onRequestClose={() => setShowResolutionModal(false)}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.resolutionModalContent]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>选择分辨率</Text>
+                <TouchableOpacity onPress={() => setShowResolutionModal(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {IMAGE_RESOLUTIONS.map((res) => (
+                  <TouchableOpacity 
+                    key={res.id}
+                    style={[
+                      styles.resolutionCard,
+                      selectedResolution === res.id && styles.resolutionCardSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedResolution(res.id);
+                      setShowResolutionModal(false);
+                    }}
+                  >
+                    <View style={styles.resolutionInfo}>
+                      <View style={styles.resolutionHeader}>
+                        <Text style={[
+                          styles.resolutionName,
+                          selectedResolution === res.id && styles.resolutionNameSelected
+                        ]}>{res.name}</Text>
+                        <View style={[
+                          styles.resolutionPriceTag,
+                          res.price === '免费' ? styles.resolutionPriceFree : styles.resolutionPricePaid
+                        ]}>
+                          <Text style={styles.resolutionPriceText}>{res.price}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.resolutionSizeText}>{res.size}</Text>
+                      <Text style={styles.resolutionDesc}>{res.description}</Text>
+                    </View>
+                    {selectedResolution === res.id && (
+                      <View style={styles.resolutionCheck}>
+                        <FontAwesome6 name="check" size={16} color={COLORS.primary} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
+  // ==================== 新增：批量生成选择弹窗 ====================
+  const BatchModal = () => (
+    <Modal visible={showBatchModal} transparent animationType="slide" onRequestClose={() => setShowBatchModal(false)}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.batchModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>批量生成文案</Text>
+              <TouchableOpacity onPress={() => setShowBatchModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.batchOptions}>
+              {TEXT_BATCH_OPTIONS.map((option) => (
+                <TouchableOpacity 
+                  key={option.id}
+                  style={[
+                    styles.batchCard,
+                    selectedBatchCount === option.count && styles.batchCardSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedBatchCount(option.count);
+                    setShowBatchModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.batchName,
+                    selectedBatchCount === option.count && styles.batchNameSelected
+                  ]}>{option.name}</Text>
+                  <Text style={styles.batchDesc}>适用场景：多版本对比、备选方案</Text>
+                  <View style={[
+                    styles.batchPriceTag,
+                    option.price === '免费' ? styles.resolutionPriceFree : styles.resolutionPricePaid
+                  ]}>
+                    <Text style={styles.resolutionPriceText}>{option.price}</Text>
+                  </View>
+                  {selectedBatchCount === option.count && (
+                    <View style={styles.resolutionCheck}>
+                      <FontAwesome6 name="check" size={16} color={COLORS.primary} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+
+  // ==================== 新增：SEO优化选择弹窗 ====================
+  const SeoModal = () => (
+    <Modal visible={showSeoModal} transparent animationType="slide" onRequestClose={() => setShowSeoModal(false)}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.seoModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>SEO优化设置</Text>
+              <TouchableOpacity onPress={() => setShowSeoModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.seoOptions}>
+              {SEO_OPTIONS.map((option) => (
+                <TouchableOpacity 
+                  key={option.id}
+                  style={[
+                    styles.seoCard,
+                    selectedSeoOption === option.id && styles.seoCardSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedSeoOption(option.id);
+                    setShowSeoModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.seoName,
+                    selectedSeoOption === option.id && styles.seoNameSelected
+                  ]}>{option.name}</Text>
+                  <Text style={styles.seoDesc}>{option.desc}</Text>
+                  {selectedSeoOption === option.id && (
+                    <View style={styles.resolutionCheck}>
+                      <FontAwesome6 name="check" size={16} color={COLORS.primary} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 
   // ==================== 新增：性能模式选择器 ====================
@@ -1154,6 +1423,15 @@ export default function HomeScreen() {
         {/* 竞品对比弹窗 */}
         <CompetitorModal />
 
+        {/* 分辨率选择弹窗 */}
+        <ResolutionModal />
+
+        {/* 批量生成选择弹窗 */}
+        <BatchModal />
+
+        {/* SEO优化选择弹窗 */}
+        <SeoModal />
+
         {/* 风格选择弹窗 */}
         <Modal visible={showStyleModal} transparent animationType="slide" onRequestClose={() => setShowStyleModal(false)}>
           <View style={styles.modalOverlay}>
@@ -1414,6 +1692,92 @@ const styles = StyleSheet.create({
   styleChipText: { fontSize: 13, color: COLORS.text },
   styleChipTextSelected: { fontWeight: "600" },
   styleChipSelected: { backgroundColor: "rgba(108, 99, 255, 0.12)", borderColor: COLORS.primary },
+  
+  // 分辨率选择器
+  resolutionSelector: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: COLORS.pressed, 
+    borderRadius: 12, 
+    paddingHorizontal: 14, 
+    paddingVertical: 8,
+    gap: 8 
+  },
+  resolutionText: { fontSize: 13, color: COLORS.text, fontWeight: "600" },
+  resolutionSize: { fontSize: 11, color: COLORS.textSecondary },
+  
+  // 批量生成和SEO选项选择器
+  optionSelector: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: COLORS.pressed, 
+    borderRadius: 12, 
+    paddingHorizontal: 14, 
+    paddingVertical: 8,
+    gap: 6 
+  },
+  optionText: { fontSize: 13, color: COLORS.text, fontWeight: "600" },
+  
+  // 分辨率选择弹窗
+  resolutionModalContent: { maxHeight: '70%' },
+  resolutionCard: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between",
+    backgroundColor: COLORS.white, 
+    borderRadius: 16, 
+    padding: 16, 
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  resolutionCardSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '08' },
+  resolutionInfo: { flex: 1 },
+  resolutionHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  resolutionName: { fontSize: 15, fontWeight: "700", color: COLORS.text },
+  resolutionNameSelected: { color: COLORS.primary },
+  resolutionPriceTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  resolutionPriceFree: { backgroundColor: "#10B98120" },
+  resolutionPricePaid: { backgroundColor: "#F59E0B20" },
+  resolutionPriceText: { fontSize: 11, fontWeight: "600", color: COLORS.textSecondary },
+  resolutionSizeText: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
+  resolutionDesc: { fontSize: 11, color: COLORS.textSecondary },
+  resolutionCheck: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary + '20', justifyContent: "center", alignItems: "center" },
+  
+  // 批量生成弹窗
+  batchModalContent: { maxHeight: '50%' },
+  batchOptions: { paddingTop: 10 },
+  batchCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 16, 
+    padding: 16, 
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  batchCardSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '08' },
+  batchName: { fontSize: 16, fontWeight: "700", color: COLORS.text, marginBottom: 4 },
+  batchNameSelected: { color: COLORS.primary },
+  batchDesc: { fontSize: 12, color: COLORS.textSecondary },
+  batchPriceTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  
+  // SEO优化弹窗
+  seoModalContent: { maxHeight: '50%' },
+  seoOptions: { paddingTop: 10 },
+  seoCard: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    backgroundColor: COLORS.white, 
+    borderRadius: 16, 
+    padding: 16, 
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  seoCardSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '08' },
+  seoName: { fontSize: 15, fontWeight: "700", color: COLORS.text, marginBottom: 2 },
+  seoNameSelected: { color: COLORS.primary },
+  seoDesc: { fontSize: 12, color: COLORS.textSecondary, flex: 1 },
   
   // 性能模式选择
   performanceSection: {
