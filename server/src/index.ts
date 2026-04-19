@@ -2676,19 +2676,19 @@ const SCENE_KEYWORDS: { [key: string]: { keywords: string[]; description: string
     description: '萌宠'
   },
   product: {
-    keywords: ['产品', '商品', '电商', '广告', '展示', '模特', '包装', '设计', '创意', '品牌', '店铺', '橱窗', '陈列'],
+    keywords: ['产品', '商品', '电商', '广告', '展示', '模特', '包装', '设计', '创意', '品牌', '店铺', '橱窗', '陈列', '道具', '配饰', '服装', '鞋包', '首饰', '美妆', '护肤'],
     description: '产品'
   },
   festival: {
-    keywords: ['春节', '中秋', '端午', '圣诞', '新年', '情人节', '万圣节', '感恩节', '元宵', '重阳', '七夕', '母亲节', '父亲节', '生日'],
+    keywords: ['春节', '中秋', '端午', '圣诞', '新年', '情人节', '万圣节', '感恩节', '元宵', '重阳', '七夕', '母亲节', '父亲节', '生日', '周年', '纪念日', '节日', '假期', '派对', '聚会'],
     description: '节日'
   },
   lifestyle: {
-    keywords: ['生活', '日常', '家居', '装饰', '收纳', '绿植', '书房', '卧室', '客厅', '厨房', '阳台', '花园', '露营', '旅行', '健身', '瑜伽', '阅读'],
+    keywords: ['生活', '日常', '家居', '装饰', '收纳', '绿植', '书房', '卧室', '客厅', '厨房', '阳台', '花园', '露营', '旅行', '健身', '瑜伽', '阅读', '音乐', '咖啡时光', '下午茶'],
     description: '生活'
   },
   emotion: {
-    keywords: ['心情', '情感', '治愈', '温暖', '文艺', '小清新', '浪漫', '梦幻', '唯美', '复古', 'ins风', '简约', '冷淡', '高级感', '氛围感'],
+    keywords: ['心情', '情感', '治愈', '温暖', '文艺', '小清新', '浪漫', '梦幻', '唯美', '复古', 'ins风', '简约', '冷淡', '高级感', '氛围感', '情绪', '文案', '语录', '感悟', '故事'],
     description: '情感'
   }
 };
@@ -2764,10 +2764,46 @@ function analyzeIntent(userInput: string): IntentAnalysis {
 
   // 精准增强（非融合场景）
   if (!analysis.fusionIntent.isFusion) {
+    // 1. 时间/光线描述增强
+    const timePatterns = [
+      { pattern: /日出|晨|早晨/, addition: '清晨柔和的光线' },
+      { pattern: /日落|黄昏|傍晚/, addition: '夕阳温暖的余晖' },
+      { pattern: /夜景|晚上|夜晚/, addition: '城市璀璨灯光' },
+      { pattern: /星空|银河/, addition: '满天繁星' },
+      { pattern: /阴天|雨天/, addition: '柔和散射光' },
+    ];
+    for (const { pattern, addition } of timePatterns) {
+      if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
+        analysis.enhancements.push(addition);
+        break;
+      }
+    }
+
+    // 2. 色彩描述增强
+    const colorPatterns = [
+      { pattern: /蓝色|蓝天|大海/, colors: ['蔚蓝', '天蓝色', '海天一色'] },
+      { pattern: /绿色|森林|草原/, colors: ['翠绿', '清新自然', '生机勃勃'] },
+      { pattern: /粉色|樱花|浪漫/, colors: ['粉嫩', '少女心', '梦幻粉'] },
+      { pattern: /金色|日落|夕阳/, colors: ['金色光芒', '温暖金色调', '灿烂金黄'] },
+      { pattern: /白色|雪|纯净/, colors: ['纯净洁白', '素雅清新', '简洁干净'] },
+    ];
+    for (const { pattern, colors } of colorPatterns) {
+      if (pattern.test(userInput)) {
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        if (!analysis.enhancements.includes(randomColor)) {
+          analysis.enhancements.push(randomColor);
+        }
+        break;
+      }
+    }
+
+    // 3. 情绪/氛围描述增强
     const emotionEnhancements = [
       { pattern: /治愈|温暖|温馨/, addition: '温馨治愈的氛围' },
-      { pattern: /可爱|萌|软萌/, addition: '可爱软萌的感觉' },
+      { pattern: /文艺|小清新|简约/, addition: '文艺清新的气质' },
       { pattern: /梦幻|浪漫|唯美/, addition: '梦幻唯美的意境' },
+      { pattern: /高级|质感|轻奢/, addition: '高级有质感的画面' },
+      { pattern: /可爱|萌|软萌/, addition: '可爱软萌的感觉' },
     ];
     for (const { pattern, addition } of emotionEnhancements) {
       if (pattern.test(userInput) && !analysis.enhancements.includes(addition)) {
@@ -2829,6 +2865,21 @@ function expandPrompt(userInput: string): {
     enhancements: analysis.enhancements,
     analysis,
   };
+}
+
+// 获取场景对应的文案风格
+function getSceneTextStyle(scene: string): string {
+  const sceneToStyle: { [key: string]: string } = {
+    '人像': 'xiaohongshu',
+    '美食': 'douyin',
+    '风景': 'general',
+    '萌宠': 'xiaohongshu',
+    '产品': 'douyin',
+    '节日': 'xiaohongshu',
+    '生活': 'general',
+    '情感': 'general',
+  };
+  return sceneToStyle[scene] || 'general';
 }
 
 // 敏感词过滤函数
