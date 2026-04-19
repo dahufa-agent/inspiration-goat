@@ -21,6 +21,16 @@ const Header: React.FC = () => {
     navigate('/login')
   }
 
+  // 导航菜单项（包含诗词和人物）
+  const navItems = [
+    { to: '/', label: '首页', icon: '🏠' },
+    { to: '/poetry', label: '诗词', icon: '📜' },
+    { to: '/figures', label: '人物', icon: '👑' },
+    { to: '/history', label: '历史记录', icon: '📝' },
+    { to: '/membership', label: '会员中心', icon: '👑' },
+    { to: '/credits', label: '我的积分', icon: '💎' },
+  ]
+
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -49,12 +59,7 @@ const Header: React.FC = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-1">
-            {[
-              { to: '/', label: '首页', icon: '🏠' },
-              { to: '/history', label: '历史记录', icon: '📝' },
-              { to: '/membership', label: '会员中心', icon: '👑' },
-              { to: '/credits', label: '我的积分', icon: '💎' },
-            ].map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -134,19 +139,15 @@ const Header: React.FC = () => {
         {mobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-gray-100 animate-fade-in-up">
             <nav className="flex flex-col space-y-2">
-              {[
-                { to: '/', label: '首页' },
-                { to: '/history', label: '历史记录' },
-                { to: '/membership', label: '会员中心' },
-                { to: '/credits', label: '我的积分' },
-              ].map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.to}
                   to={item.to}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-3 rounded-xl text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 font-medium transition-all"
+                  className="px-4 py-3 rounded-xl text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 font-medium transition-all flex items-center gap-3"
                 >
-                  {item.label}
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
                 </Link>
               ))}
             </nav>

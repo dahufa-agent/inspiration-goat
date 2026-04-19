@@ -7,6 +7,8 @@ import Register from './pages/Register'
 import History from './pages/History'
 import Membership from './pages/Membership'
 import Credits from './pages/Credits'
+import Poetry from './pages/Poetry'
+import Figures from './pages/Figures'
 import { AuthProvider } from './hooks/useAuth'
 
 function App() {
@@ -23,6 +25,8 @@ function App() {
               <Route path="/history" element={<History />} />
               <Route path="/membership" element={<Membership />} />
               <Route path="/credits" element={<Credits />} />
+              <Route path="/poetry" element={<Poetry />} />
+              <Route path="/figures" element={<Figures />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
