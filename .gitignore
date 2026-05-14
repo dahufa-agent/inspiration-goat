@@ -4,10 +4,9 @@ node_modules/
 .pnp.js
 
 # Build outputs
-# Keep server/dist for Zeabur deployment
+# Keep server/dist for deployment
 !server/dist
 client/dist/
-apps/*/dist/
 android/
 ios/
 *.apk
