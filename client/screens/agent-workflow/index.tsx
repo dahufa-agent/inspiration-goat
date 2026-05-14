@@ -18,7 +18,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = "http://localhost:9091";
+const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 
 // 预设工作流模板
 const WORKFLOW_TEMPLATES = [
@@ -129,7 +129,7 @@ export default function AgentWorkflowScreen() {
 
     // 调用后端Agent API
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/agent/workflow`, {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/agent/workflow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

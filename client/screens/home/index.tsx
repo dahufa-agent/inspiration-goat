@@ -1001,7 +1001,7 @@ export default function HomeScreen() {
             <Text style={[styles.performanceName, performanceMode === mode.id && { color: mode.color }]}>{mode.name}</Text>
             <Text style={styles.performanceTime}>
               <FontAwesome6 name="clock" size={10} color={COLORS.textSecondary} /> 
-              {' '}{mode.times.all}
+              {' 图片{mode.times.image} · 文案{mode.times.text} · 视频{mode.times.video}'}
             </Text>
             {performanceMode === mode.id && (
               <View style={[styles.performanceBadge, { backgroundColor: mode.color }]}>

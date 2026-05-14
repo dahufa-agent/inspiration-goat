@@ -18,7 +18,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = "http://localhost:9091";
+const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 
 // 数字人预设形象
 const DIGITAL_HUMAN_AVATARS = [
@@ -62,7 +62,7 @@ export default function DigitalHumanScreen() {
 
     setGenerating(true);
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/generate/text`, {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/text`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +94,7 @@ export default function DigitalHumanScreen() {
 
     setGenerating(true);
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/generate/digital-human`, {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/generate/digital-human`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

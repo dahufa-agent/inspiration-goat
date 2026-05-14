@@ -213,7 +213,7 @@ export default function NameGeneratorScreen() {
                 <Text className="font-bold text-gray-900 ml-2">推荐姓名</Text>
               </View>
               <View className="flex-row flex-wrap -mx-2">
-                {result.names.map((name, idx) => (
+                {result.names.map((name: string, idx: number) => (
                   <TouchableOpacity
                     key={idx}
                     className="w-1/2 px-2 mb-2"
