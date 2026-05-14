@@ -112,13 +112,13 @@ export default function OneClickScreen() {
           </View>
           <View className="flex-row mt-3">
             <View className="bg-white/20 rounded-full px-3 py-1 mr-2">
-              <Text className="text-white text-xs">行业首创</Text>
+              <Text className="text-white text-xs">一键三连</Text>
             </View>
             <View className="bg-white/20 rounded-full px-3 py-1 mr-2">
-              <Text className="text-white text-xs">全网唯一</Text>
+              <Text className="text-white text-xs">智能创作</Text>
             </View>
             <View className="bg-white/20 rounded-full px-3 py-1">
-              <Text className="text-white text-xs">独家功能</Text>
+              <Text className="text-white text-xs">高效便捷</Text>
             </View>
           </View>
         </View>
@@ -127,11 +127,11 @@ export default function OneClickScreen() {
         <View className="px-4 py-4">
           <View className="bg-gradient-to-r from-amber-50 to-red-50 rounded-2xl p-4 mb-4">
             <Text className="text-lg font-bold text-gray-900 mb-2">
-              <FontAwesome6 name="crown" size={16} color="#F59E0B" /> 全网独家功能
+              <FontAwesome6 name="crown" size={16} color="#F59E0B" /> 一站式智能创作
             </Text>
             <Text className="text-gray-600 text-sm leading-5">
               输入一个主题，自动生成：文案 + 图片 + 视频{"\n"}
-              竞品全部只能单一功能，我们是唯一能做到的平台
+              一站式完成全套内容创作，便捷高效
             </Text>
           </View>
         </View>
@@ -243,7 +243,7 @@ export default function OneClickScreen() {
                 )}
               </View>
               <Text className="text-white/80 text-xs text-center mt-1">
-                预计耗时 30-60 秒
+                预计耗时 20-90 秒
               </Text>
             </TouchableOpacity>
 
@@ -251,7 +251,7 @@ export default function OneClickScreen() {
             <View className="bg-amber-50 rounded-xl p-3 mt-4">
               <Text className="text-amber-800 text-xs text-center">
                 <FontAwesome6 name="info-circle" size={10} color="#F59E0B" />{" "}
-                本次预计消耗：300积分（文案50 + 图片100 + 视频150）
+                本次预计消耗：50积分（一键三连套餐）
               </Text>
             </View>
           </Animated.View>
@@ -331,9 +331,9 @@ export default function OneClickScreen() {
             <Text className="font-bold text-gray-700 mb-2">使用说明</Text>
             <Text className="text-gray-500 text-sm leading-5">
               1. 输入创作主题，描述越详细效果越好{"\n"}
-              2. 选择视频时长（5-12秒，符合行业真实水平）{"\n"}
+              2. 选择视频时长（5秒/10秒/12秒）{"\n"}
               3. 选择视频风格（支持国风、电影感等）{"\n"}
-              4. 点击生成，等待30-60秒完成{"\n"}
+              4. 点击生成，稍作等待完成{"\n"}
               5. 生成后可一键发布到各大平台
             </Text>
           </View>

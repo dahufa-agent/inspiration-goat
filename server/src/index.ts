@@ -295,12 +295,11 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// 视频时长配置
+// 视频时长配置（严格5秒/10秒/12秒三档）
 const VIDEO_DURATIONS = {
-  free: { duration: 5, label: "5秒", price: "免费", maxPerDay: 10 },
-  paid5: { duration: 10, label: "10秒", price: "10积分", maxPerDay: -1 },
-  paid10: { duration: 15, label: "15秒", price: "20积分", maxPerDay: -1 },
-  paid15: { duration: 20, label: "20秒", price: "30积分", maxPerDay: -1 },
+  free5: { duration: 5, label: "5秒", price: 30, maxPerDay: -1 },
+  paid10: { duration: 10, label: "10秒", price: 60, maxPerDay: -1 },
+  paid12: { duration: 12, label: "12秒", price: 72, maxPerDay: -1 },
 } as const;
 
 // 每日生成限制配置
@@ -339,15 +338,15 @@ function getRemainingCounts(deviceId: string) {
   return {
     remainingImages: Math.max(0, DAILY_LIMITS.images.maxPerDay - data.imageCount),
     remainingTexts: Math.max(0, DAILY_LIMITS.texts.maxPerDay - data.textCount),
-    remainingVideoEdits: VIDEO_DURATIONS.free.maxPerDay - data.videoEdits,
+    remainingVideoEdits: VIDEO_DURATIONS.free5.maxPerDay - data.videoEdits,
     remainingDigitalHuman: DAILY_LIMITS.digitalHuman.maxPerDay - (data.digitalHumanCount || 0),
   };
 }
 
 function checkVideoEditAllowed(deviceId: string, durationType: string) {
   const data = getOrCreateDailyData(deviceId);
-  if (durationType === "free") {
-    const remaining = VIDEO_DURATIONS.free.maxPerDay - data.videoEdits;
+  if (durationType === "free5") {
+    const remaining = VIDEO_DURATIONS.free5.maxPerDay - data.videoEdits;
     if (remaining > 0) {
       data.videoEdits += 1;
       return { allowed: true, remaining: remaining - 1 };
@@ -779,7 +778,7 @@ app.get("/api/v1/limits", (req, res) => {
   res.json({
     images: { perBatch: DAILY_LIMITS.images.perBatch, maxPerDay: DAILY_LIMITS.images.maxPerDay, remaining: remaining.remainingImages, canGenerate: remaining.remainingImages >= DAILY_LIMITS.images.perBatch },
     texts: { perBatch: DAILY_LIMITS.texts.perBatch, maxPerDay: DAILY_LIMITS.texts.maxPerDay, remaining: remaining.remainingTexts, canGenerate: remaining.remainingTexts >= DAILY_LIMITS.texts.perBatch },
-    videoEdits: { free: { maxPerDay: VIDEO_DURATIONS.free.maxPerDay, remaining: remaining.remainingVideoEdits, canGenerate: remaining.remainingVideoEdits > 0 } },
+    videoEdits: { free5: { maxPerDay: VIDEO_DURATIONS.free5.maxPerDay, remaining: remaining.remainingVideoEdits, canGenerate: remaining.remainingVideoEdits > 0 } },
   });
 });
 
@@ -789,10 +788,9 @@ app.get("/api/v1/video/durations", (req, res) => {
   const remaining = getRemainingCounts(deviceId);
   res.json({
     durations: [
-      { type: "free", duration: VIDEO_DURATIONS.free.duration, label: VIDEO_DURATIONS.free.label, price: VIDEO_DURATIONS.free.price, description: `每日可编辑${VIDEO_DURATIONS.free.maxPerDay}次`, remainingEdits: remaining.remainingVideoEdits },
-      { type: "paid5", duration: VIDEO_DURATIONS.paid5.duration, label: VIDEO_DURATIONS.paid5.label, price: VIDEO_DURATIONS.paid5.price, description: "每增加5秒收取10积分" },
-      { type: "paid10", duration: VIDEO_DURATIONS.paid10.duration, label: VIDEO_DURATIONS.paid10.label, price: VIDEO_DURATIONS.paid10.price, description: "每增加10秒收取20积分" },
-      { type: "paid15", duration: VIDEO_DURATIONS.paid15.duration, label: VIDEO_DURATIONS.paid15.label, price: VIDEO_DURATIONS.paid15.price, description: "每增加15秒收取30积分" },
+      { type: "free5", duration: VIDEO_DURATIONS.free5.duration, label: VIDEO_DURATIONS.free5.label, price: VIDEO_DURATIONS.free5.price, description: "短视频，适合快节奏内容", remainingEdits: remaining.remainingVideoEdits },
+      { type: "paid10", duration: VIDEO_DURATIONS.paid10.duration, label: VIDEO_DURATIONS.paid10.label, price: VIDEO_DURATIONS.paid10.price, description: "标准时长，主流选择" },
+      { type: "paid12", duration: VIDEO_DURATIONS.paid12.duration, label: VIDEO_DURATIONS.paid12.label, price: VIDEO_DURATIONS.paid12.price, description: "稍长内容，展示更完整" },
     ],
     remainingFreeEdits: remaining.remainingVideoEdits,
   });
@@ -1203,10 +1201,10 @@ app.post("/api/v1/generate/video", async (req: Request, res: Response) => {
     if (!contentCheck.allowed) return res.status(400).json({ error: contentCheck.reason });
     const sanitizedPrompt = contentCheck.sanitizedPrompt || finalVideoPrompt;
 
-    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
+    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free5;
     const duration = durationConfig.duration;
 
-    if (durationType === "free") {
+    if (durationType === "free5") {
       const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) {
         return res.status(403).json({ error: "今日免费视频编辑次数已用完", remainingEdits: 0 });
@@ -1458,12 +1456,12 @@ app.post("/api/v1/generate/all", async (req: Request, res: Response) => {
       optimizationNote = optimizationNote ? `${optimizationNote}；${enhancementNote}` : enhancementNote;
     }
 
-    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
+    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free5;
     const duration = durationConfig.duration;
 
-    if (durationType === "free") {
+    if (durationType === "free5") {
       const data = getOrCreateDailyData(deviceId);
-      const remainingVideo = VIDEO_DURATIONS.free.maxPerDay - data.videoEdits;
+      const remainingVideo = VIDEO_DURATIONS.free5.maxPerDay - data.videoEdits;
       if (remainingVideo <= 0) {
         return res.status(403).json({ error: "今日免费视频编辑次数已用完", remainingEdits: 0, isLoggedIn });
       }
@@ -1630,10 +1628,10 @@ app.post("/api/v1/generate/video-regenerate", async (req: Request, res: Response
     if (!contentCheck.allowed) return res.status(400).json({ error: contentCheck.reason });
     const finalPrompt = contentCheck.sanitizedPrompt || prompt;
 
-    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free;
+    const durationConfig = VIDEO_DURATIONS[durationType as keyof typeof VIDEO_DURATIONS] || VIDEO_DURATIONS.free5;
     const duration = durationConfig.duration;
 
-    if (durationType === "free") {
+    if (durationType === "free5") {
       const check = checkVideoEditAllowed(deviceId, durationType);
       if (!check.allowed) return res.status(403).json({ error: "今日免费视频编辑次数已用完", remainingEdits: 0 });
     }
@@ -1760,7 +1758,7 @@ app.get("/api/v1/user/remaining-edits", async (req, res) => {
   const remainingTexts = isLoggedIn ? remaining.remainingTexts : Math.floor(remaining.remainingTexts * HALF_RATE);
   const imageMaxPerDay = isLoggedIn ? DAILY_LIMITS.images.maxPerDay : Math.floor(DAILY_LIMITS.images.maxPerDay * HALF_RATE);
   const textMaxPerDay = isLoggedIn ? DAILY_LIMITS.texts.maxPerDay : Math.floor(DAILY_LIMITS.texts.maxPerDay * HALF_RATE);
-  const freeVideoMaxPerDay = isLoggedIn ? VIDEO_DURATIONS.free.maxPerDay : Math.floor(VIDEO_DURATIONS.free.maxPerDay * HALF_RATE);
+  const freeVideoMaxPerDay = isLoggedIn ? VIDEO_DURATIONS.free5.maxPerDay : Math.floor(VIDEO_DURATIONS.free5.maxPerDay * HALF_RATE);
   
   res.json({
     remainingFreeEdits, remainingImages, remainingTexts, isLoggedIn,
@@ -1878,25 +1876,36 @@ const VIP_CONFIG = {
     image4k: 15,   // 4K图片15积分
     textBatch3: 5, // 批量3条5积分
     textBatch5: 10, // 批量5条10积分
-    video10s: 10,  // 10秒视频10积分
-    video30s: 50,  // 30秒视频50积分
+    video5s: 30,   // 5秒视频30积分
+    video10s: 60,  // 10秒视频60积分
+    video12s: 72,  // 12秒视频72积分
+    oneClickTriple: 50, // 一键三连50积分
   },
-  // 新用户赠送
+  // 新用户赠送（严格500积分+3次免费三连）
   welcome: {
-    points: 50,        // 赠送50积分
+    points: 500,        // 注册即送500积分
+    oneClickTripleFree: 3, // 送3次免费一键三连
     imageGenerations: 5, // 赠送5次图片生成
     textGenerations: 3, // 赠送3次文案生成
-    videoGenerations: 2, // 赠送2次视频生成
   },
-  // 邀请奖励
+  // 邀请奖励（严格200+100积分）
   invite: {
-    inviterPoints: 20,   // 邀请人获得20积分
-    inviteePoints: 10,   // 被邀请人获得10积分
+    inviterPoints: 200,   // 邀请人获得200积分
+    inviteePoints: 100,   // 被邀请人获得100积分
+    consumptionReward: 0.1, // 好友付费返10%积分
   },
-  // 签到奖励
+  // 签到奖励（严格10积分+连续7天额外100）
   checkin: {
-    basePoints: 5,       // 基础签到5积分
-    streakBonus: [0, 2, 3, 5, 8, 10], // 连击加成（天数对应额外积分）
+    basePoints: 10,       // 基础签到10积分
+    streakBonus: [0, 5, 10, 20, 30, 50], // 连击加成
+    streak7DayExtra: 100, // 连续7天额外奖励100积分
+  },
+  // 充值套餐（严格按规格）
+  rechargePackages: {
+    p1: { points: 990, price: 9.9, bonus: 0 },
+    p2: { points: 2900, price: 29, bonus: 0 },
+    p3: { points: 5900, price: 59, bonus: 0 },
+    p4: { points: 9900, price: 99, bonus: 0 },
   },
 };
 
@@ -3025,7 +3034,7 @@ app.post("/api/v1/publish/adapt", async (req: Request, res: Response) => {
     const llmClient = new LLMClient(config, customHeaders);
     
     const platformDescriptions: Record<string, string> = {
-      douyin: '抖音：15秒-1分钟竖版短视频平台，语言简短有力，善于制造悬念和反转，大量使用热门音乐和话题标签',
+      douyin: '抖音：短视频平台，语言简短有力，善于制造悬念和反转，大量使用热门音乐和话题标签',
       xiaohongshu: '小红书：图文笔记社区，语言温暖亲切，善于分享实用干货和生活方式，emoji丰富，排版精美',
       kuaishou: '快手：下沉市场短视频平台，语言接地气，真实不做作，善于展示普通人生活',
       bilibili: 'B站：年轻人文化社区，语言活泼有趣，弹幕文化，二次元风格浓厚，善于玩梗',

@@ -32,12 +32,11 @@ const LIMITS = {
   texts: { perBatch: 1, maxPerDay: 10 },
 };
 
-// 视频时长选项
+// 视频时长选项（严格5秒/10秒/12秒三档）
 const DURATION_OPTIONS = [
-  { type: "free", duration: 5, label: "5秒", price: "免费", color: "#10B981" },
-  { type: "paid5", duration: 10, label: "10秒", price: "10积分", color: "#F59E0B" },
-  { type: "paid10", duration: 15, label: "15秒", price: "20积分", color: "#F59E0B" },
-  { type: "paid15", duration: 20, label: "20秒", price: "30积分", color: "#EF4444" },
+  { type: "free5", duration: 5, label: "5秒", price: "30积分", color: "#10B981" },
+  { type: "paid10", duration: 10, label: "10秒", price: "60积分", color: "#F59E0B" },
+  { type: "paid12", duration: 12, label: "12秒", price: "72积分", color: "#EF4444" },
 ];
 
 export default function EditScreen() {

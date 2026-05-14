@@ -18,11 +18,11 @@ const MEMBERSHIP_TIERS = [
       { text: "每日100积分", included: true },
       { text: "基础文案生成", included: true },
       { text: "基础图片生成", included: true },
-      { text: "480P视频生成", included: true },
+      { text: "免费API通道", included: true },
+      { text: "国学期刊体验", included: true },
       { text: "水印标识", included: true },
       { text: "普通处理速度", included: false },
       { text: "高清无水印", included: false },
-      { text: "优先队列", included: false },
     ],
   },
   {
@@ -36,14 +36,14 @@ const MEMBERSHIP_TIERS = [
     icon: "pen-nib",
     popular: false,
     features: [
-      { text: "每日500积分", included: true },
+      { text: "每月2000积分", included: true },
       { text: "高级文案生成", included: true },
       { text: "13种国风风格", included: true },
       { text: "720P视频生成", included: true },
       { text: "去水印", included: true },
+      { text: "国学全开", included: true },
       { text: "2倍处理速度", included: false },
       { text: "1080P高清", included: false },
-      { text: "优先队列", included: false },
     ],
   },
   {
@@ -57,14 +57,14 @@ const MEMBERSHIP_TIERS = [
     icon: "crown",
     popular: true,
     features: [
-      { text: "每日2000积分", included: true },
+      { text: "每月8000积分", included: true },
       { text: "全部文案模板", included: true },
       { text: "13种国风+风格迁移", included: true },
       { text: "1080P高清视频", included: true },
+      { text: "付费API50张/月", included: true },
       { text: "去水印+商用授权", included: true },
       { text: "3倍处理速度", included: true },
       { text: "4倍速优先队列", included: true },
-      { text: "专属客服支持", included: true },
     ],
   },
   {
@@ -78,24 +78,27 @@ const MEMBERSHIP_TIERS = [
     icon: "gem",
     popular: false,
     features: [
-      { text: "无限积分（每月10000）", included: true },
+      { text: "每月20000积分", included: true },
       { text: "全部高级功能", included: true },
       { text: "4K超清视频", included: true },
+      { text: "付费API200张/月", included: true },
       { text: "一键三连不限次", included: true },
       { text: "全平台商用授权", included: true },
       { text: "5倍极速处理", included: true },
       { text: "8倍速优先队列", included: true },
-      { text: "1对1专属顾问", included: true },
     ],
   },
 ];
 
-// 积分档位配置
+// 积分档位配置（严格7档）
 const POINTS_PACKAGES = [
-  { id: "p1", points: 500, price: 9.9, bonus: 0 },
-  { id: "p2", points: 2000, price: 29, bonus: 100 },
-  { id: "p3", points: 5000, price: 59, bonus: 300 },
-  { id: "p4", points: 10000, price: 99, bonus: 800 },
+  { id: "m1", points: 0, price: 19, type: "membership", label: "创作者版", bonus: 0 },
+  { id: "m2", points: 0, price: 49, type: "membership", label: "专业版", bonus: 0 },
+  { id: "m3", points: 0, price: 99, type: "membership", label: "旗舰版", bonus: 0 },
+  { id: "p1", points: 990, price: 9.9, type: "points", label: "基础包", bonus: 0 },
+  { id: "p2", points: 2900, price: 29, type: "points", label: "标准包", bonus: 100 },
+  { id: "p3", points: 5900, price: 59, type: "points", label: "超值包", bonus: 300 },
+  { id: "p4", points: 9900, price: 99, type: "points", label: "豪华包", bonus: 800 },
 ];
 
 export default function MemberScreen() {

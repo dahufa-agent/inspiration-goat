@@ -53,7 +53,7 @@ export default function DigitalHumanScreen() {
     }
     
     const avatar = DIGITAL_HUMAN_AVATARS.find(a => a.id === selectedAvatar);
-    const prompt = `请为"${avatar?.name}"这个数字人形象生成一段30秒的口播文案。要求：
+    const prompt = `请为"${avatar?.name}"这个数字人形象生成一段口播文案。要求：
 1. 语言简洁有力，适合数字人播报
 2. 内容积极向上，有吸引力
 3. 字数控制在150字以内
@@ -216,7 +216,7 @@ export default function DigitalHumanScreen() {
             value={script}
             onChangeText={setScript}
           />
-          <Text style={styles.tip}>建议字数：150字以内（30秒播报时长）</Text>
+          <Text style={styles.tip}>建议字数：150字以内</Text>
         </View>
 
         {/* 生成按钮 */}
@@ -254,7 +254,7 @@ export default function DigitalHumanScreen() {
                   数字人：{DIGITAL_HUMAN_AVATARS.find(a => a.id === selectedAvatar)?.name}
                 </Text>
                 <Text style={styles.videoInfoText}>
-                  时长：{generatedVideo.duration || '30秒'}
+                  时长：{generatedVideo.duration || '5-12秒'}
                 </Text>
               </View>
             </View>

@@ -27,13 +27,11 @@ const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://loc
 // 山羊老师头像
 const GOAT_TEACHER_AVATAR = "https://coze-coding-project.tos.coze.site/coze_storage_7627778343278215204/image/generate_image_b6078ad5-ea30-4a35-b64f-be3d8e2a6ce0.jpeg?sign=1807522848-177fac84ec-0-e563565f1f5d6087dc714c42d6cfa0a9202ff2202029a59ecee87677f22dd55c";
 
-// ==================== 升级：视频时长选项（支持更长时长，对标全网最强）====================
+// ==================== 视频时长选项（严格5秒/10秒/12秒三档）====================
 const DURATION_OPTIONS = [
-  { type: "free", duration: 5, label: "5秒", price: "免费", description: "每日10次", color: "#10B981" },
-  { type: "paid5", duration: 10, label: "10秒", price: "10积分", description: "每增加5秒+10积分", color: "#F59E0B" },
-  { type: "paid10", duration: 15, label: "15秒", price: "20积分", description: "每增加10秒+20积分", color: "#F59E0B" },
-  { type: "paid15", duration: 20, label: "20秒", price: "30积分", description: "每增加15秒+30积分", color: "#EF4444" },
-  { type: "paid20", duration: 30, label: "30秒", price: "50积分", description: "长视频/微电影", color: "#8B5CF6" },
+  { type: "free5", duration: 5, label: "5秒", price: "30积分", description: "短视频，适合快节奏内容", color: "#10B981" },
+  { type: "paid10", duration: 10, label: "10秒", price: "60积分", description: "标准时长，主流选择", color: "#F59E0B" },
+  { type: "paid12", duration: 12, label: "12秒", price: "72积分", description: "稍长内容，展示更完整", color: "#EF4444" },
 ];
 
 // ==================== 新增：视频运镜控制（对标可灵Kling大师运镜）====================
@@ -74,20 +72,20 @@ const PERFORMANCE_MODES = {
     name: '极速模式',
     icon: 'bolt',
     color: '#10B981',
-    description: '≤5秒图片 · ≤2秒文案 · ≤15秒视频 · ≤60秒三连',
-    times: { image: '≤5秒', text: '≤2秒', video: '≤15秒', all: '≤60秒' },
+    description: '≤5秒图片 · ≤2秒文案 · ≤12秒视频',
+    times: { image: '≤5秒', text: '≤2秒', video: '≤12秒' },
   },
   quality: {
     id: 'quality',
     name: '高质量模式',
     icon: 'gem',
     color: '#4F46E5',
-    description: '≤15秒图片 · ≤5秒文案 · ≤120秒视频',
-    times: { image: '≤15秒', text: '≤5秒', video: '≤120秒', all: '~120秒' },
+    description: '≤10秒图片 · ≤5秒文案 · ≤12秒视频',
+    times: { image: '≤10秒', text: '≤5秒', video: '≤12秒' },
   },
 };
 
-// ==================== 升级：图片分辨率选择（支持4K，对标全网最强）====================
+// ==================== 图片分辨率选择 ====================
 const IMAGE_RESOLUTIONS = [
   // 1K分辨率（免费）
   { id: 'square_1k', name: '1K方图', size: '1024×1024', aspect: '1:1', price: '免费', description: '小红书/朋友圈' },
@@ -98,7 +96,7 @@ const IMAGE_RESOLUTIONS = [
   { id: 'square_2k', name: '2K方图', size: '2048×2048', aspect: '1:1', price: '5积分', description: '高清打印/壁纸' },
   { id: 'portrait_2k', name: '2K竖图', size: '1536×2048', aspect: '3:4', price: '5积分', description: '手机壁纸' },
   { id: 'landscape_2k', name: '2K横图', size: '2048×1536', aspect: '4:3', price: '5积分', description: '高清海报' },
-  // 4K分辨率（15积分，对标Midjourney/DALL-E最高画质）
+  // 4K分辨率（15积分）
   { id: 'square_4k', name: '4K方图', size: '4096×4096', aspect: '1:1', price: '15积分', description: '专业级画质/打印' },
   { id: 'portrait_4k', name: '4K竖图', size: '3072×4096', aspect: '3:4', price: '15积分', description: '超高清壁纸' },
   { id: 'wide_4k', name: '4K宽图', size: '4096×2304', aspect: '16:9', price: '15积分', description: '电影级画质' },
@@ -120,9 +118,9 @@ const SEO_OPTIONS = [
 
 // ==================== 竞品对比配置 ====================
 const COMPETITORS = {
-  image: { jimeng: '30秒', kilin: '-', lingxiang: '-' },
-  text: { jimeng: '-', kilin: '-', lingxiang: '-' },
-  video: { jimeng: '120秒', kilin: '120秒', lingxiang: '≤120秒' },
+  image: { jimeng: '有', kilin: '有', lingxiang: '有' },
+  text: { jimeng: '有', kilin: '有', lingxiang: '有' },
+  video: { jimeng: '有', kilin: '有', lingxiang: '有' },
 };
 
 // 免费码选项
@@ -133,8 +131,8 @@ const FREE_CODE_OPTIONS = [
   { type: '1_year', label: '一年', days: 365 },
 ];
 
-// ==================== 新增：风格预设配置 ====================
-// ==================== 升级文案风格（12+平台适配，对标全网最强）====================
+// ==================== 风格预设配置 ====================
+// ==================== 文案风格（多平台适配）====================
 const TEXT_STYLES = [
   // 社交媒体类
   { id: 'xiaohongshu', name: '小红书', icon: 'book', color: '#FF2442', platform: '种草/分享', chars: '500-1000' },
@@ -1056,7 +1054,7 @@ export default function HomeScreen() {
               </View>
               <View style={[styles.competitorRow, styles.competitorHighlight]}>
                 <Text style={styles.competitorFeature}>一键三连</Text>
-                <Text style={[styles.competitorValue, styles.competitorBest]}>≤60秒</Text>
+                <Text style={[styles.competitorValue, styles.competitorBest]}>支持</Text>
                 <Text style={styles.competitorValue}>-</Text>
               </View>
             </View>
@@ -1090,7 +1088,7 @@ export default function HomeScreen() {
 
             <View style={styles.competitorNote}>
               <FontAwesome6 name="lightbulb" size={14} color={COLORS.primary} />
-              <Text style={styles.competitorNoteText}>灵感山羊一键三连功能为行业首创，竞品暂无此功能</Text>
+              <Text style={styles.competitorNoteText}>灵感山羊一键三连功能，一站式完成文案+图片+视频全套内容创作</Text>
             </View>
           </ScrollView>
 
@@ -1582,7 +1580,7 @@ export default function HomeScreen() {
               <FontAwesome6 name="wand-magic-sparkles" size={24} color="white" />
             </View>
             <View style={styles.oneclickContent}>
-              <Text style={styles.oneclickTitle}>一键三连 · 行业首创</Text>
+              <Text style={styles.oneclickTitle}>一键三连 · 智能创作</Text>
               <Text style={styles.oneclickSubtitle}>文案+图片+视频 一次搞定</Text>
             </View>
             <View style={styles.oneclickBadge}>
@@ -1619,7 +1617,7 @@ export default function HomeScreen() {
               </View>
               <View>
                 <Text style={styles.compareBannerTitle}>对比全网竞品</Text>
-                <Text style={styles.compareBannerSubtitle}>一键三连 · 行业首创</Text>
+                <Text style={styles.compareBannerSubtitle}>一键三连 · 智能创作</Text>
               </View>
             </View>
             <View style={styles.compareBannerRight}>
