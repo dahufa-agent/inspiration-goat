@@ -32,6 +32,17 @@ export default function RootLayout() {
         <Stack.Screen name="digital-human" options={{ title: "" }} />
         <Stack.Screen name="design-tools" options={{ title: "" }} />
         <Stack.Screen name="agent-workflow" options={{ title: "" }} />
+        <Stack.Screen name="oneclick" options={{ title: "" }} />
+        <Stack.Screen name="chinese-illustration" options={{ title: "" }} />
+        <Stack.Screen name="name-generator" options={{ title: "" }} />
+        <Stack.Screen name="classics" options={{ title: "" }} />
+        <Stack.Screen name="health" options={{ title: "" }} />
+        <Stack.Screen name="member" options={{ title: "" }} />
+        <Stack.Screen name="terms" options={{ title: "" }} />
+        <Stack.Screen name="privacy" options={{ title: "" }} />
+        <Stack.Screen name="copyright" options={{ title: "" }} />
+        <Stack.Screen name="minors" options={{ title: "" }} />
+        <Stack.Screen name="guidelines" options={{ title: "" }} />
       </Stack>
       <BeianFooter />
       <Toast />

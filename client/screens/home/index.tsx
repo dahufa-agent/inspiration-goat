@@ -1573,6 +1573,24 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
+          {/* 一键三连 - 核心杀手功能入口 */}
+          <TouchableOpacity
+            style={styles.oneclickBanner}
+            onPress={() => router.push("/oneclick")}
+          >
+            <View style={styles.oneclickIconContainer}>
+              <FontAwesome6 name="wand-magic-sparkles" size={24} color="white" />
+            </View>
+            <View style={styles.oneclickContent}>
+              <Text style={styles.oneclickTitle}>一键三连 · 行业首创</Text>
+              <Text style={styles.oneclickSubtitle}>文案+图片+视频 一次搞定</Text>
+            </View>
+            <View style={styles.oneclickBadge}>
+              <Text style={styles.oneclickBadgeText}>独家</Text>
+            </View>
+            <FontAwesome6 name="chevron-right" size={18} color="white" />
+          </TouchableOpacity>
+
           {/* VIP Banner */}
           {!isPermanentVip && (
             <TouchableOpacity style={styles.vipBanner} onPress={() => router.push("/auth")}>
@@ -2285,6 +2303,41 @@ const styles = StyleSheet.create({
   vipSubtitle: { fontSize: 12, color: "#B45309", marginTop: 2 },
   permanentVipBanner: { backgroundColor: "rgba(0, 184, 148, 0.12)", padding: 14, borderRadius: 16, marginTop: 18, alignItems: "center" },
   permanentVipText: { fontSize: 14, fontWeight: "700", color: COLORS.success },
+  
+  // 一键三连入口
+  oneclickBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#EF4444",
+    padding: 16,
+    borderRadius: 20,
+    marginTop: 18,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  oneclickIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  oneclickContent: { flex: 1, marginLeft: 12 },
+  oneclickTitle: { fontSize: 17, fontWeight: "800", color: COLORS.white },
+  oneclickSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 },
+  oneclickBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  oneclickBadgeText: { fontSize: 10, fontWeight: "700", color: COLORS.white },
   
   // 进度弹窗
   progressOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" },
