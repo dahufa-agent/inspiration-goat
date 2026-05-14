@@ -42,7 +42,9 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2021,
+        ...globals.node,
         '__DEV__': 'readonly',
+        'process': 'readonly',
       },
     },
 
