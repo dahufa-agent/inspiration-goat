@@ -1375,6 +1375,34 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </Animated.View>
 
+          {/* 专业工具快捷入口 */}
+          <Animated.View entering={FadeInUp.delay(150).duration(500)} style={styles.proToolsSection}>
+            <Text style={styles.proToolsTitle}>专业工具</Text>
+            <View style={styles.proToolsGrid}>
+              <TouchableOpacity style={styles.proToolCard} onPress={() => router.push('/digital-human')}>
+                <View style={[styles.proToolIcon, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
+                  <FontAwesome6 name="user-robot" size={24} color="#8B5CF6" />
+                </View>
+                <Text style={styles.proToolName}>AI数字人</Text>
+                <Text style={styles.proToolDesc}>虚拟主播播报</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.proToolCard} onPress={() => router.push('/design-tools')}>
+                <View style={[styles.proToolIcon, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
+                  <FontAwesome6 name="palette" size={24} color="#EC4899" />
+                </View>
+                <Text style={styles.proToolName}>在线设计</Text>
+                <Text style={styles.proToolDesc}>海报排版一键</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.proToolCard} onPress={() => router.push('/agent-workflow')}>
+                <View style={[styles.proToolIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                  <FontAwesome6 name="robot" size={24} color="#3B82F6" />
+                </View>
+                <Text style={styles.proToolName}>Agent编排</Text>
+                <Text style={styles.proToolDesc}>自动化批量创作</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+
           {/* 输入区域 - 创意想法 */}
           <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputSection}>
             <View style={styles.inputHeader}>
@@ -2029,6 +2057,30 @@ const styles = StyleSheet.create({
   featureIconBg: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center", marginBottom: 10 },
   featureHighlightTitle: { fontSize: 13, fontWeight: "700", color: COLORS.text, textAlign: "center" },
   featureHighlightSub: { fontSize: 11, color: COLORS.textSecondary, marginTop: 4, textAlign: "center" },
+
+  // ==================== 新增：专业工具区域样式 ====================
+  proToolsSection: { marginBottom: 16 },
+  proToolsTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text, marginBottom: 12, paddingHorizontal: 4 },
+  proToolsGrid: { flexDirection: "row", gap: 10 },
+  proToolCard: {
+    flex: 1,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.6)",
+    borderTopColor: "rgba(255,255,255,0.8)",
+    borderBottomColor: "rgba(0,0,0,0.1)",
+    shadowColor: COLORS.shadowDark,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  proToolIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: "center", alignItems: "center", marginBottom: 8 },
+  proToolName: { fontSize: 13, fontWeight: "700", color: COLORS.text, textAlign: "center" },
+  proToolDesc: { fontSize: 10, color: COLORS.textSecondary, marginTop: 2, textAlign: "center" },
 
   // ==================== 新增：场景模板入口样式 ====================
   sceneTemplateEntry: {

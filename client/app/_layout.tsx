@@ -29,6 +29,9 @@ export default function RootLayout() {
         <Stack.Screen name="extract" options={{ title: "" }} />
         <Stack.Screen name="history" options={{ title: "" }} />
         <Stack.Screen name="publish" options={{ title: "" }} />
+        <Stack.Screen name="digital-human" options={{ title: "" }} />
+        <Stack.Screen name="design-tools" options={{ title: "" }} />
+        <Stack.Screen name="agent-workflow" options={{ title: "" }} />
       </Stack>
       <BeianFooter />
       <Toast />

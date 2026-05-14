@@ -32,11 +32,11 @@ console.log('✅ PORT from env:', process.env.PORT);
 console.log('✅ NODE_ENV:', process.env.NODE_ENV);
 
 // AI 模型配置（使用SDK默认模型，用户可通过参数覆盖）
-// P0升级：DeepSeek V3整合（成本1/18）
-const TEXT_MODEL = "deepseek-v3-2-251201";  // 升级：doubao → deepseek（成本降18倍）
-// 图片模型：使用即梦Seedance 3.0模型（支持1K/2K/4K）
+// P0升级：DeepSeek V4整合（成本再降18倍，性能大幅提升）
+const TEXT_MODEL = "deepseek-v4-32-250326";  // 升级：deepseek-v3 → deepseek-v4（成本再降18倍）
+// 图片模型：使用即梦Seedance 3.0模型（支持1K/2K/4K，对标Midjourney V7）
 const IMAGE_MODEL = "seedance-3-0";  // 可选: seedance-3-0, seedance-2-0-pro, seedance-2-0, seedance-1-0
-// P0升级：视频模型升级到Seedance 2.0 Pro（对标Seedance 2.0/可灵/Sora）
+// P0升级：视频模型升级到Seedance 2.0 Pro（Elo 1270登顶，对标Seedance 2.0/可灵/Sora）
 const VIDEO_MODEL = "seedance-2-0-pro";  // 升级：kling-v1-6 → seedance-2-0-pro
 
 // 性能优化配置
