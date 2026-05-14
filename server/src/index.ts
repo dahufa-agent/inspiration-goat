@@ -398,16 +398,43 @@ const STYLE_PRESETS = {
   },
 };
 
-// 图片风格预设
+// 图片风格预设（灵感山羊特色：8种通用风格 + 13种国风风格）
 const IMAGE_STYLES = {
-  realistic: { name: '写实摄影', keywords: 'photorealistic, high detail, professional photography' },
-  illustration: { name: '商业插画', keywords: 'digital illustration, vector art, clean design' },
-  anime: { name: '动漫风格', keywords: 'anime style, vibrant colors, detailed anime art' },
-  oil_painting: { name: '油画质感', keywords: 'oil painting style, impressionist, artistic' },
-  watercolor: { name: '水彩风格', keywords: 'watercolor painting, soft colors, delicate' },
-  cyberpunk: { name: '赛博朋克', keywords: 'cyberpunk, neon lights, futuristic city' },
-  fantasy: { name: '奇幻风格', keywords: 'fantasy art, magical atmosphere, epic scene' },
-  minimalist: { name: '极简主义', keywords: 'minimalist design, clean lines, simple composition' },
+  // ========== 通用风格 ==========
+  realistic: { name: '写实摄影', keywords: 'photorealistic, high detail, professional photography', category: 'general' },
+  illustration: { name: '商业插画', keywords: 'digital illustration, vector art, clean design', category: 'general' },
+  anime: { name: '动漫风格', keywords: 'anime style, vibrant colors, detailed anime art', category: 'general' },
+  oil_painting: { name: '油画质感', keywords: 'oil painting style, impressionist, artistic', category: 'general' },
+  watercolor: { name: '水彩风格', keywords: 'watercolor painting, soft colors, delicate', category: 'general' },
+  cyberpunk: { name: '赛博朋克', keywords: 'cyberpunk, neon lights, futuristic city', category: 'general' },
+  fantasy: { name: '奇幻风格', keywords: 'fantasy art, magical atmosphere, epic scene', category: 'general' },
+  minimalist: { name: '极简主义', keywords: 'minimalist design, clean lines, simple composition', category: 'general' },
+  
+  // ========== 国风插画风格（13种，全网独家） ==========
+  // 国画系
+  ink_landscape: { name: '水墨山水', keywords: 'Chinese ink painting, Shan Shui style, traditional landscape, misty mountains, serene water, literati painting, freehand brushwork', category: 'chinese', quality: '国风' },
+  gongbi_flower: { name: '工笔花鸟', keywords: 'Chinese Gongbi painting, meticulous brushwork, flower and bird, Song Dynasty style, delicate details, elegant composition', category: 'chinese', quality: '国风' },
+  dunhuang: { name: '敦煌壁画', keywords: 'Dunhuang cave murals, Tang Dynasty Buddhist art, celestial beings, vibrant pigments, ancient cave painting, sacred imagery', category: 'chinese', quality: '国风' },
+  
+  // 传统色系
+  blue_white: { name: '青花瓷韵', keywords: 'blue and white porcelain, Jiangnan style, cobalt blue patterns, Ming Dynasty ceramics, elegant floral motifs, classic Chinese aesthetic', category: 'chinese', quality: '国风' },
+  palace_red: { name: '故宫红', keywords: 'Chinese palace red, Forbidden City style, vermilion walls, imperial elegance, gold accents, traditional Chinese luxury', category: 'chinese', quality: '国风' },
+  
+  // 民俗系
+  paper_cut: { name: '剪纸艺术', keywords: 'Chinese paper cutting, festive red paper art, intricate patterns, Chinese New Year decoration, traditional folk art, symmetrical design', category: 'chinese', quality: '国风' },
+  new_year_painting: { name: '年画风格', keywords: 'Chinese New Year picture, auspicious door god, fortune character Fu, traditional folk painting, Spring Festival, festive atmosphere', category: 'chinese', quality: '国风' },
+  shadow_puppet: { name: '皮影戏', keywords: 'Chinese shadow puppetry, leather shadow play, traditional drama, dramatic silhouettes, ancient storytelling art, warm lamp light', category: 'chinese', quality: '国风' },
+  
+  // 服饰系
+  hanfu: { name: '汉服古韵', keywords: 'traditional Hanfu clothing, ancient Chinese costume, flowing robes, silk fabric, classical elegance, cultural heritage', category: 'chinese', quality: '国风' },
+  
+  // 建筑系
+  classical_architecture: { name: '古典建筑', keywords: 'Chinese classical architecture, traditional pavilions, upturned eaves, red walls, glazed tiles, garden scenery', category: 'chinese', quality: '国风' },
+  
+  // 现代国风
+  guochao: { name: '国潮插画', keywords: 'Guochao style, modern Chinese illustration, traditional elements with contemporary twist, trendy cultural design, fashion meets tradition', category: 'chinese', quality: '国风' },
+  poetry_atmosphere: { name: '诗词意境', keywords: 'Chinese poetry atmosphere, Tang Dynasty style, Li Bai poem scene, romantic imagery, literary elegance, classical Chinese beauty', category: 'chinese', quality: '国风' },
+  zen_space: { name: '禅意空间', keywords: 'Zen Buddhist aesthetic, minimalist Japanese-Chinese style, bamboo, stone garden, meditation space, peaceful tranquility, wabi-sabi', category: 'chinese', quality: '国风' },
 };
 
 // 热点话题缓存

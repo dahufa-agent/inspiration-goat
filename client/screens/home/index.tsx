@@ -154,35 +154,42 @@ const TEXT_STYLES = [
   { id: 'general', name: '通用文案', icon: 'star', color: '#10B981', platform: '通用场景', chars: '200-1000' },
 ];
 
-// ==================== 升级图片风格（20+种风格，对标Midjourney/DALL-E）====================
+// ==================== 升级图片风格（8种通用风格 + 13种国风风格，对标Midjourney/DALL-E）====================
 const IMAGE_STYLES = [
+  // ========== 通用风格 ==========
   // 摄影类
-  { id: 'photorealistic', name: '写实摄影', keywords: 'photorealistic, high detail, 8K', category: 'photo', quality: '专业' },
-  { id: 'portrait_photo', name: '人像摄影', keywords: 'professional portrait photography, studio lighting', category: 'photo', quality: '专业' },
-  { id: 'landscape', name: '风景摄影', keywords: 'landscape photography, golden hour, breathtaking', category: 'photo', quality: '专业' },
-  { id: 'street', name: '街拍纪实', keywords: 'street photography, documentary style', category: 'photo', quality: '专业' },
-  { id: 'macro', name: '微距摄影', keywords: 'macro photography, extreme detail', category: 'photo', quality: '专业' },
+  { id: 'photorealistic', name: '写实摄影', keywords: 'photorealistic, high detail, 8K', category: 'photo', quality: '通用' },
+  { id: 'portrait_photo', name: '人像摄影', keywords: 'professional portrait photography, studio lighting', category: 'photo', quality: '通用' },
+  { id: 'landscape', name: '风景摄影', keywords: 'landscape photography, golden hour, breathtaking', category: 'photo', quality: '通用' },
   // 插画类
-  { id: 'digital_art', name: '商业插画', keywords: 'digital illustration, vector art, clean lines', category: 'illustration', quality: '商业' },
-  { id: 'flat_design', name: '扁平插画', keywords: 'flat design illustration, modern style', category: 'illustration', quality: '商业' },
-  { id: 'isometric', name: '2.5D插画', keywords: 'isometric illustration, 3D effect', category: 'illustration', quality: '商业' },
-  // 艺术类
-  { id: 'anime', name: '动漫风格', keywords: 'anime style, vibrant colors, Studio Ghibli inspired', category: 'anime', quality: '艺术' },
-  { id: 'manga', name: '日漫风格', keywords: 'manga style, black and white, comic', category: 'anime', quality: '艺术' },
-  { id: 'watercolor', name: '水彩画', keywords: 'watercolor painting, soft colors', category: 'art', quality: '艺术' },
-  { id: 'oil_painting', name: '油画质感', keywords: 'oil painting style, impressionist, masterpiece', category: 'art', quality: '艺术' },
-  { id: 'chinese_painting', name: '国风水墨', keywords: 'Chinese ink painting, traditional style, elegant', category: 'art', quality: '艺术' },
-  { id: 'ukiyoe', name: '浮世绘', keywords: 'ukiyo-e style, Japanese traditional art', category: 'art', quality: '艺术' },
-  // 创意类
-  { id: 'cyberpunk', name: '赛博朋克', keywords: 'cyberpunk, neon lights, futuristic city', category: 'creative', quality: '创意' },
-  { id: 'vaporwave', name: '蒸汽波', keywords: 'vaporwave aesthetic, retrofuturism', category: 'creative', quality: '创意' },
-  { id: 'fantasy', name: '奇幻风格', keywords: 'fantasy art, magical, epic', category: 'creative', quality: '创意' },
-  { id: 'steampunk', name: '蒸汽朋克', keywords: 'steampunk, Victorian era, mechanical', category: 'creative', quality: '创意' },
-  // 高级类
-  { id: '3d_render', name: '3D渲染', keywords: '3D render, octane render, cinema 4D style', category: '3d', quality: '高级' },
-  { id: 'product_shot', name: '产品主图', keywords: 'product photography, e-commerce, white background', category: 'commercial', quality: '商业' },
-  { id: 'logo_design', name: 'Logo设计', keywords: 'logo design, minimal, vector', category: 'commercial', quality: '商业' },
-  { id: 'poster_art', name: '海报艺术', keywords: 'movie poster style, dramatic lighting', category: 'commercial', quality: '商业' },
+  { id: 'digital_art', name: '商业插画', keywords: 'digital illustration, vector art, clean lines', category: 'illustration', quality: '通用' },
+  { id: 'anime', name: '动漫风格', keywords: 'anime style, vibrant colors, detailed anime art', category: 'anime', quality: '通用' },
+  { id: 'oil_painting', name: '油画质感', keywords: 'oil painting style, impressionist, masterpiece', category: 'art', quality: '通用' },
+  { id: 'watercolor', name: '水彩画', keywords: 'watercolor painting, soft colors, delicate', category: 'art', quality: '通用' },
+  { id: 'cyberpunk', name: '赛博朋克', keywords: 'cyberpunk, neon lights, futuristic city', category: 'creative', quality: '通用' },
+  { id: 'fantasy', name: '奇幻风格', keywords: 'fantasy art, magical, epic', category: 'creative', quality: '通用' },
+  { id: 'minimalist', name: '极简主义', keywords: 'minimalist design, clean lines, simple composition', category: 'creative', quality: '通用' },
+  
+  // ========== 国风插画风格（13种，全网独家） ==========
+  // 国画系
+  { id: 'ink_landscape', name: '水墨山水', keywords: 'Chinese ink painting, Shan Shui style, misty mountains, literati painting', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'gongbi_flower', name: '工笔花鸟', keywords: 'Chinese Gongbi painting, meticulous brushwork, Song Dynasty style, delicate', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'dunhuang', name: '敦煌壁画', keywords: 'Dunhuang cave murals, Tang Dynasty Buddhist art, celestial beings', category: 'chinese', quality: '国风', badge: '独家' },
+  // 传统色系
+  { id: 'blue_white', name: '青花瓷韵', keywords: 'blue and white porcelain, Jiangnan style, cobalt blue patterns', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'palace_red', name: '故宫红', keywords: 'Chinese palace red, Forbidden City style, vermilion walls, imperial elegance', category: 'chinese', quality: '国风', badge: '独家' },
+  // 民俗系
+  { id: 'paper_cut', name: '剪纸艺术', keywords: 'Chinese paper cutting, festive red paper art, intricate patterns', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'new_year_painting', name: '年画风格', keywords: 'Chinese New Year picture, auspicious door god, fortune character Fu', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'shadow_puppet', name: '皮影戏', keywords: 'Chinese shadow puppetry, leather shadow play, dramatic silhouettes', category: 'chinese', quality: '国风', badge: '独家' },
+  // 服饰系
+  { id: 'hanfu', name: '汉服古韵', keywords: 'traditional Hanfu clothing, ancient Chinese costume, silk fabric', category: 'chinese', quality: '国风', badge: '独家' },
+  // 建筑系
+  { id: 'classical_architecture', name: '古典建筑', keywords: 'Chinese classical architecture, traditional pavilions, upturned eaves', category: 'chinese', quality: '国风', badge: '独家' },
+  // 现代国风
+  { id: 'guochao', name: '国潮插画', keywords: 'Guochao style, modern Chinese illustration, trendy cultural design', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'poetry_atmosphere', name: '诗词意境', keywords: 'Chinese poetry atmosphere, Tang Dynasty style, Li Bai poem scene', category: 'chinese', quality: '国风', badge: '独家' },
+  { id: 'zen_space', name: '禅意空间', keywords: 'Zen Buddhist aesthetic, minimalist, bamboo garden, meditation space', category: 'chinese', quality: '国风', badge: '独家' },
 ];
 
 // ==================== 新增：行业场景模板中心 ====================
@@ -417,6 +424,8 @@ export default function HomeScreen() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showSeoModal, setShowSeoModal] = useState(false);
   const [showStyleModal, setShowStyleModal] = useState(false);
+  // 新增：风格分类Tab（通用/国风独家）
+  const [styleCategory, setStyleCategory] = useState<'general' | 'chinese'>('general');
   const [hotTopics, setHotTopics] = useState<Array<{id: number; platform: string; title: string; heat: number}>>([]);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({ stage: 'idle', progress: 0, message: '' });
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -432,6 +441,14 @@ export default function HomeScreen() {
 
   // ==================== 新增：场景模板弹窗状态 ====================
   const [showSceneModal, setShowSceneModal] = useState(false);
+
+  // 根据分类筛选风格
+  const getFilteredImageStyles = () => {
+    if (styleCategory === 'chinese') {
+      return IMAGE_STYLES.filter(s => s.category === 'chinese');
+    }
+    return IMAGE_STYLES.filter(s => s.category !== 'chinese');
+  };
 
   const getCurrentTemplates = () => TEMPLATES[selectedCategory as keyof typeof TEMPLATES] || TEMPLATES.scenery;
 
@@ -1517,7 +1534,7 @@ export default function HomeScreen() {
         {/* 风格选择弹窗 */}
         <Modal visible={showStyleModal} transparent animationType="slide" onRequestClose={() => setShowStyleModal(false)}>
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>选择创作风格</Text>
                 <TouchableOpacity onPress={() => setShowStyleModal(false)}>
@@ -1537,14 +1554,47 @@ export default function HomeScreen() {
                 </View>
 
                 <Text style={styles.styleGroupTitle}>图片风格</Text>
+                {/* 风格分类Tab */}
+                <View style={styles.styleCategoryTabs}>
+                  <TouchableOpacity 
+                    style={[styles.styleCategoryTab, styleCategory === 'general' && styles.styleCategoryTabActive]}
+                    onPress={() => setStyleCategory('general')}
+                  >
+                    <Text style={[styles.styleCategoryTabText, styleCategory === 'general' && styles.styleCategoryTabTextActive]}>
+                      通用风格 ({IMAGE_STYLES.filter(s => s.category !== 'chinese').length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.styleCategoryTab, styleCategory === 'chinese' && styles.styleCategoryTabActive]}
+                    onPress={() => setStyleCategory('chinese')}
+                  >
+                    <Text style={[styles.styleCategoryTabText, styleCategory === 'chinese' && styles.styleCategoryTabTextActive]}>
+                      国风独家 ✨
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
                 <View style={styles.styleGrid}>
-                  {IMAGE_STYLES.map((style) => (
+                  {getFilteredImageStyles().map((style) => (
                     <TouchableOpacity key={style.id} style={[styles.styleCard, selectedImageStyle === style.id && styles.styleCardSelected]} onPress={() => setSelectedImageStyle(style.id)}>
-                      <FontAwesome6 name="image" size={24} color={COLORS.primary} />
+                      <View style={styles.styleCardHeader}>
+                        <FontAwesome6 name="image" size={24} color={style.category === 'chinese' ? '#E53E3E' : COLORS.primary} />
+                        {style.badge && (
+                          <View style={styles.exclusiveBadge}>
+                            <Text style={styles.exclusiveBadgeText}>{style.badge}</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[styles.styleCardName, selectedImageStyle === style.id && styles.styleCardNameSelected]}>{style.name}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+                {styleCategory === 'chinese' && (
+                  <View style={styles.chineseStyleIntro}>
+                    <Text style={styles.chineseStyleIntroTitle}>13种国风风格，全网独家</Text>
+                    <Text style={styles.chineseStyleIntroText}>水墨山水 | 工笔花鸟 | 敦煌壁画 | 青花瓷韵 | 故宫红 | 剪纸艺术 | 年画风格 | 皮影戏 | 汉服古韵 | 古典建筑 | 国潮插画 | 诗词意境 | 禅意空间</Text>
+                  </View>
+                )}
               </ScrollView>
 
               <TouchableOpacity style={styles.modalButton} onPress={() => setShowStyleModal(false)}>
@@ -2151,6 +2201,18 @@ const styles = StyleSheet.create({
   styleCardIcon: { fontSize: 28, marginBottom: 10 },
   styleCardName: { fontSize: 13, color: COLORS.text, fontWeight: "600" },
   styleCardNameSelected: { color: COLORS.primary, fontWeight: "700" },
+  // 国风风格分类Tab
+  styleCategoryTabs: { flexDirection: "row", marginBottom: 16, gap: 10 },
+  styleCategoryTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: COLORS.surface, alignItems: "center" },
+  styleCategoryTabActive: { backgroundColor: "#E53E3E" },
+  styleCategoryTabText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: "600" },
+  styleCategoryTabTextActive: { color: COLORS.white, fontWeight: "700" },
+  styleCardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 6 },
+  exclusiveBadge: { backgroundColor: "#E53E3E", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  exclusiveBadgeText: { color: COLORS.white, fontSize: 9, fontWeight: "700" },
+  chineseStyleIntro: { backgroundColor: "rgba(229, 62, 62, 0.1)", borderRadius: 12, padding: 14, marginTop: 16, marginBottom: 10 },
+  chineseStyleIntroTitle: { fontSize: 14, fontWeight: "700", color: "#E53E3E", marginBottom: 8 },
+  chineseStyleIntroText: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 20 },
   
   // 免费码
   freeCodeDisplay: { backgroundColor: "rgba(253, 203, 110, 0.15)", borderRadius: 18, padding: 24, alignItems: "center" },
