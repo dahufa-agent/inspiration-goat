@@ -16,14 +16,14 @@ import { FontAwesome6 } from "@expo/vector-icons";
 
 const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || "http://localhost:9091";
 
-// 平台配置
+// 平台配置 - 六大平台一键发布
 const PLATFORMS = [
-  { id: 'douyin', name: '抖音', icon: 'music', color: '#000000', bgColor: '#1a1a1a' },
-  { id: 'xiaohongshu', name: '小红书', icon: 'book-open', color: '#FF2442', bgColor: '#FFF0F2' },
-  { id: 'kuaishou', name: '快手', icon: 'mobile', color: '#FF4906', bgColor: '#FFF0EB' },
-  { id: 'bilibili', name: 'B站', icon: 'tv', color: '#00A1D6', bgColor: '#E8F5FB' },
-  { id: 'weibo', name: '微博', icon: 'globe', color: '#E6162D', bgColor: '#FFEEF0' },
-  { id: 'video', name: '视频号', icon: 'video', color: '#07C160', bgColor: '#E8F8EE' },
+  { id: 'douyin', name: '抖音', icon: 'play', color: '#FFFFFF', bgColor: '#1A1A1A', desc: '短视频' },
+  { id: 'xiaohongshu', name: '小红书', icon: 'bookmark', color: '#FF2442', bgColor: '#FFF0F2', desc: '种草笔记' },
+  { id: 'kuaishou', name: '快手', icon: 'bolt', color: '#FF4906', bgColor: '#FFF0EB', desc: '老铁文化' },
+  { id: 'bilibili', name: 'B站', icon: 'play-circle', color: '#00A1D6', bgColor: '#E8F5FB', desc: '弹幕视频' },
+  { id: 'weibo', name: '微博', icon: 'at', color: '#E6162D', bgColor: '#FFEEF0', desc: '社交媒体' },
+  { id: 'video', name: '视频号', icon: 'video', color: '#07C160', bgColor: '#E8F8EE', desc: '微信生态' },
 ];
 
 interface PublishResult {
@@ -150,9 +150,16 @@ export default function PublishScreen() {
                   ]}
                   onPress={() => togglePlatform(platform.id)}
                 >
-                  <Text style={styles.platformIcon}>{platform.icon}</Text>
+                  <FontAwesome6
+                    name={platform.icon as any}
+                    size={24}
+                    color={isSelected ? platform.color : '#999'}
+                  />
                   <Text style={[styles.platformName, { color: isSelected ? platform.color : '#666' }]}>
                     {platform.name}
+                  </Text>
+                  <Text style={[styles.platformDesc, { color: isSelected ? platform.color : '#999' }]}>
+                    {platform.desc}
                   </Text>
                   {isSelected && (
                     <View style={[styles.checkBadge, { backgroundColor: platform.color }]}>
@@ -307,7 +314,12 @@ const styles = StyleSheet.create({
   },
   platformName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  platformDesc: {
+    fontSize: 10,
+    marginTop: 2,
   },
   checkBadge: {
     position: 'absolute',
