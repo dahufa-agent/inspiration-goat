@@ -211,7 +211,7 @@ export default function DigitalHumanScreen() {
           <TextInput
             style={styles.scriptInput}
             multiline
-            placeholder="输入口播文案，或点击"AI生成"智能创作..."
+            placeholder="输入口播文案，或点击AI生成智能创作..."
             placeholderTextColor="#999"
             value={script}
             onChangeText={setScript}

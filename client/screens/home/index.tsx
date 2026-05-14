@@ -1381,7 +1381,7 @@ export default function HomeScreen() {
             <View style={styles.proToolsGrid}>
               <TouchableOpacity style={styles.proToolCard} onPress={() => router.push('/digital-human')}>
                 <View style={[styles.proToolIcon, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
-                  <FontAwesome6 name="user-robot" size={24} color="#8B5CF6" />
+                  <FontAwesome6 name="robot" size={24} color="#8B5CF6" />
                 </View>
                 <Text style={styles.proToolName}>AI数字人</Text>
                 <Text style={styles.proToolDesc}>虚拟主播播报</Text>
@@ -1515,8 +1515,9 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>
               <FontAwesome6 name="camera" size={16} color={COLORS.primary} /> 运镜控制
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cameraScroll}>
-              {CAMERA_CONTROLS.map((camera) => (
+            <View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cameraScroll}>
+                {CAMERA_CONTROLS.map((camera) => (
                 <TouchableOpacity 
                   key={camera.id} 
                   style={[
@@ -1531,6 +1532,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+            </View>
           </Animated.View>
 
           {/* 新增：视频风格选择（对标Runway/Sora） */}
