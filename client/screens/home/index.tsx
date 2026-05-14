@@ -555,6 +555,27 @@ export default function HomeScreen() {
     return { allowed: true, reason: "" };
   };
 
+  // ==================== 一键发布功能 ====================
+  const handleQuickPublish = () => {
+    // 保存当前创作内容到全局状态或缓存
+    const content = {
+      idea: idea.trim(),
+      selectedImageStyle,
+      selectedTextStyle,
+      selectedResolution,
+      selectedDuration,
+    };
+    // 导航到发布页面
+    router.push('/publish', { 
+      from: 'home',
+      idea: idea.trim(),
+      imageStyle: selectedImageStyle,
+      textStyle: selectedTextStyle,
+      resolution: selectedResolution,
+      duration: selectedDuration,
+    });
+  };
+
   // ==================== 优化：并行带进度反馈的生成 ====================
   const handleGenerate = async () => {
     const check = canGenerate();
@@ -1363,6 +1384,17 @@ export default function HomeScreen() {
             )}
           </TouchableOpacity>
 
+          {/* 一键发布按钮 */}
+          {idea.trim().length > 0 && (
+            <TouchableOpacity
+              style={styles.publishButton}
+              onPress={handleQuickPublish}
+            >
+              <FontAwesome6 name="paper-plane" size={18} color="#FFFFFF" />
+              <Text style={styles.publishButtonText}>一键发布全平台</Text>
+            </TouchableOpacity>
+          )}
+
           {/* 错误提示 */}
           {error ? (
             <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
@@ -1569,7 +1601,7 @@ export default function HomeScreen() {
                     onPress={() => setStyleCategory('chinese')}
                   >
                     <Text style={[styles.styleCategoryTabText, styleCategory === 'chinese' && styles.styleCategoryTabTextActive]}>
-                      国风独家 ✨
+                      国风独家
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2110,6 +2142,25 @@ const styles = StyleSheet.create({
   },
   generateButtonText: { fontSize: 18, fontWeight: "800", color: COLORS.white },
   
+  // 一键发布按钮
+  publishButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#10B981", // 绿色
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 12,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  publishButtonText: { fontSize: 15, fontWeight: "700", color: COLORS.white },
+  
   // VIP 横幅
   vipBanner: {
     flexDirection: "row",
@@ -2203,7 +2254,7 @@ const styles = StyleSheet.create({
   styleCardNameSelected: { color: COLORS.primary, fontWeight: "700" },
   // 国风风格分类Tab
   styleCategoryTabs: { flexDirection: "row", marginBottom: 16, gap: 10 },
-  styleCategoryTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: COLORS.surface, alignItems: "center" },
+  styleCategoryTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: COLORS.cardBg, alignItems: "center" },
   styleCategoryTabActive: { backgroundColor: "#E53E3E" },
   styleCategoryTabText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: "600" },
   styleCategoryTabTextActive: { color: COLORS.white, fontWeight: "700" },

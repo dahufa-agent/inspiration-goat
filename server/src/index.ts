@@ -2889,6 +2889,171 @@ app.put("/api/v1/admin/settings", async (req: Request, res: Response) => {
   }
 });
 
+// ==================== 一键发布全平台API（灵感山羊杀手级功能）====================
+// 支持平台：抖音、小红书、快手、微信视频号、B站、微博
+app.post("/api/v1/publish/onekey", async (req: Request, res: Response) => {
+  try {
+    const { 
+      content,
+      title,
+      imageUrls,
+      videoUrl,
+      platforms = ['douyin', 'xiaohongshu', 'kuaishou', 'bilibili', 'weibo', 'video'],
+      options = {}
+    } = req.body;
+    
+    const userId = req.headers["x-user-id"] as string;
+    const deviceId = (req.headers["x-device-id"] as string) || "default";
+    
+    if (!content) return res.status(400).json({ error: "content is required" });
+    if (!imageUrls && !videoUrl) return res.status(400).json({ error: "至少需要提供图片或视频" });
+    
+    const PLATFORM_CONFIG = {
+      douyin: { name: '抖音', icon: '🎵', maxContent: 150, hashtag: '#创意内容#短视频' },
+      xiaohongshu: { name: '小红书', icon: '📕', maxContent: 1000, hashtag: '#创作灵感#AI创作' },
+      kuaishou: { name: '快手', icon: '📱', maxContent: 200, hashtag: '#记录生活#创意' },
+      bilibili: { name: 'B站', icon: '📺', maxContent: 500, hashtag: '#创意#AI生成#涨姿势' },
+      weibo: { name: '微博', icon: '🌐', maxContent: 2000, hashtag: '#创意内容' },
+      video: { name: '视频号', icon: '📺', maxContent: 500, hashtag: '#创意分享' },
+    };
+    
+    const publishResults = [];
+    for (const platform of platforms) {
+      const config = PLATFORM_CONFIG[platform as keyof typeof PLATFORM_CONFIG];
+      if (!config) continue;
+      
+      let adaptedContent = content;
+      if (platform === 'douyin') {
+        adaptedContent = content.length > config.maxContent ? content.substring(0, config.maxContent) + '...' : content;
+        adaptedContent += `\n\n${config.hashtag}`;
+      } else if (platform === 'xiaohongshu') {
+        adaptedContent = content.replace(/([。！？])/g, '$1\n').substring(0, config.maxContent);
+        adaptedContent += `\n\n✨ ${config.hashtag}`;
+      } else if (platform === 'kuaishou') {
+        adaptedContent = content.length > config.maxContent ? content.substring(0, config.maxContent) + '...' : content;
+        adaptedContent += `\n${config.hashtag}`;
+      } else if (platform === 'bilibili') {
+        adaptedContent = content.replace(/([。！？])/g, '$1\n').substring(0, config.maxContent);
+        adaptedContent += `\n\n${config.hashtag}`;
+      } else if (platform === 'weibo' || platform === 'video') {
+        adaptedContent = content.length > config.maxContent ? content.substring(0, config.maxContent) + '...' : content;
+        adaptedContent += `\n\n${config.hashtag}`;
+      }
+      
+      const hashtags = generateHashtags(content, platform);
+      
+      publishResults.push({
+        platform,
+        platformName: config.name,
+        platformIcon: config.icon,
+        status: 'ready',
+        adaptedContent,
+        hashtags,
+        title: title || adaptedContent.substring(0, 20),
+        mediaType: videoUrl ? 'video' : 'image',
+        mediaCount: videoUrl ? 1 : (imageUrls?.length || 0),
+        message: `${config.name}内容已适配完成`,
+      });
+    }
+    
+    console.log(`[一键发布] 用户:${userId || deviceId} 平台:${platforms.join(',')} 内容:${content.substring(0, 50)}...`);
+    
+    res.json({
+      success: true,
+      totalPlatforms: platforms.length,
+      readyCount: publishResults.length,
+      results: publishResults,
+      message: `已完成${publishResults.length}个平台的内容适配`,
+    });
+  } catch (error) {
+    console.error("Publish onekey error:", error);
+    res.status(500).json({ error: "发布失败，请重试" });
+  }
+});
+
+function generateHashtags(content: string, platform: string): string[] {
+  const baseTags: Record<string, string[]> = {
+    douyin: ['AI创作', '创意', '灵感', '灵感山羊'],
+    xiaohongshu: ['AI创作', '灵感山羊', '创意无限', '种草'],
+    kuaishou: ['创意', '记录生活', '灵感'],
+    bilibili: ['创意', 'AI创作', '涨姿势'],
+    weibo: ['创意内容', '灵感山羊', 'AI创作'],
+    video: ['创意分享', '灵感山羊'],
+  };
+  
+  const tags = baseTags[platform] || ['灵感山羊', 'AI创作'];
+  const keywords = extractKeywords(content);
+  const contentTags = keywords.slice(0, 2).map(k => `#${k}`);
+  
+  return [...contentTags, ...tags.map(t => `#${t}`)].slice(0, 10);
+}
+
+function extractKeywords(content: string): string[] {
+  const stopWords = ['的', '了', '是', '在', '和', '有', '我', '你', '他', '她', '它', '这', '那', '个', '一', '上', '下', '中', '大', '小', '来', '去', '到', '把', '被', '很', '都', '也', '就', '还', '会', '能', '要', '可以', '一个'];
+  const words = content.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ' ').split(/\s+/).filter(w => w.length >= 2 && !stopWords.includes(w) && !/^\d+$/.test(w));
+  const freq: Record<string, number> = {};
+  for (const word of words) freq[word] = (freq[word] || 0) + 1;
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([word]) => word);
+}
+
+// ==================== 获取支持的发布平台列表 ====================
+app.get("/api/v1/publish/platforms", (req, res) => {
+  const platforms = [
+    { id: 'douyin', name: '抖音', icon: '🎵', color: '#000000', description: '短视频平台，日活6亿+', features: ['竖版视频', '话题挑战', '特效滤镜'], maxContent: 150 },
+    { id: 'xiaohongshu', name: '小红书', icon: '📕', color: '#FF2442', description: '种草社区，女性用户为主', features: ['图文笔记', '好物推荐', '生活分享'], maxContent: 1000 },
+    { id: 'kuaishou', name: '快手', icon: '📱', color: '#FF4906', description: '短视频平台，下沉市场', features: ['短视频', '直播', '老铁文化'], maxContent: 200 },
+    { id: 'bilibili', name: 'B站', icon: '📺', color: '#00A1D6', description: '年轻人文化社区', features: ['弹幕文化', 'UP主创作', 'ACG内容'], maxContent: 500 },
+    { id: 'weibo', name: '微博', icon: '🌐', color: '#E6162D', description: '社交媒体平台', features: ['热搜话题', '明星粉丝', '热点资讯'], maxContent: 2000 },
+    { id: 'video', name: '视频号', icon: '📺', color: '#07C160', description: '微信生态视频平台', features: ['微信好友', '朋友圈', '社交裂变'], maxContent: 500 },
+  ];
+  
+  res.json({ success: true, platforms, totalCount: platforms.length });
+});
+
+// ==================== 内容智能适配 ====================
+app.post("/api/v1/publish/adapt", async (req: Request, res: Response) => {
+  try {
+    const { content, title, targetPlatform } = req.body;
+    
+    if (!content) return res.status(400).json({ error: "content is required" });
+    if (!targetPlatform) return res.status(400).json({ error: "targetPlatform is required" });
+    
+    const customHeaders = HeaderUtils.extractForwardHeaders(req.headers as Record<string, string>);
+    const config = new Config();
+    const llmClient = new LLMClient(config, customHeaders);
+    
+    const platformDescriptions: Record<string, string> = {
+      douyin: '抖音：15秒-1分钟竖版短视频平台，语言简短有力，善于制造悬念和反转，大量使用热门音乐和话题标签',
+      xiaohongshu: '小红书：图文笔记社区，语言温暖亲切，善于分享实用干货和生活方式，emoji丰富，排版精美',
+      kuaishou: '快手：下沉市场短视频平台，语言接地气，真实不做作，善于展示普通人生活',
+      bilibili: 'B站：年轻人文化社区，语言活泼有趣，弹幕文化，二次元风格浓厚，善于玩梗',
+      weibo: '微博：社交媒体平台，语言精炼有力，善于抓热点，话题标签醒目',
+      video: '视频号：微信生态视频平台，语言商务友好，朋友圈传播，社交属性强',
+    };
+    
+    const platformDesc = platformDescriptions[targetPlatform] || '通用内容平台';
+    
+    const optimizePrompt = `你是一位${targetPlatform}平台的内容运营专家。请将以下内容优化适配到${targetPlatform}平台：\n\n原文内容：\n${content}\n${title ? `原标题：${title}` : ''}\n\n${platformDesc}\n\n请直接输出优化后的内容（标题+正文），自动添加3-5个话题标签，不要添加任何解释说明。`;
+    
+    const messages: Message[] = [{ role: "user" as const, content: optimizePrompt }];
+    const response = await llmClient.invoke(messages, { temperature: 0.7 });
+    
+    const optimizedContent = response.content?.trim() || content;
+    const hashtags = (optimizedContent.match(/#[^\s#]+/g) || []).slice(0, 5);
+    
+    res.json({
+      success: true,
+      original: { title, content },
+      adapted: { title: title || '', content: optimizedContent, hashtags },
+      platform: targetPlatform,
+      message: `已优化为${targetPlatform}平台风格`,
+    });
+  } catch (error) {
+    console.error("Adapt content error:", error);
+    res.status(500).json({ error: "内容适配失败，请重试" });
+  }
+});
+
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Server listening on http://0.0.0.0:${port}/`);
   console.log(`✅ Zeabur should now forward to this port`);

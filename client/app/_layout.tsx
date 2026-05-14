@@ -28,6 +28,7 @@ export default function RootLayout() {
         <Stack.Screen name="polish" options={{ title: "" }} />
         <Stack.Screen name="extract" options={{ title: "" }} />
         <Stack.Screen name="history" options={{ title: "" }} />
+        <Stack.Screen name="publish" options={{ title: "" }} />
       </Stack>
       <BeianFooter />
       <Toast />
