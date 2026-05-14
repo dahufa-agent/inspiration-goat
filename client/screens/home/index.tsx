@@ -1323,6 +1323,39 @@ export default function HomeScreen() {
           {/* 热点话题 */}
           <HotTopicsSection />
 
+          {/* 功能亮点展示区 */}
+          <Animated.View entering={FadeInUp.delay(50).duration(500)} style={styles.featureHighlights}>
+            <View style={styles.featureHighlightsHeader}>
+              <Text style={styles.featureHighlightsTitle}>灵感山羊升级啦</Text>
+              <View style={styles.featureBadge}>
+                <Text style={styles.featureBadgeText}>NEW</Text>
+              </View>
+            </View>
+            <View style={styles.featureHighlightsGrid}>
+              <TouchableOpacity style={styles.featureHighlightCard} onPress={() => setShowStyleModal(true)}>
+                <View style={[styles.featureIconBg, { backgroundColor: 'rgba(229, 62, 62, 0.1)' }]}>
+                  <FontAwesome6 name="dragon" size={22} color="#E53E3E" />
+                </View>
+                <Text style={styles.featureHighlightTitle}>13种国风风格</Text>
+                <Text style={styles.featureHighlightSub}>全网独家</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.featureHighlightCard} onPress={handleQuickPublish}>
+                <View style={[styles.featureIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <FontAwesome6 name="globe" size={22} color="#10B981" />
+                </View>
+                <Text style={styles.featureHighlightTitle}>一键发布全平台</Text>
+                <Text style={styles.featureHighlightSub}>6大平台</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.featureHighlightCard} onPress={() => setIdea("结合猫和龙的可爱萌宠")}>
+                <View style={[styles.featureIconBg, { backgroundColor: 'rgba(108, 99, 255, 0.1)' }]}>
+                  <FontAwesome6 name="wand-magic-sparkles" size={22} color="#6C63FF" />
+                </View>
+                <Text style={styles.featureHighlightTitle}>创意融合</Text>
+                <Text style={styles.featureHighlightSub}>精准理解</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+
           {/* 场景模板入口 */}
           <Animated.View entering={FadeInUp.delay(100).duration(500)}>
             <TouchableOpacity style={styles.sceneTemplateEntry} onPress={() => setShowSceneModal(true)}>
@@ -1984,6 +2017,18 @@ const styles = StyleSheet.create({
   competitorBest: { color: COLORS.primary, fontWeight: "700" },
   competitorNote: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(108, 99, 255, 0.08)", padding: 14, borderRadius: 16, gap: 10, marginTop: 8 },
   competitorNoteText: { flex: 1, fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
+
+  // 功能亮点展示区样式
+  featureHighlights: { backgroundColor: COLORS.cardBg, borderRadius: 20, padding: 18, marginTop: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', shadowColor: COLORS.shadowDark, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  featureHighlightsHeader: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 10 },
+  featureHighlightsTitle: { fontSize: 17, fontWeight: "800", color: COLORS.text },
+  featureBadge: { backgroundColor: "#E53E3E", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  featureBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
+  featureHighlightsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  featureHighlightCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 16, padding: 14, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: COLORS.shadowDark, shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2 },
+  featureIconBg: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center", marginBottom: 10 },
+  featureHighlightTitle: { fontSize: 13, fontWeight: "700", color: COLORS.text, textAlign: "center" },
+  featureHighlightSub: { fontSize: 11, color: COLORS.textSecondary, marginTop: 4, textAlign: "center" },
 
   // ==================== 新增：场景模板入口样式 ====================
   sceneTemplateEntry: {
