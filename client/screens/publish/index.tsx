@@ -30,6 +30,8 @@ interface PublishResult {
   platform: string;
   platformName: string;
   platformIcon: string;
+  platformColor?: string;
+  platformUrl?: string;
   status: string;
   adaptedContent: string;
   hashtags: string[];
@@ -100,22 +102,23 @@ export default function PublishScreen() {
   };
 
   const handleOpenPlatform = (platformId: string) => {
-    // 模拟打开各平台App或网页
-    const urls: Record<string, string> = {
-      douyin: "douyin://",
-      xiaohongshu: "xhsdiscover://",
-      kuaishou: "kwai://",
-      bilibili: "bilibili://",
-      weibo: "weibo://",
-      video: "weixin://",
+    // 六大平台网页链接
+    const urls: Record<string, { app: string; web: string }> = {
+      douyin: { app: "douyin://", web: "https://www.douyin.com/" },
+      xiaohongshu: { app: "xhsdiscover://", web: "https://www.xiaohongshu.com/" },
+      kuaishou: { app: "kwai://", web: "https://www.kuaishou.com/" },
+      bilibili: { app: "bilibili://", web: "https://www.bilibili.com/" },
+      weibo: { app: "weibo://", web: "https://weibo.com/" },
+      video: { app: "weixin://", web: "https://channels.weixin.qq.com/" },
     };
-    const url = urls[platformId];
-    if (url) {
-      Linking.canOpenURL(url).then(supported => {
+    const platformUrls = urls[platformId];
+    if (platformUrls) {
+      Linking.canOpenURL(platformUrls.app).then(supported => {
         if (supported) {
-          Linking.openURL(url);
+          Linking.openURL(platformUrls.app);
         } else {
-          Alert.alert("提示", `请安装${PLATFORMS.find(p => p.id === platformId)?.name} App`);
+          // App未安装，打开网页版
+          Linking.openURL(platformUrls.web);
         }
       });
     }
@@ -209,7 +212,11 @@ export default function PublishScreen() {
             {publishResults.map((result, index) => (
               <View key={index} style={styles.resultCard}>
                 <View style={styles.resultHeader}>
-                  <Text style={styles.resultIcon}>{result.platformIcon}</Text>
+                  <FontAwesome6
+                    name={(PLATFORMS.find(p => p.id === result.platform)?.icon || 'share') as any}
+                    size={20}
+                    color={PLATFORMS.find(p => p.id === result.platform)?.color || '#666'}
+                  />
                   <Text style={styles.resultPlatform}>{result.platformName}</Text>
                   <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>就绪</Text>
@@ -233,6 +240,9 @@ export default function PublishScreen() {
                   <Text style={styles.openButtonText}>前往发布</Text>
                   <FontAwesome6 name="up-right-from-square" size={12} color="#fff" />
                 </TouchableOpacity>
+                {result.platformUrl && (
+                  <Text style={styles.platformUrl}>{result.platformUrl}</Text>
+                )}
               </View>
             ))}
           </View>
@@ -381,10 +391,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  resultIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
   resultPlatform: {
     fontSize: 15,
     fontWeight: '600',
@@ -459,5 +465,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  platformUrl: {
+    fontSize: 11,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

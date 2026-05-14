@@ -2908,13 +2908,13 @@ app.post("/api/v1/publish/onekey", async (req: Request, res: Response) => {
     if (!content) return res.status(400).json({ error: "content is required" });
     if (!imageUrls && !videoUrl) return res.status(400).json({ error: "至少需要提供图片或视频" });
     
-    const PLATFORM_CONFIG = {
-      douyin: { name: '抖音', icon: '🎵', maxContent: 150, hashtag: '#创意内容#短视频' },
-      xiaohongshu: { name: '小红书', icon: '📕', maxContent: 1000, hashtag: '#创作灵感#AI创作' },
-      kuaishou: { name: '快手', icon: '📱', maxContent: 200, hashtag: '#记录生活#创意' },
-      bilibili: { name: 'B站', icon: '📺', maxContent: 500, hashtag: '#创意#AI生成#涨姿势' },
-      weibo: { name: '微博', icon: '🌐', maxContent: 2000, hashtag: '#创意内容' },
-      video: { name: '视频号', icon: '📺', maxContent: 500, hashtag: '#创意分享' },
+    const PLATFORM_CONFIG: Record<string, { name: string; icon: string; color: string; url: string; maxContent: number; hashtag: string }> = {
+      douyin: { name: '抖音', icon: 'play', color: '#000000', url: 'https://www.douyin.com/', maxContent: 150, hashtag: '#创意内容#短视频' },
+      xiaohongshu: { name: '小红书', icon: 'bookmark', color: '#FF2442', url: 'https://www.xiaohongshu.com/', maxContent: 1000, hashtag: '#创作灵感#AI创作' },
+      kuaishou: { name: '快手', icon: 'bolt', color: '#FF4906', url: 'https://www.kuaishou.com/', maxContent: 200, hashtag: '#记录生活#创意' },
+      bilibili: { name: 'B站', icon: 'play-circle', color: '#00A1D6', url: 'https://www.bilibili.com/', maxContent: 500, hashtag: '#创意#AI生成#涨姿势' },
+      weibo: { name: '微博', icon: 'at', color: '#E6162D', url: 'https://weibo.com/', maxContent: 2000, hashtag: '#创意内容' },
+      video: { name: '视频号', icon: 'video', color: '#07C160', url: 'https://channels.weixin.qq.com/', maxContent: 500, hashtag: '#创意分享' },
     };
     
     const publishResults = [];
@@ -2946,13 +2946,15 @@ app.post("/api/v1/publish/onekey", async (req: Request, res: Response) => {
         platform,
         platformName: config.name,
         platformIcon: config.icon,
+        platformColor: config.color,
+        platformUrl: config.url,
         status: 'ready',
         adaptedContent,
         hashtags,
         title: title || adaptedContent.substring(0, 20),
         mediaType: videoUrl ? 'video' : 'image',
         mediaCount: videoUrl ? 1 : (imageUrls?.length || 0),
-        message: `${config.name}内容已适配完成`,
+        message: `${config.name}内容已适配完成，点击前往发布`,
       });
     }
     
@@ -2999,12 +3001,12 @@ function extractKeywords(content: string): string[] {
 // ==================== 获取支持的发布平台列表 ====================
 app.get("/api/v1/publish/platforms", (req, res) => {
   const platforms = [
-    { id: 'douyin', name: '抖音', icon: '🎵', color: '#000000', description: '短视频平台，日活6亿+', features: ['竖版视频', '话题挑战', '特效滤镜'], maxContent: 150 },
-    { id: 'xiaohongshu', name: '小红书', icon: '📕', color: '#FF2442', description: '种草社区，女性用户为主', features: ['图文笔记', '好物推荐', '生活分享'], maxContent: 1000 },
-    { id: 'kuaishou', name: '快手', icon: '📱', color: '#FF4906', description: '短视频平台，下沉市场', features: ['短视频', '直播', '老铁文化'], maxContent: 200 },
-    { id: 'bilibili', name: 'B站', icon: '📺', color: '#00A1D6', description: '年轻人文化社区', features: ['弹幕文化', 'UP主创作', 'ACG内容'], maxContent: 500 },
-    { id: 'weibo', name: '微博', icon: '🌐', color: '#E6162D', description: '社交媒体平台', features: ['热搜话题', '明星粉丝', '热点资讯'], maxContent: 2000 },
-    { id: 'video', name: '视频号', icon: '📺', color: '#07C160', description: '微信生态视频平台', features: ['微信好友', '朋友圈', '社交裂变'], maxContent: 500 },
+    { id: 'douyin', name: '抖音', icon: 'play', color: '#000000', url: 'https://www.douyin.com/', description: '短视频平台，日活6亿+', features: ['竖版视频', '话题挑战', '特效滤镜'], maxContent: 150 },
+    { id: 'xiaohongshu', name: '小红书', icon: 'bookmark', color: '#FF2442', url: 'https://www.xiaohongshu.com/', description: '种草社区，女性用户为主', features: ['图文笔记', '好物推荐', '生活分享'], maxContent: 1000 },
+    { id: 'kuaishou', name: '快手', icon: 'bolt', color: '#FF4906', url: 'https://www.kuaishou.com/', description: '短视频平台，下沉市场', features: ['短视频', '直播', '老铁文化'], maxContent: 200 },
+    { id: 'bilibili', name: 'B站', icon: 'play-circle', color: '#00A1D6', url: 'https://www.bilibili.com/', description: '年轻人文化社区', features: ['弹幕文化', 'UP主创作', 'ACG内容'], maxContent: 500 },
+    { id: 'weibo', name: '微博', icon: 'at', color: '#E6162D', url: 'https://weibo.com/', description: '社交媒体平台', features: ['热搜话题', '明星粉丝', '热点资讯'], maxContent: 2000 },
+    { id: 'video', name: '视频号', icon: 'video', color: '#07C160', url: 'https://channels.weixin.qq.com/', description: '微信生态视频平台', features: ['微信好友', '朋友圈', '社交裂变'], maxContent: 500 },
   ];
   
   res.json({ success: true, platforms, totalCount: platforms.length });
